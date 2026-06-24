@@ -1,0 +1,2 @@
+const kFlinkV2FixedAuthToken =
+    'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiIiwibmFtZSI6IiIsIkFQSV9USU1FIjoxNzY4Nzg5Mzg1fQ.ivZLnFkdbTXhYLgCpOuZwSoai6TO9NhbEsUb8uLZ3Qc';

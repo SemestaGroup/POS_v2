@@ -1,0 +1,72 @@
+name: flinkpos_v2
+description: "FlinkPOS V2 Flutter scaffold for Android and web."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cached_network_image: ^3.4.1
+  cupertino_icons: ^1.0.8
+  flutter_cache_manager: ^3.4.1
+  http: ^1.2.2
+  path: ^1.9.0
+  qr_flutter: ^4.1.0
+  pdf: ^3.11.1
+  printing: ^5.13.4
+  fl_chart: ^0.68.0
+  google_fonts: ^6.2.1
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  sqflite: ^2.4.2
+  flutter_native_splash: ^2.4.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  generate: true
+  assets:
+    - assets/aktif_1.webp
+    - assets/aktif_2.webp
+    - assets/mockups/dashboard/
+    - assets/mockups/menu/
+    - assets/mockups/orders/
+    - assets/mockups/pos/
+    - assets/img/
+    - assets/fonts/
+  fonts:
+    - family: popmed
+      fonts:
+        - asset: assets/fonts/Poppins-Medium.ttf
+    - family: popreg
+      fonts:
+        - asset: assets/fonts/Poppins-Regular.ttf
+    - family: popsem
+      fonts:
+        - asset: assets/fonts/Poppins-SemiBold.ttf
+
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/img/main_logo.jpeg
+  android_12:
+    image: assets/img/main_logo.jpeg
+    color: "#FFFFFF"
+  android: true
+  ios: true
+  android_gravity: center
+  ios_content_mode: center
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/img/app_icon.png"
+  min_sdk_android: 21

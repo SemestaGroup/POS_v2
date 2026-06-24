@@ -1,0 +1,478 @@
+{
+  "posTitle": "POS",
+  "activeOrdersTitle": "Active Orders",
+  "resumeOrderTitle": "Resume Order",
+  "historyTitle": "History",
+  "searchPlaceholder": "Search by ID or Customer...",
+  "newOrder": "New Order",
+  "ordersFound": "{count} orders found",
+  "@ordersFound": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "7"
+      }
+    }
+  },
+  "overview": "Overview",
+  "sales": "Sales",
+  "operations": "Operations",
+  "reports": "Reports",
+  "masterData": "Master Data",
+  "settings": "Settings",
+  "comingSoon": "{title} Coming Soon",
+  "@comingSoon": {
+    "placeholders": {
+      "title": {
+        "type": "String",
+        "example": "Settings"
+      }
+    }
+  },
+  "all": "All",
+  "promo": "Promo",
+  "chooseTable": "Choose Table",
+  "ordersWithCount": "Orders {count}",
+  "@ordersWithCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "orders": "Orders",
+  "customer": "Customer",
+  "walkInCustomer": "Walk-In Customer",
+  "dineIn": "Dine In",
+  "orderNote": "Order Note",
+  "subtotal": "Subtotal",
+  "tax": "Tax",
+  "discount": "Discount",
+  "totalPay": "Total Pay",
+  "sendToKitchen": "Send to Kitchen",
+  "save": "Save",
+  "payNow": "Pay Now",
+  "searchProduct": "Search Product...",
+  "cancel": "Cancel",
+  "enterNotes": "Enter notes here...",
+  "searchCustomer": "Search by name or phone...",
+  "selectOrderType": "Select Order Type",
+  "takeAway": "Take Away",
+  "enterNotesHere": "Enter notes here...",
+  "searchAddCustomer": "Search / Add Customer",
+  "searchByNameOrPhone": "Search by name or phone...",
+  "addNewCustomer": "Add New Customer",
+  "noCustomerSearchResults": "No customer results yet",
+  "customerNameLabel": "Customer Name",
+  "customerPhoneLabel": "Phone Number",
+  "customerAddressLabel": "Address",
+  "customerNameRequiredMessage": "Customer name is required.",
+  "customerSelectionRequiredMessage": "Choose or create a customer before saving the order.",
+  "shiftRequiredBeforeOrderMessage": "Open an active shift before saving or sending the order.",
+  "quantity": "Quantity",
+  "orderType": "Order Type",
+  "note": "Note",
+  "anySpecialRequests": "Any special requests?",
+  "splitItem": "Split Item",
+  "saveDetails": "Save Details",
+  "totalSales": "Total Sales",
+  "avgSalesPerTransaction": "Avg. Sales/Transaction",
+  "transactions": "Transactions",
+  "totalDiscount": "Total Discount",
+  "applyFilter": "Apply Filter",
+  "dailySales": "Daily Sales >",
+  "lastModified": "Last modified on {date} at {time}",
+  "@lastModified": {
+    "placeholders": {
+      "date": {"type": "String"},
+      "time": {"type": "String"}
+    }
+  },
+  "transactionsWithCount": "{count} Transactions",
+  "@transactionsWithCount": {
+    "placeholders": {
+      "count": {
+        "type": "String",
+        "example": "202"
+      }
+    }
+  },
+  "operationsHeader": "Operations",
+  "operationsSubtitle": "Choose an operations workspace from this panel.",
+  "operationsUnavailableMessage": "No operations available for this role.",
+  "shiftMenu": "Shift",
+  "recapMenu": "Recap",
+  "cashFlowMenu": "Cash Flow",
+  "kitchenMonitorMenu": "Kitchen Monitor",
+  "masterDataSubtitle": "Choose master data to manage.",
+  "masterDataUnavailableMessage": "No master data available for this role.",
+  "productsMenu": "Products",
+  "categoriesMenu": "Categories",
+  "brandsMenu": "Brands",
+  "promosMenu": "Promos",
+  "customerListMenu": "Customer List",
+  "customerDetailMenu": "Customer Detail",
+  "staffListMenu": "Staff List",
+  "staffRolesMenu": "Staff Roles",
+  "settingsSubtitle": "Choose a settings area to review.",
+  "settingsUnavailableMessage": "No settings available for this role.",
+  "generalSettingsMenu": "General Settings",
+  "profileSettingsMenu": "Profile Settings",
+  "storeProfileMenu": "Store Profile",
+  "shiftConfigMenu": "Shift Config",
+  "printerListMenu": "Printer List",
+  "printerMappingMenu": "Printer Mapping",
+  "printerTestMenu": "Printer Test",
+  "syncCenterMenu": "Sync Center",
+  "syncHistoryMenu": "Sync History",
+  "appUpdateMenu": "App Update",
+  "deviceStatusMenu": "Device Status",
+  "placeholderPage": "{title} Placeholder Page",
+  "@placeholderPage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "orderNoteSubtitle": "Add short instructions for cashier or kitchen.",
+  "noteAdded": "Note Added",
+  "orderStatusActive": "Active",
+  "orderStatusClosed": "Closed",
+  "orderStatusPartially": "Partially Paid",
+  "orderStatusOverdue": "Overdue",
+  "orderStatusVoid": "Void",
+  "orderStatusParked": "Parked",
+  "applyPromoAction": "Apply Promo",
+  "clearOrderAction": "Clear Order",
+  "cancelOrderAction": "Cancel Order",
+  "syncDataAction": "Sync Data",
+  "closeOutletAction": "Close Outlet",
+  "deleteAction": "Delete",
+  "resumeAction": "Resume",
+  "applyPromoTitle": "Apply Promo",
+  "applyPromoSubtitle": "This promo applies to the whole order.",
+  "removePromoAction": "Remove Promo",
+  "addProductFirstMessage": "Add products first.",
+  "activeOrderCreatedMessage": "Active order created.",
+  "closedOrderCreatedMessage": "Order closed successfully.",
+  "voidOrderCreatedMessage": "Order cancelled and moved to void history.",
+  "parkedOrderCreatedMessage": "Order saved as parked.",
+  "splitItemMinQuantityMessage": "Item quantity must be at least 2 to split.",
+  "productDiscountEnabled": "Product discount enabled",
+  "productDiscountDisabled": "Product discount disabled",
+  "splitQuantityLabel": "Split Quantity",
+  "splitPreview": "Result: {left} and {right}",
+  "@splitPreview": {
+    "placeholders": {
+      "left": {
+        "type": "int"
+      },
+      "right": {
+        "type": "int"
+      }
+    }
+  },
+  "emptyActiveOrdersMessage": "No active orders from the cashier workspace.",
+  "emptyParkedOrdersMessage": "No parked orders saved from the cashier.",
+  "emptyHistoryMessage": "No completed, overdue, or void orders.",
+  "table": "Table",
+  "online": "Online",
+  "orderSummary": "{count} items • {type}",
+  "@orderSummary": {
+    "placeholders": {
+      "count": {"type": "int", "example": "3"},
+      "type": {"type": "String", "example": "Dine In"}
+    }
+  },
+  "itemsCount": "{count} items",
+  "@itemsCount": {
+    "placeholders": {
+      "count": {"type": "int", "example": "5"}
+    }
+  },
+  "choosePromo": "Choose Promo",
+  "choosePromoSubtitle": "Choose one of the available promos",
+  "noApplicablePromotionsMessage": "No applicable promotions for the current cart yet.",
+  "manualDiscount": "Manual Discount",
+  "manualDiscountSubtitle": "Enter discount amount",
+  "discountTypeRp": "Amount",
+  "discountTypePercent": "Percent (%)",
+  "applyDiscount": "Apply Discount",
+  "emptyCartTitle": "No Orders Yet!",
+  "emptyCartSubtitle": "Add items from the menu to start",
+  "noAdditionalOptions": "No additional\noptions available.",
+  "reportsSubtitle": "Choose a report to review.",
+  "reportsUnavailableMessage": "No reports available for this role.",
+  "reportSummaryMenu": "Report Summary",
+  "salesReportMenu": "Sales Report",
+  "productReportMenu": "Product Report",
+  "staffReportMenu": "Staff Report",
+  "cashierReportLiteMenu": "Cashier Report",
+  "optionOne": "Option 1",
+  "optionTwo": "Option 2",
+  "stock": "Stock",
+  "code": "Code",
+  "date": "Date",
+  "status": "Status",
+  "editAction": "Edit",
+  "copyUrlAction": "Copy URL",
+  "ownerRoleLabel": "Owner",
+  "supervisorRoleLabel": "Supervisor",
+  "cashierRoleLabel": "Cashier",
+  "kitchenRoleLabel": "Kitchen",
+  "programmerRoleLabel": "Programmer",
+  "loginTitle": "Sign In",
+  "loginSubtitle": "Enter the fields required for the central login request. After success, tenant data will be synchronized automatically.",
+  "centralLoginBaseUrl": "Central Login Base URL",
+  "authTokenLabel": "Auth Token",
+  "emailLabel": "Email",
+  "passwordLabel": "Password",
+  "deviceIdLabel": "Device ID",
+  "loginButton": "Login",
+  "loginFormIncomplete": "Complete email, password, and device ID first.",
+  "loginRequiredMessage": "Login is required before switching account.",
+  "switchAccountTitle": "Switch Account",
+  "switchAccountAction": "Switch Account",
+  "switchAccountUserLabel": "User",
+  "switchAccountPinLabel": "PIN",
+  "switchAccountNoCachedStaff": "No cached staff accounts are available yet. Sync staff data first.",
+  "switchAccountSuccess": "Account switched successfully.",
+  "switchAccountIncomplete": "Choose a user and enter the PIN first.",
+  "shiftGateTitle": "Open Shift First",
+  "shiftGateSubtitle": "A cashier session needs an active shift before POS transactions can start.",
+  "shiftGateIncomplete": "Complete the shift name and opening balance first.",
+  "locationLabel": "Location",
+  "shiftNameLabel": "Shift Name",
+  "openingBalanceLabel": "Opening Balance",
+  "openShiftAction": "Open Shift And Continue",
+  "chooseBrandTitle": "Choose Brand",
+  "syncPreparingTitle": "Preparing Your Store",
+  "syncPreparingSettings": "Downloading store settings...",
+  "syncPreparingShift": "Checking active shift...",
+  "syncPreparingCategoriesBrands": "Downloading categories and brands...",
+  "syncPreparingCatalog": "Downloading product catalog...",
+  "syncPreparingLocalCache": "Loading local cache...",
+  "syncPreparingError": "Failed to download data:",
+  "retryAction": "Try Again",
+  "syncStatusIdle": "Sync Idle",
+  "syncStatusPreparing": "Preparing POS",
+  "syncStatusSyncing": "Syncing Data",
+  "syncStatusUpToDate": "Up To Date",
+  "syncStatusFailed": "Sync Failed",
+  "featureNotWiredMessage": "{feature} is not wired yet.",
+  "@featureNotWiredMessage": {
+    "placeholders": {
+      "feature": {
+        "type": "String",
+        "example": "Cash Flow"
+      }
+    }
+  },
+  "selectOrderTypeSubtitle": "Choose the most appropriate sales channel for this transaction.",
+  "thousandShort": "K",
+  "millionShort": "M",
+  "overviewMultiBrandSales": "Multi Brand Sales",
+  "overviewSalesTrendChart": "Sales Trend Chart",
+  "overviewPeakHours": "Peak Hours",
+  "overviewMonthlySalesTrend": "Monthly Sales Trend",
+  "overviewTopFiveBestSelling": "Top 5 Best Selling",
+  "overviewLowStockAlert": "Low Stock Alert",
+  "overviewLowStatus": "Low",
+  "overviewSystemIntegrationLogStatus": "System Integration Log & Status",
+  "overviewMekariJurnalSync": "Mekari Jurnal Sync",
+  "overviewSuccess200Ok": "Success (200 OK)",
+  "overviewSupabaseConnectivity": "Supabase Connectivity",
+  "overviewLiveTransactionFeed": "Live Transaction Feed",
+  "overviewCredit": "Credit",
+  "overviewCash": "Cash",
+  "developerHubGuestWalkIn": "Guest Walk-in",
+  "developerHubRefreshSuccess": "Deck refreshed. The latest V2 foundation has been reloaded.",
+  "developerHubSavePolicySuccess": "Operating mode and self-order settings updated successfully.",
+  "developerHubSelectTableFirst": "Choose a table before generating a QR session.",
+  "developerHubSessionPreviewSuccess": "Customer QR session created successfully. Use it for receipts or preview.",
+  "developerHubForceCloseSessionSuccess": "The old device session was closed successfully.",
+  "developerHubTableDeleted": "Table {tableName} deleted successfully.",
+  "@developerHubTableDeleted": {
+    "placeholders": {
+      "tableName": {
+        "type": "String",
+        "example": "Table 01"
+      }
+    }
+  },
+  "developerHubTableCreatedSuccess": "New table created successfully.",
+  "developerHubTableUpdatedSuccess": "Table details updated successfully.",
+  "developerHubNoActiveTablesToPrint": "There are no active tables to print yet.",
+  "developerHubTableQrKit": "Table QR Kit",
+  "developerHubPrintReadySuccess": "Table QR is ready to print or save as PDF.",
+  "developerHubAddQrTableTitle": "Add QR Table",
+  "developerHubEditQrTableTitle": "Edit QR Table",
+  "developerHubAreaZone": "Area / Zone",
+  "developerHubTableCode": "Table Code",
+  "developerHubTableName": "Table Name",
+  "developerHubCapacity": "Capacity",
+  "developerHubActiveForService": "Active for service",
+  "developerHubSelfOrderEnabled": "Self-order enabled",
+  "developerHubLaunchpad": "Launchpad",
+  "developerHubPolicyCenter": "Policy Center",
+  "developerHubTableQrStudio": "Table QR Studio",
+  "developerHubSessionLab": "Session Lab",
+  "developerHubDeviceLock": "Device Lock",
+  "developerHubApiLogs": "API Logs",
+  "developerHubApiLogsSubtitle": "Every request to central and tenant endpoints is captured here with method, endpoint, body, response, error, and duration.",
+  "developerHubEmptyApiLogs": "No API calls have been captured yet. Trigger login, refresh, or SQLite sync first.",
+  "developerHubHeroSubtitle": "A cleaner new chapter for self-order, table QR, and device lock.",
+  "developerHubConnectionDeck": "Connection Deck",
+  "developerHubCentralLoginBaseUrl": "Central Login Base URL",
+  "developerHubTenantBaseUrl": "Tenant Base URL",
+  "developerHubAuthToken": "Auth Token",
+  "developerHubLoginEmail": "Login Email",
+  "developerHubLoginPassword": "Login Password",
+  "developerHubLoginAction": "Login And Load Bootstrap",
+  "developerHubSyncSqliteAction": "Sync SQLite Snapshot",
+  "developerHubLoginIncomplete": "Complete tenant base URL, email, password, and device ID first.",
+  "developerHubLoginRequired": "Login first so the tenant session and location are known.",
+  "developerHubLoginSuccess": "Login succeeded and bootstrap was stored locally.",
+  "developerHubSqliteSyncSuccess": "SQLite snapshot refreshed from the V2 endpoints.",
+  "catalogEmptyTitle": "Catalog is empty",
+  "catalogEmptySubtitle": "Sync items, categories, and brands from the API into SQLite first so POS can read the local source of truth.",
+  "developerHubActingStaffId": "Acting Staff ID",
+  "developerHubDeviceId": "Device ID",
+  "developerHubRefreshing": "Refreshing...",
+  "developerHubRefreshBackendState": "Refresh Backend State",
+  "developerHubLaunchpadSubtitle": "The backend foundation is ready. Review the active mode, prepare table QR, and inspect device lock from here without touching the legacy POS.",
+  "developerHubOperatingMode": "Operating Mode",
+  "developerHubOperatingModeHint": "Classic or self_order_hybrid",
+  "developerHubSelfOrderMetric": "Self-Order",
+  "enabled": "Enabled",
+  "disabled": "Disabled",
+  "developerHubSelfOrderHint": "Kiosk, table, and resume order",
+  "developerHubStrict": "Strict",
+  "developerHubFlexible": "Flexible",
+  "developerHubDeviceLockHint": "1 staff = 1 active device",
+  "developerHubTableQr": "Table QR",
+  "developerHubTableCount": "{count} tables",
+  "@developerHubTableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "12"
+      }
+    }
+  },
+  "developerHubTableQrHint": "Static, printable, and ready to stick",
+  "developerHubActiveDevices": "Active Devices",
+  "developerHubActiveSessionCount": "{count} sessions",
+  "@developerHubActiveSessionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "5"
+      }
+    }
+  },
+  "developerHubActiveDevicesHint": "Can be force-closed by supervisor/owner",
+  "developerHubPriorityQuestion": "What matters most right now?",
+  "developerHubPriorityAnswer": "Static table QR is generated from the backend as the canonical payload, and `flinkpos_v2` renders, downloads, and prints it. The link stays consistent while the printed look stays flexible inside the app.",
+  "developerHubPolicySubtitle": "Owners and supervisors can choose a strict classic flow or a self-order hybrid. Core settings are stored in the backend and broadcast again through bootstrap.",
+  "developerHubClassicPosFlow": "Classic POS Flow",
+  "developerHubSelfOrderHybrid": "Self-Order Hybrid",
+  "developerHubEnableSelfOrderFoundation": "Enable self-order foundation",
+  "developerHubEnableSelfOrderFoundationSubtitle": "Enable QR sessions, resume order, and table QR",
+  "developerHubAllowPayLater": "Allow pay later",
+  "developerHubAllowPayLaterSubtitle": "Customers can add items and pay later at the cashier",
+  "developerHubAllowAddAfterSubmit": "Allow add after submit",
+  "developerHubAllowAddAfterSubmitSubtitle": "The same session can still add items before final checkout",
+  "developerHubFeedbackUrl": "Feedback URL",
+  "developerHubOnlineStoreBaseUrl": "Online Store Base URL",
+  "developerHubSavePolicyToBackend": "Save Policy to Backend",
+  "developerHubPrintQrKit": "Print QR Kit",
+  "developerHubAddTable": "Add Table",
+  "developerHubTableQrStudioSubtitle": "This generates the table QR that will be placed on site. The backend stores the token and canonical URL, while `flinkpos_v2` renders the QR on screen and exports PDF for printing.",
+  "developerHubEmptyTablesTitle": "No table QR yet",
+  "developerHubEmptyTablesSubtitle": "Create the table registry first so each static table QR can be downloaded and printed.",
+  "developerHubSessionLabSubtitle": "Simulate a customer session: choose a table, open a session, and the backend will return two QR payloads for feedback and resume order.",
+  "developerHubServiceTable": "Service Table",
+  "developerHubPreviewCustomerName": "Preview Customer Name",
+  "developerHubGenerateSessionQrPreview": "Generate Session QR Preview",
+  "developerHubFeedbackQr": "Feedback QR",
+  "developerHubFeedbackQrSubtitle": "For feedback, suggestions, and confirmation that the customer holds a digital receipt.",
+  "developerHubQueueBadge": "Queue {queueNumber}",
+  "@developerHubQueueBadge": {
+    "placeholders": {
+      "queueNumber": {
+        "type": "String",
+        "example": "A-01"
+      }
+    }
+  },
+  "developerHubResumeOrderQr": "Resume Order QR",
+  "developerHubResumeOrderQrSubtitle": "Scan again on the customer's phone or the cashier tablet to add items or continue payment.",
+  "developerHubSelfOrderBadge": "Self Order",
+  "developerHubEmptySessionPreviewTitle": "No session preview yet",
+  "developerHubEmptySessionPreviewSubtitle": "Generate one session first to see the customer receipt QR format.",
+  "developerHubDeviceLockSubtitle": "If the same account is stuck on an old device, the owner or supervisor can remove it here without waiting for that device to be touched first.",
+  "developerHubEmptyActiveSessionsTitle": "No active sessions",
+  "developerHubEmptyActiveSessionsSubtitle": "When staff sign in from another device, the active list will appear here.",
+  "developerHubZoneFallback": "Zone",
+  "developerHubSeatCount": "Seat {count}",
+  "@developerHubSeatCount": {
+    "placeholders": {
+      "count": {
+        "type": "String",
+        "example": "4"
+      }
+    }
+  },
+  "developerHubStaffSessionSummary": "Staff #{staffId} • {role} • {platform}",
+  "@developerHubStaffSessionSummary": {
+    "placeholders": {
+      "staffId": {
+        "type": "String",
+        "example": "12"
+      },
+      "role": {
+        "type": "String",
+        "example": "cashier"
+      },
+      "platform": {
+        "type": "String",
+        "example": "android"
+      }
+    }
+  },
+  "developerHubLastSeen": "Last seen: {value}",
+  "@developerHubLastSeen": {
+    "placeholders": {
+      "value": {
+        "type": "String",
+        "example": "2026-06-13 10:00:00"
+      }
+    }
+  },
+  "developerHubForceCloseAction": "Force Close",
+  "totalCustomers": "Total Customers",
+  "newCustomersToday": "{count} new customers today",
+  "@newCustomersToday": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "activeCustomers": "Active Customers",
+  "inLast30Days": "In the last 30 days",
+  "averageVisits": "Average Visits",
+  "visitsPerMonth": "Visits per month",
+  "customerChartNotAvailable": "Customer Chart Not Available",
+  "waitingForDesignData": "Waiting for specific design data for this chart.",
+  "filterToday": "Today",
+  "filterYesterday": "Yesterday",
+  "filterLast7Days": "Last 7 Days",
+  "filterLast30Days": "Last 30 Days",
+  "filterThisMonth": "This Month",
+  "selectDate": "Select Date",
+  "promoNotApplicable": "Promo requirements not met"
+}
