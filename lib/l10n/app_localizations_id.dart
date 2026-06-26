@@ -1096,4 +1096,66 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get promoNotApplicable => 'Belum memenuhi syarat promo';
+
+  @override
+  String get settingsGeneralTitle => 'General';
+
+  @override
+  String get settingsGeneralSubtitle => 'Pengaturan umum dan profil tenant';
+
+  @override
+  String get settingsStoreTitle => 'Store';
+
+  @override
+  String get settingsStoreSubtitle => 'Konfigurasi profil toko dan operasional';
+
+  @override
+  String get settingsPrinterTitle => 'Printer';
+
+  @override
+  String get settingsPrinterSubtitle => 'Manajemen printer kasir dan dapur';
+
+  @override
+  String get settingsSyncTitle => 'Sync';
+
+  @override
+  String get settingsSyncSubtitle => 'Manajemen sinkronisasi dan data offline';
+
+  @override
+  String get settingsDeviceTitle => 'Device';
+
+  @override
+  String get settingsDeviceSubtitle => 'Status perangkat dan pembaruan sistem';
+
+  @override
+  String get settingsCompanyNameLabel => 'Nama Perusahaan';
+
+  @override
+  String get settingsLocationIdLabel => 'ID Lokasi';
+
+  @override
+  String get settingsServerUrlLabel => 'URL Server';
+
+  @override
+  String get settingsDeviceIdLabel => 'ID Perangkat';
+
+  @override
+  String get settingsAppInfoTitle => 'Info Aplikasi';
+
+  @override
+  String get settingsAppInfoSubtitle => 'Versi dan informasi pengembang';
+
+  @override
+  String get settingsCheckUpdatesTitle => 'Periksa Pembaruan';
+
+  @override
+  String get settingsCheckUpdatesSubtitle =>
+      'Periksa apakah versi terbaru tersedia';
+
+  @override
+  String get settingsAllowSellOutOfStockTitle => 'Izinkan Jual Barang Kosong';
+
+  @override
+  String get settingsAllowSellOutOfStockSubtitle =>
+      'Izinkan menambahkan produk ke keranjang meski stok sistem 0';
 }

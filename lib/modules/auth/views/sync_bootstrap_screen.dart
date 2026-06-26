@@ -150,7 +150,14 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
           imagesToPrecache.map((url) async {
             try {
               final provider = CachedNetworkImageProvider(url!);
-              await precacheImage(provider, context);
+              await precacheImage(
+                provider, 
+                context,
+                onError: (exception, stackTrace) {
+                  // Silently ignore 404 or missing image errors during precaching
+                  // so they don't spam the console.
+                },
+              );
             } catch (_) {}
           }),
         );

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/localization/locale_manager.dart';
-import '../../../../../core/services/sync/pos_v2_auth_service.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../services/merchant_login_service.dart';
 
 class MerchantLoginTabletView extends StatefulWidget {
   const MerchantLoginTabletView({super.key, this.onToggleLayout});
@@ -20,7 +20,8 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
   final _passwordController = TextEditingController();
   final _deviceIdController =
       TextEditingController(text: 'FLINKPOS-V2-DEVICE');
-  final PosV2AuthService _authService = PosV2AuthService();
+  final _registerIdController = TextEditingController();
+  final MerchantLoginService _loginAction = MerchantLoginService();
 
   bool _isLoading = false;
   bool _isObscured = true;
@@ -89,6 +90,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     _emailController.dispose();
     _passwordController.dispose();
     _deviceIdController.dispose();
+    _registerIdController.dispose();
     super.dispose();
   }
 
@@ -111,11 +113,11 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     });
 
     try {
-      await _authService.loginOnly(
-        loginBaseUrl: 'https://flinkaja.com/',
+      await _loginAction.submit(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         deviceId: _deviceIdController.text.trim(),
+        registerId: _registerIdController.text.trim(),
       );
     } catch (error) {
       setState(() {
@@ -161,7 +163,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                         height: 220,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.07),
+                          color: Colors.white.withValues(alpha: 0.07),
                         ),
                       ),
                     ),
@@ -173,7 +175,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                         height: 280,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.06),
+                          color: Colors.white.withValues(alpha: 0.06),
                         ),
                       ),
                     ),
@@ -185,7 +187,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                         height: 140,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                         ),
                       ),
                     ),
@@ -208,7 +210,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                                     width: 200,
                                     height: 200,
                                     fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
+                                    errorBuilder: (_, _, _) => const Icon(
                                       Icons.store_rounded,
                                       size: 120,
                                       color: Colors.white,
@@ -232,7 +234,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                                   style: TextStyle(
                                     fontFamily: _fontRegular,
                                     fontSize: 14,
-                                    color: Colors.white.withOpacity(0.80),
+                                     color: Colors.white.withValues(alpha: 0.80),
                                     height: 1.6,
                                   ),
                                 ),
@@ -305,7 +307,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: _primaryColor.withOpacity(0.10),
+            color: _primaryColor.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(16),
           ),
           child: const Icon(
@@ -364,6 +366,27 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
           hint: 'FLINKPOS-V2-DEVICE',
           icon: Icons.devices_rounded,
         ),
+        const SizedBox(height: 20),
+
+        _buildFieldLabel('Register ID'),
+        const SizedBox(height: 8),
+        _buildTextField(
+          controller: _registerIdController,
+          hint: 'Optional during transition',
+          icon: Icons.point_of_sale_rounded,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          Localizations.localeOf(context).languageCode == 'id'
+              ? 'Kosongkan jika sementara masih ingin mengikuti Device ID.'
+              : 'Leave blank if this device should still inherit the Device ID during transition.',
+          style: TextStyle(
+            fontFamily: _fontRegular,
+            fontSize: 11,
+            color: Colors.grey.shade500,
+            height: 1.4,
+          ),
+        ),
 
         // Error message
         if (_errorMessage != null) ...[
@@ -400,7 +423,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
 
         // Login button
         Align(
-          alignment: Alignment.centerLeft,
+          alignment: Alignment.center,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 320),
             child: SizedBox(

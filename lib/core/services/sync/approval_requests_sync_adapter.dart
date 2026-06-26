@@ -67,6 +67,7 @@ class ApprovalRequestsSyncAdapter extends BaseV2SyncAdapter {
             'reference_number': V2SyncUtils.asString(row['reference_number']),
             'draft_id_pos': V2SyncUtils.asString(row['draft_id_pos']),
             'location_id': V2SyncUtils.asString(row['location_id']),
+            'register_id': V2SyncUtils.asString(row['register_id']),
             'requester_staff_remote_id': requesterRemoteId,
             'requester_name_snapshot': V2SyncUtils.asString(
               row['requester_name'],
@@ -116,6 +117,7 @@ class ApprovalRequestsSyncAdapter extends BaseV2SyncAdapter {
             'reference_number': V2SyncUtils.asString(row['reference_number']),
             'draft_id_pos': V2SyncUtils.asString(row['draft_id_pos']),
             'location_id': V2SyncUtils.asString(row['location_id']),
+            'register_id': V2SyncUtils.asString(row['register_id']),
             'requester_staff_remote_id': requesterRemoteId,
             'requester_name_snapshot': V2SyncUtils.asString(
               row['requester_name'],

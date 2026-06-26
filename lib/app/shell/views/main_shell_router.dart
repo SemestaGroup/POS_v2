@@ -47,6 +47,8 @@ class _MainShellRouterState extends State<MainShellRouter> {
   }
 
   void _handleSessionChanged() {
+    // Only re-trigger background sync if session truly changes (e.g. login/logout),
+    // not for internal restoreFromDatabase() calls that return the same session.
     _didStartBackgroundSync = false;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future<void>.delayed(
@@ -62,8 +64,10 @@ class _MainShellRouterState extends State<MainShellRouter> {
     }
     _didStartBackgroundSync = true;
 
-    final session = await PosV2RuntimeSessionStore.instance
-        .restoreFromDatabase();
+    // Use in-memory session set by AuthGate during startup restore.
+    // Do NOT call restoreFromDatabase() here — it would re-trigger sessionNotifier
+    // even for the same session data, causing AuthGate to rebuild (blink bug).
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
     if (session == null) {
       return;
     }

@@ -14,6 +14,7 @@ class PosV2RuntimeSession {
     this.tenantCode,
     this.tenantName,
     this.deviceId,
+    this.registerId,
     this.deviceName,
     this.staffId,
     this.staffEmail,
@@ -30,6 +31,7 @@ class PosV2RuntimeSession {
   final String? tenantCode;
   final String? tenantName;
   final String? deviceId;
+  final String? registerId;
   final String? deviceName;
   final String? staffId;
   final String? staffEmail;
@@ -45,10 +47,36 @@ class PosV2RuntimeSession {
       tenantCode: tenantCode,
       tenantName: tenantName,
       deviceId: deviceId,
+      registerId: registerId,
       staffId: staffId,
       staffEmail: staffEmail,
       staffFullName: staffFullName,
     );
+  }
+}
+
+/// A ValueNotifier that supports a silent write which updates the stored value
+/// without calling notifyListeners(). Used to update lastBootstrapAt after
+/// background sync without triggering UI rebuilds.
+class _SilentValueNotifier<T> extends ChangeNotifier
+    implements ValueListenable<T> {
+  _SilentValueNotifier(this._value);
+
+  T _value;
+
+  @override
+  T get value => _value;
+
+  set value(T newValue) {
+    if (_value == newValue) return;
+    _value = newValue;
+    notifyListeners();
+  }
+
+  /// Update the stored value WITHOUT notifying listeners.
+  void silentSet(T newValue) {
+    _value = newValue;
+    // Intentionally no notifyListeners() call.
   }
 }
 
@@ -57,16 +85,54 @@ class PosV2RuntimeSessionStore {
 
   static final PosV2RuntimeSessionStore instance = PosV2RuntimeSessionStore._();
 
-  final ValueNotifier<PosV2RuntimeSession?> sessionNotifier =
-      ValueNotifier<PosV2RuntimeSession?>(null);
+  final _sessionNotifier = _SilentValueNotifier<PosV2RuntimeSession?>(null);
 
-  PosV2RuntimeSession? get currentSession => sessionNotifier.value;
+  ValueListenable<PosV2RuntimeSession?> get sessionNotifier => _sessionNotifier;
 
+  PosV2RuntimeSession? get currentSession => _sessionNotifier.value;
+
+  /// Set a new session. If the session identity (tenant/staff/device) is the
+  /// same as the current one, only lastBootstrapAt is updated silently so
+  /// listeners are NOT fired (preventing UI blink from background sync).
   void setSession(PosV2RuntimeSession? session) {
-    if (_isSameSession(sessionNotifier.value, session)) {
+    if (_isSameSession(_sessionNotifier.value, session)) {
+      if (session != null &&
+          _sessionNotifier.value?.lastBootstrapAt != session.lastBootstrapAt) {
+        final current = _sessionNotifier.value!;
+        final isCompletingInitialBootstrap =
+            current.lastBootstrapAt == null && session.lastBootstrapAt != null;
+
+        final newSession = PosV2RuntimeSession(
+          tenantId: current.tenantId,
+          tenantKey: current.tenantKey,
+          baseUrl: current.baseUrl,
+          authToken: current.authToken,
+          locationId: current.locationId,
+          tenantCode: current.tenantCode,
+          tenantName: current.tenantName,
+          deviceId: current.deviceId,
+          registerId: current.registerId,
+          deviceName: current.deviceName,
+          staffId: current.staffId,
+          staffEmail: current.staffEmail,
+          staffFullName: current.staffFullName,
+          staffRoleCode: current.staffRoleCode,
+          lastBootstrapAt: session.lastBootstrapAt,
+        );
+
+        if (isCompletingInitialBootstrap) {
+          // If this is the FIRST time bootstrap completes, we MUST notify listeners 
+          // so AuthGate can navigate away from the SyncBootstrapScreen.
+          _sessionNotifier.value = newSession;
+        } else {
+          // Silently update lastBootstrapAt in-memory without firing listeners
+          // to prevent UI blinking during background syncs.
+          _sessionNotifier.silentSet(newSession);
+        }
+      }
       return;
     }
-    sessionNotifier.value = session;
+    _sessionNotifier.value = session;
     if (session?.staffRoleCode case final roleCode?) {
       RoleManager.changeRole(RoleManager.fromCode(roleCode));
     }
@@ -85,6 +151,7 @@ class PosV2RuntimeSessionStore {
           app_session.auth_token,
           app_session.location_id,
           app_session.device_id,
+          app_session.register_id,
           app_session.device_name,
           app_session.staff_remote_id,
           app_session.staff_email,
@@ -124,6 +191,7 @@ class PosV2RuntimeSessionStore {
         tenantCode: row['tenant_code']?.toString(),
         tenantName: row['tenant_name']?.toString(),
         deviceId: row['device_id']?.toString(),
+        registerId: row['register_id']?.toString(),
         deviceName: row['device_name']?.toString(),
         staffId: row['staff_remote_id']?.toString(),
         staffEmail: row['staff_email']?.toString(),
@@ -140,6 +208,10 @@ class PosV2RuntimeSessionStore {
     }
   }
 
+  /// Compares session identity fields only.
+  /// lastBootstrapAt is intentionally excluded — it is updated by every
+  /// background bootstrap sync and must NOT cause sessionNotifier to fire,
+  /// as that would trigger AuthGate to rebuild and blink back to the dashboard.
   bool _isSameSession(PosV2RuntimeSession? current, PosV2RuntimeSession? next) {
     if (identical(current, next)) {
       return true;
@@ -152,9 +224,9 @@ class PosV2RuntimeSessionStore {
         current.baseUrl == next.baseUrl &&
         current.locationId == next.locationId &&
         current.deviceId == next.deviceId &&
+        current.registerId == next.registerId &&
         current.staffId == next.staffId &&
         current.staffEmail == next.staffEmail &&
-        current.staffRoleCode == next.staffRoleCode &&
-        current.lastBootstrapAt == next.lastBootstrapAt;
+        current.staffRoleCode == next.staffRoleCode;
   }
 }

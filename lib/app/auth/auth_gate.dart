@@ -7,6 +7,7 @@ import '../../modules/auth/views/merchant_login_wrapper.dart';
 import '../../modules/auth/views/shift_gate_screen.dart';
 import '../../modules/auth/views/sync_bootstrap_screen.dart';
 import '../../modules/operations/shift/models/active_shift_store.dart';
+import '../../modules/sales/shared/models/sales_order_store.dart';
 import '../shell/views/main_shell_router.dart';
 
 class AuthGate extends StatefulWidget {
@@ -59,8 +60,14 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   void _handleShiftChanged() {
+    // Do NOT set _isRestoring here — shift polling must not blink the UI.
+    // Only re-evaluate silently; setState is only called if _needsShiftOpen
+    // actually changes (handled inside _evaluateSession).
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _evaluateSession(PosV2RuntimeSessionStore.instance.currentSession);
+      await _evaluateSession(
+        PosV2RuntimeSessionStore.instance.currentSession,
+        isShiftPoll: true,
+      );
     });
   }
 
@@ -70,13 +77,19 @@ class _AuthGateState extends State<AuthGate> {
     await _evaluateSession(session);
   }
 
-  Future<void> _evaluateSession(PosV2RuntimeSession? session) async {
+  Future<void> _evaluateSession(
+    PosV2RuntimeSession? session, {
+    bool isShiftPoll = false,
+  }) async {
     var needsShiftOpen = false;
     if (session != null) {
       final needsBootstrapSync = session.lastBootstrapAt == null;
 
-      if (!needsBootstrapSync) {
+      // Only refresh catalog/orders during initial load or login,
+      // NOT on every shift poll (which can happen frequently).
+      if (!needsBootstrapSync && !isShiftPoll) {
         await PosCatalogStore.instance.refresh();
+        await SalesOrderStore.instance.refreshFromPersistence();
       }
 
       if (!needsBootstrapSync) {
@@ -90,6 +103,11 @@ class _AuthGateState extends State<AuthGate> {
       }
     }
     if (!mounted) {
+      return;
+    }
+    // For shift polls: only rebuild if needsShiftOpen actually changed,
+    // to avoid resetting navigation on every background shift refresh.
+    if (isShiftPoll && needsShiftOpen == _needsShiftOpen) {
       return;
     }
     setState(() {

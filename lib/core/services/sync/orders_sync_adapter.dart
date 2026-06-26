@@ -234,6 +234,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     String? preservedCustomFieldsJson;
     String? preservedOrderNote;
     int? preservedManualDiscountValue;
+    String? preservedLocationId;
+    String? preservedRegisterId;
     if (existingLocalId != null) {
       final existingRows = await executor.query(
         'pos_order',
@@ -241,6 +243,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
           'custom_fields_json',
           'order_note',
           'manual_discount_value',
+          'location_id',
+          'register_id',
         ],
         where: 'id = ?',
         whereArgs: <Object?>[existingLocalId],
@@ -250,6 +254,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         preservedCustomFieldsJson = existingRows.first['custom_fields_json']
             ?.toString();
         preservedOrderNote = existingRows.first['order_note']?.toString();
+        preservedLocationId = existingRows.first['location_id']?.toString();
+        preservedRegisterId = existingRows.first['register_id']?.toString();
         final manualValue = existingRows.first['manual_discount_value'];
         if (manualValue is int) {
           preservedManualDiscountValue = manualValue;
@@ -282,6 +288,10 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
       tenantId,
       saleStaffRemoteId,
     );
+    final resolvedLocationId =
+        V2SyncUtils.asString(row['location_id']) ?? preservedLocationId;
+    final resolvedRegisterId =
+        V2SyncUtils.asString(row['register_id']) ?? preservedRegisterId;
     final uniqueWhere = existingLocalId != null
         ? 'tenant_id = ? AND id = ?'
         : (idPos != null && idPos.isNotEmpty
@@ -305,6 +315,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'sale_staff_id': saleStaffId,
         'remote_id': remoteId,
         'id_pos': idPos,
+        'location_id': resolvedLocationId,
+        'register_id': resolvedRegisterId,
         'customer_remote_id': customerRemoteId,
         'sale_staff_remote_id': saleStaffRemoteId,
         'invoice_number': V2SyncUtils.asString(row['number']),
@@ -371,6 +383,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'sale_staff_id': saleStaffId,
         'remote_id': remoteId,
         'id_pos': idPos,
+        'location_id': resolvedLocationId,
+        'register_id': resolvedRegisterId,
         'customer_remote_id': customerRemoteId,
         'sale_staff_remote_id': saleStaffRemoteId,
         'invoice_number': V2SyncUtils.asString(row['number']),

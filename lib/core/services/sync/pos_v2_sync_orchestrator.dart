@@ -121,6 +121,8 @@ class PosV2SyncOrchestrator {
         if (context.staffId?.isNotEmpty == true)
           'pos_staff_id': context.staffId,
         if (context.deviceId?.isNotEmpty == true) 'device_id': context.deviceId,
+        if (context.registerId?.isNotEmpty == true)
+          'register_id': context.registerId,
       },
       allowNotFoundEmpty: true,
     );
@@ -134,6 +136,7 @@ class PosV2SyncOrchestrator {
     required String shiftName,
     required int openingBalance,
     String? deviceId,
+    String? registerId,
   }) {
     return _shift.openShift(
       context,
@@ -143,6 +146,7 @@ class PosV2SyncOrchestrator {
       shiftName: shiftName,
       openingBalance: openingBalance,
       deviceId: deviceId,
+      registerId: registerId,
     );
   }
 

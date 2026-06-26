@@ -12,6 +12,7 @@ class ActiveShiftRecord {
     required this.locationId,
     required this.openedAt,
     required this.openingBalance,
+    this.registerId,
     this.deviceId,
   });
 
@@ -21,6 +22,7 @@ class ActiveShiftRecord {
   final String locationId;
   final DateTime openedAt;
   final int openingBalance;
+  final String? registerId;
   final String? deviceId;
 }
 
@@ -46,20 +48,30 @@ class ActiveShiftStore {
 
     final staffId = session.staffId;
     final deviceId = session.deviceId;
+    final registerId = session.registerId;
     final rows = await DatabaseService.instance.rawQuery(
       '''
       SELECT id, shift_name, pos_staff_name_snapshot, location_id,
-             opened_at, opening_balance, source_device_id
+             opened_at, opening_balance, source_device_id, register_id
       FROM shift_session
       WHERE tenant_id = ?
         AND status = 'open'
         AND deleted_at IS NULL
         AND (? IS NULL OR pos_staff_remote_id = ?)
+        AND (? IS NULL OR register_id = ?)
         AND (? IS NULL OR source_device_id = ?)
       ORDER BY opened_at DESC, id DESC
       LIMIT 1
       ''',
-      <Object?>[session.tenantId, staffId, staffId, deviceId, deviceId],
+      <Object?>[
+        session.tenantId,
+        staffId,
+        staffId,
+        registerId,
+        registerId,
+        deviceId,
+        deviceId,
+      ],
     );
 
     if (rows.isEmpty) {
@@ -73,6 +85,7 @@ class ActiveShiftStore {
       shiftName: row['shift_name']?.toString() ?? '',
       staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
       locationId: row['location_id']?.toString() ?? '',
+      registerId: row['register_id']?.toString(),
       openedAt:
           DateTime.tryParse(
             (row['opened_at']?.toString() ?? '').replaceFirst(' ', 'T'),
@@ -101,14 +114,22 @@ class ActiveShiftStore {
       );
     }
 
+    final locationId = int.tryParse(session.locationId);
+    if (locationId == null || locationId <= 0) {
+      throw Exception(
+        'This session does not have a valid location_id yet. Login/bootstrap must complete before opening a shift.',
+      );
+    }
+
     await _syncOrchestrator.openShift(
       session.toSyncContext(),
-      locationId: int.tryParse(session.locationId) ?? 0,
+      locationId: locationId,
       staffId: staffId,
       staffName: session.staffFullName ?? session.staffEmail ?? 'Staff',
       shiftName: shiftName,
       openingBalance: openingBalance,
       deviceId: session.deviceId,
+      registerId: session.registerId,
     );
     await refresh();
   }

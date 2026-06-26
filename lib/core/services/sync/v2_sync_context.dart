@@ -6,6 +6,7 @@ class V2SyncContext {
     this.tenantCode,
     this.tenantName,
     this.deviceId,
+    this.registerId,
     this.staffId,
     this.staffEmail,
     this.staffFullName,
@@ -17,6 +18,7 @@ class V2SyncContext {
   final String? tenantCode;
   final String? tenantName;
   final String? deviceId;
+  final String? registerId;
   final String? staffId;
   final String? staffEmail;
   final String? staffFullName;

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/motion/smooth_reveal.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../core/localization/locale_manager.dart';
 import '../../../core/services/sync/pos_v2_sync_status_store.dart';
 import '../../../modules/auth/widgets/pin_account_switch_dialog.dart';
 import '../../role_access/role_manager.dart';
@@ -77,42 +76,6 @@ class SidebarWidget extends StatelessWidget {
                 ],
               ),
             ),
-            ValueListenableBuilder<AppRole>(
-              valueListenable: RoleManager.roleNotifier,
-              builder: (context, role, _) {
-                return PopupMenuButton<AppRole>(
-                  onSelected: (AppRole newRole) {
-                    RoleManager.changeRole(newRole);
-                  },
-                  color: Colors.white,
-                  offset: const Offset(60, 0),
-                  itemBuilder: (BuildContext context) => AppRole.values
-                      .where((role) => role != AppRole.programmer)
-                      .map((AppRole r) {
-                        return PopupMenuItem<AppRole>(
-                          value: r,
-                          child: Text(
-                            _roleLabel(l10n, r),
-                            style: TextStyle(
-                              color: role == r
-                                  ? AppColors.primary
-                                  : Colors.black87,
-                              fontWeight: role == r
-                                  ? FontWeight.bold
-                                  : FontWeight.normal,
-                            ),
-                          ),
-                        );
-                      })
-                      .toList(),
-                  child: _SidebarFooterActionLabel(
-                    isCollapsed: isCollapsed,
-                    icon: Icons.shield_rounded,
-                    label: _roleLabel(l10n, role),
-                  ),
-                );
-              },
-            ),
             InkWell(
               onTap: () => showPinAccountSwitchDialog(context),
               child: _SidebarFooterActionLabel(
@@ -120,36 +83,6 @@ class SidebarWidget extends StatelessWidget {
                 icon: Icons.switch_account_rounded,
                 label: l10n.switchAccountAction,
               ),
-            ),
-            ValueListenableBuilder<PosV2SyncStatus>(
-              valueListenable: PosV2SyncStatusStore.instance.statusNotifier,
-              builder: (context, status, _) {
-                return _SidebarFooterActionLabel(
-                  isCollapsed: isCollapsed,
-                  icon: status.isSyncing
-                      ? Icons.sync_rounded
-                      : status.errorMessage != null
-                      ? Icons.error_outline_rounded
-                      : Icons.cloud_done_rounded,
-                  label: _syncLabel(l10n, status),
-                );
-              },
-            ),
-            ValueListenableBuilder<Locale>(
-              valueListenable: LocaleManager.localeNotifier,
-              builder: (context, locale, _) {
-                final isId = locale.languageCode == 'id';
-                return InkWell(
-                  onTap: () {
-                    LocaleManager.changeLocale(Locale(isId ? 'en' : 'id'));
-                  },
-                  child: _SidebarFooterActionLabel(
-                    isCollapsed: isCollapsed,
-                    icon: Icons.language,
-                    label: isId ? 'ID' : 'EN',
-                  ),
-                );
-              },
             ),
             InkWell(
               onTap: onToggle,
@@ -174,36 +107,6 @@ class SidebarWidget extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  String _roleLabel(AppLocalizations l10n, AppRole role) {
-    switch (role) {
-      case AppRole.owner:
-        return l10n.ownerRoleLabel;
-      case AppRole.supervisor:
-        return l10n.supervisorRoleLabel;
-      case AppRole.cashier:
-        return l10n.cashierRoleLabel;
-      case AppRole.kitchen:
-        return l10n.kitchenRoleLabel;
-      case AppRole.programmer:
-        return l10n.programmerRoleLabel;
-    }
-  }
-
-  String _syncLabel(AppLocalizations l10n, PosV2SyncStatus status) {
-    if (status.isSyncing) {
-      return status.isBlocking
-          ? l10n.syncStatusPreparing
-          : l10n.syncStatusSyncing;
-    }
-    if (status.errorMessage != null) {
-      return l10n.syncStatusFailed;
-    }
-    if (status.lastSuccessAt != null) {
-      return l10n.syncStatusUpToDate;
-    }
-    return l10n.syncStatusIdle;
   }
 }
 

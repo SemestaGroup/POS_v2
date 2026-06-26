@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 1;
+  static const int version = 2;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS device_session (
   staff_remote_id TEXT,
   staff_role_code TEXT,
   device_id TEXT,
+  register_id TEXT,
   device_name TEXT,
   platform TEXT,
   app_version TEXT,
@@ -117,6 +118,9 @@ CREATE INDEX IF NOT EXISTS idx_device_session_staff_status
 CREATE INDEX IF NOT EXISTS idx_device_session_device_status
   ON device_session(tenant_id, device_id, status);
 
+CREATE INDEX IF NOT EXISTS idx_device_session_register_status
+  ON device_session(tenant_id, register_id, status);
+
 CREATE TABLE IF NOT EXISTS shift_session (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id INTEGER NOT NULL,
@@ -128,6 +132,7 @@ CREATE TABLE IF NOT EXISTS shift_session (
   shift_name TEXT,
   source_device_session_id INTEGER,
   source_device_id TEXT,
+  register_id TEXT,
   business_date TEXT,
   opened_at TEXT,
   closed_at TEXT,
@@ -160,6 +165,9 @@ CREATE INDEX IF NOT EXISTS idx_shift_session_staff_status
 
 CREATE INDEX IF NOT EXISTS idx_shift_session_device
   ON shift_session(tenant_id, source_device_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_shift_session_register
+  ON shift_session(tenant_id, register_id, status);
 
 CREATE TABLE IF NOT EXISTS service_table (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -210,6 +218,7 @@ CREATE TABLE IF NOT EXISTS app_session (
   auth_token TEXT,
   refresh_token TEXT,
   device_id TEXT,
+  register_id TEXT,
   device_name TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   logged_in_at TEXT,
@@ -693,6 +702,8 @@ CREATE TABLE IF NOT EXISTS pos_order (
   sale_staff_id INTEGER,
   shift_session_id INTEGER,
   device_session_id INTEGER,
+  location_id TEXT,
+  register_id TEXT,
   service_table_id INTEGER,
   self_order_session_id INTEGER,
   remote_id TEXT,
@@ -770,6 +781,9 @@ CREATE TABLE IF NOT EXISTS pos_order (
 CREATE INDEX IF NOT EXISTS idx_pos_order_status_date
   ON pos_order(tenant_id, status_code, order_date);
 
+CREATE INDEX IF NOT EXISTS idx_pos_order_location_register
+  ON pos_order(tenant_id, location_id, register_id, order_date);
+
 CREATE INDEX IF NOT EXISTS idx_pos_order_invoice_number
   ON pos_order(tenant_id, formatted_number);
 
@@ -796,6 +810,7 @@ CREATE TABLE IF NOT EXISTS approval_request (
   reference_number TEXT,
   draft_id_pos TEXT,
   location_id TEXT,
+  register_id TEXT,
   requester_staff_remote_id TEXT,
   requester_name_snapshot TEXT,
   requester_role TEXT,

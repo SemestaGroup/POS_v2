@@ -40,8 +40,45 @@ class DatabaseService {
         await db.execute('PRAGMA foreign_keys = ON');
       },
       onCreate: (db, version) => _applySchema(db),
-      onUpgrade: (db, oldVersion, newVersion) => _applySchema(db),
+      onUpgrade: (db, oldVersion, newVersion) async {
+        await _upgradeSchema(db, oldVersion, newVersion);
+        await _applySchema(db);
+      },
     );
+  }
+
+  Future<void> _upgradeSchema(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await _addColumnIfMissing(db, 'device_session', 'register_id', 'TEXT');
+      await _addColumnIfMissing(db, 'shift_session', 'register_id', 'TEXT');
+      await _addColumnIfMissing(db, 'app_session', 'register_id', 'TEXT');
+      await _addColumnIfMissing(db, 'pos_order', 'location_id', 'TEXT');
+      await _addColumnIfMissing(db, 'pos_order', 'register_id', 'TEXT');
+      await _addColumnIfMissing(db, 'approval_request', 'register_id', 'TEXT');
+    }
+  }
+
+  Future<void> _addColumnIfMissing(
+    Database db,
+    String table,
+    String column,
+    String definition,
+  ) async {
+    final rows = await db.rawQuery('PRAGMA table_info($table)');
+    if (rows.isEmpty) {
+      return;
+    }
+
+    final exists = rows.any((row) => row['name']?.toString() == column);
+    if (exists) {
+      return;
+    }
+
+    await db.execute('ALTER TABLE $table ADD COLUMN $column $definition');
   }
 
   Future<void> _applySchema(DatabaseExecutor executor) async {

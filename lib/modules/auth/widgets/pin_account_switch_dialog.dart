@@ -97,6 +97,7 @@ class _PinAccountSwitchDialogState extends State<_PinAccountSwitchDialog> {
         email: _selectedEmail!,
         pin: _pinController.text.trim(),
         deviceId: widget.session.deviceId ?? 'FLINKPOS-V2-DEVICE',
+        registerId: widget.session.registerId,
       );
 
       if (!mounted) {

@@ -1097,4 +1097,68 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get promoNotApplicable => 'Promo requirements not met';
+
+  @override
+  String get settingsGeneralTitle => 'General';
+
+  @override
+  String get settingsGeneralSubtitle => 'General settings and tenant profile';
+
+  @override
+  String get settingsStoreTitle => 'Store';
+
+  @override
+  String get settingsStoreSubtitle =>
+      'Store profile and operations configuration';
+
+  @override
+  String get settingsPrinterTitle => 'Printer';
+
+  @override
+  String get settingsPrinterSubtitle =>
+      'Cashier and kitchen printer management';
+
+  @override
+  String get settingsSyncTitle => 'Sync';
+
+  @override
+  String get settingsSyncSubtitle => 'Sync and offline data management';
+
+  @override
+  String get settingsDeviceTitle => 'Device';
+
+  @override
+  String get settingsDeviceSubtitle => 'Device status and system updates';
+
+  @override
+  String get settingsCompanyNameLabel => 'Company Name';
+
+  @override
+  String get settingsLocationIdLabel => 'Location ID';
+
+  @override
+  String get settingsServerUrlLabel => 'Server URL';
+
+  @override
+  String get settingsDeviceIdLabel => 'Device ID';
+
+  @override
+  String get settingsAppInfoTitle => 'App Info';
+
+  @override
+  String get settingsAppInfoSubtitle => 'Version and developer information';
+
+  @override
+  String get settingsCheckUpdatesTitle => 'Check for Updates';
+
+  @override
+  String get settingsCheckUpdatesSubtitle =>
+      'Check if a newer version is available';
+
+  @override
+  String get settingsAllowSellOutOfStockTitle => 'Allow Selling Out of Stock';
+
+  @override
+  String get settingsAllowSellOutOfStockSubtitle =>
+      'Enable adding products to cart even when system stock is 0';
 }

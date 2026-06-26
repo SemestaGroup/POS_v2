@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/localization/locale_manager.dart';
-import '../../../../../core/services/sync/pos_v2_auth_service.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../services/merchant_login_service.dart';
 
 class MerchantLoginMobileView extends StatefulWidget {
   const MerchantLoginMobileView({super.key, this.onToggleLayout});
@@ -20,7 +20,8 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
   final _passwordController = TextEditingController();
   final _deviceIdController =
       TextEditingController(text: 'FLINKPOS-V2-DEVICE');
-  final PosV2AuthService _authService = PosV2AuthService();
+  final _registerIdController = TextEditingController();
+  final MerchantLoginService _loginAction = MerchantLoginService();
 
   bool _isLoading = false;
   bool _isObscured = true;
@@ -69,6 +70,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
     _emailController.dispose();
     _passwordController.dispose();
     _deviceIdController.dispose();
+    _registerIdController.dispose();
     super.dispose();
   }
 
@@ -89,11 +91,11 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
     });
 
     try {
-      await _authService.loginOnly(
-        loginBaseUrl: 'https://flinkaja.com/',
+      await _loginAction.submit(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         deviceId: _deviceIdController.text.trim(),
+        registerId: _registerIdController.text.trim(),
       );
     } catch (error) {
       setState(() {
@@ -139,7 +141,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                       height: 100,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.07),
+                        color: Colors.white.withValues(alpha: 0.07),
                       ),
                     ),
                   ),
@@ -151,7 +153,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                       height: 80,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.06),
+                        color: Colors.white.withValues(alpha: 0.06),
                       ),
                     ),
                   ),
@@ -180,7 +182,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                             width: 80,
                             height: 80,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
+                            errorBuilder: (_, _, _) => const Icon(
                               Icons.store_rounded,
                               size: 60,
                               color: Colors.white,
@@ -203,7 +205,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                           style: TextStyle(
                             fontFamily: _fontRegular,
                             fontSize: 12,
-                            color: Colors.white.withOpacity(0.8),
+                            color: Colors.white.withValues(alpha: 0.8),
                           ),
                         ),
                       ],
@@ -240,7 +242,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: _primaryColor.withOpacity(0.10),
+            color: _primaryColor.withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(14),
           ),
           child: const Icon(
@@ -295,6 +297,27 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
           controller: _deviceIdController,
           hint: 'FLINKPOS-V2-DEVICE',
           icon: Icons.devices_rounded,
+        ),
+        const SizedBox(height: 16),
+
+        _buildFieldLabel('Register ID'),
+        const SizedBox(height: 6),
+        _buildTextField(
+          controller: _registerIdController,
+          hint: 'Optional during transition',
+          icon: Icons.point_of_sale_rounded,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          Localizations.localeOf(context).languageCode == 'id'
+              ? 'Kosongkan jika register masih mengikuti Device ID.'
+              : 'Leave blank if the register should still follow the Device ID.',
+          style: TextStyle(
+            fontFamily: _fontRegular,
+            fontSize: 10,
+            color: Colors.grey.shade500,
+            height: 1.35,
+          ),
         ),
 
         if (_errorMessage != null) ...[
@@ -446,7 +469,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
+            color: Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(8),
           ),
           child: DropdownButtonHideUnderline(
@@ -497,7 +520,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                           style: TextStyle(
                             fontFamily: _fontMedium,
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                           )),
                     ],
                   ),
@@ -511,7 +534,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                           style: TextStyle(
                             fontFamily: _fontMedium,
                             fontSize: 11,
-                            color: Colors.white.withOpacity(0.95),
+                            color: Colors.white.withValues(alpha: 0.95),
                           )),
                     ],
                   ),
@@ -531,7 +554,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
 
   Widget _buildLayoutToggle() {
     return Material(
-      color: Colors.white.withOpacity(0.2),
+      color: Colors.white.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),

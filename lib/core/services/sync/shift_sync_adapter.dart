@@ -14,6 +14,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     required String shiftName,
     required int openingBalance,
     String? deviceId,
+    String? registerId,
   }) async {
     final envelope = await buildClient(context).postEnvelope(
       'api/v2/pos-shift-sessions/open',
@@ -24,6 +25,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         'shift_name': shiftName,
         'opening_balance': openingBalance,
         'device_id': deviceId,
+        'register_id': registerId ?? context.registerId,
       },
     );
     final row =
@@ -141,6 +143,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         ),
         'shift_name': V2SyncUtils.asString(row['shift_name']),
         'source_device_id': V2SyncUtils.asString(row['source_device_id']),
+        'register_id': V2SyncUtils.asString(row['register_id']),
         'business_date': V2SyncUtils.asString(row['business_date']),
         'opened_at': V2SyncUtils.asString(row['opened_at']),
         'closed_at': V2SyncUtils.asString(row['closed_at']),
@@ -167,6 +170,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         ),
         'shift_name': V2SyncUtils.asString(row['shift_name']),
         'source_device_id': V2SyncUtils.asString(row['source_device_id']),
+        'register_id': V2SyncUtils.asString(row['register_id']),
         'business_date': V2SyncUtils.asString(row['business_date']),
         'opened_at': V2SyncUtils.asString(row['opened_at']),
         'closed_at': V2SyncUtils.asString(row['closed_at']),

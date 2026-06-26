@@ -9,7 +9,16 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
   Future<V2SyncResult> sync(V2SyncContext context) async {
     final envelope = await buildClient(
       context,
-    ).getEnvelope('api/v2/pos-bootstrap');
+    ).getEnvelope(
+      'api/v2/pos-bootstrap',
+      query: <String, dynamic>{
+        if (context.staffId?.isNotEmpty == true) 'staff_id': context.staffId,
+        if (context.deviceId?.isNotEmpty == true) 'device_id': context.deviceId,
+        if (context.locationId.isNotEmpty) 'location_id': context.locationId,
+        if (context.registerId?.isNotEmpty == true)
+          'register_id': context.registerId,
+      },
+    );
     final data =
         V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
     final tenant =
@@ -22,6 +31,8 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
     final activeDeviceSession = V2SyncUtils.asMap(
       data['active_device_session'],
     );
+    final resolvedLocationId =
+        V2SyncUtils.asString(tenant['location_id']) ?? context.locationId;
 
     var upsertedCount = 0;
 
@@ -40,6 +51,17 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
         where: 'id = ?',
         whereArgs: <Object?>[tenantId],
       );
+      if (resolvedLocationId.isNotEmpty) {
+        await txn.update(
+          'app_tenant',
+          <String, Object?>{
+            'location_id': resolvedLocationId,
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: <Object?>[tenantId],
+        );
+      }
 
       int? staffLocalId;
       if (staffProfile != null && staffProfile.isNotEmpty) {
@@ -128,6 +150,9 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'device_id':
                 V2SyncUtils.asString(activeDeviceSession['device_id']) ??
                 context.deviceId,
+            'register_id':
+                V2SyncUtils.asString(activeDeviceSession['register_id']) ??
+                context.registerId,
             'device_name': V2SyncUtils.asString(
               activeDeviceSession['device_name'],
             ),
@@ -163,6 +188,9 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'device_id':
                 V2SyncUtils.asString(activeDeviceSession['device_id']) ??
                 context.deviceId,
+            'register_id':
+                V2SyncUtils.asString(activeDeviceSession['register_id']) ??
+                context.registerId,
             'device_name': V2SyncUtils.asString(
               activeDeviceSession['device_name'],
             ),
@@ -206,7 +234,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'tenant_id': tenantId,
             'staff_id': staffLocalId,
             'device_session_id': deviceSessionLocalId,
-            'location_id': context.locationId,
+            'location_id': resolvedLocationId,
             'staff_remote_id': context.staffId,
             'staff_email': context.staffEmail,
             'staff_full_name': context.staffFullName,
@@ -214,6 +242,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'base_url': context.normalizedBaseUrl,
             'auth_token': context.authToken,
             'device_id': context.deviceId,
+            'register_id': context.registerId,
             'status': 'active',
             'logged_in_at': now,
             'last_seen_at': now,
@@ -223,7 +252,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
           updateValues: <String, Object?>{
             'staff_id': staffLocalId,
             'device_session_id': deviceSessionLocalId,
-            'location_id': context.locationId,
+            'location_id': resolvedLocationId,
             'staff_remote_id': context.staffId,
             'staff_email': context.staffEmail,
             'staff_full_name': context.staffFullName,
@@ -231,6 +260,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'base_url': context.normalizedBaseUrl,
             'auth_token': context.authToken,
             'device_id': context.deviceId,
+            'register_id': context.registerId,
             'last_seen_at': now,
             'updated_at': now,
           },

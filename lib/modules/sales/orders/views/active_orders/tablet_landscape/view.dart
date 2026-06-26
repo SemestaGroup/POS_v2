@@ -31,7 +31,7 @@ class _ActiveOrdersViewState extends State<ActiveOrdersView> {
   @override
   void initState() {
     super.initState();
-    unawaited(OrdersHistorySyncService.instance.ensureSynced());
+    // In V1, we rely on SQLite for fast loading and only sync manually.
   }
 
   @override

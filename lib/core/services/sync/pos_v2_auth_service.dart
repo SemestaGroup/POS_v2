@@ -28,6 +28,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String email,
     required String password,
     required String deviceId,
+    String? registerId,
   }) async {
     final loginClient = V2ApiClient(
       baseUrl: loginBaseUrl,
@@ -46,18 +47,34 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         V2SyncUtils.asMap(loginEnvelope['data']) ?? const <String, dynamic>{};
     final staff =
         V2SyncUtils.asMap(loginData['staff']) ?? const <String, dynamic>{};
+    final deviceSession =
+        V2SyncUtils.asMap(loginData['device_session']) ??
+        const <String, dynamic>{};
     final policies =
         V2SyncUtils.asMap(loginData['policies']) ?? const <String, dynamic>{};
     final effectiveBaseUrl =
         V2SyncUtils.asString(loginData['base_url']) ?? loginBaseUrl.trim();
-    final effectiveToken = kFlinkV2FixedAuthToken;
+    final effectiveToken =
+        V2SyncUtils.asString(loginData['auth_token']) ??
+        kFlinkV2FixedAuthToken;
     final locationId = V2SyncUtils.asString(loginData['location_id']) ?? '';
+    final effectiveRegisterId = _resolveRegisterId(
+      explicitRegisterId: registerId,
+      deviceId: deviceId,
+      responseRegisterId: V2SyncUtils.asString(deviceSession['register_id']),
+    );
+    if (locationId.isEmpty) {
+      throw Exception(
+        'Login succeeded but no location_id was resolved for this account. Configure the staff POS location before continuing.',
+      );
+    }
     final syncContext = V2SyncContext(
       baseUrl: effectiveBaseUrl,
       authToken: effectiveToken,
       locationId: locationId,
       tenantName: V2SyncUtils.asString(loginData['tenant_name']),
       deviceId: deviceId.trim(),
+      registerId: effectiveRegisterId,
       staffId: V2SyncUtils.asString(staff['staff_id']),
       staffEmail: V2SyncUtils.asString(staff['email']) ?? email.trim(),
       staffFullName: V2SyncUtils.asString(staff['full_name']),
@@ -174,6 +191,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
+          'register_id': effectiveRegisterId,
           'status': 'active',
           'logged_in_at': now,
           'last_seen_at': now,
@@ -189,6 +207,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
+          'register_id': effectiveRegisterId,
           'last_seen_at': now,
           'updated_at': now,
         },
@@ -205,15 +224,6 @@ class PosV2AuthService extends BaseV2SyncAdapter {
 
   Future<void> runBootstrapSync(PosV2RuntimeSession session) async {
     final syncContext = session.toSyncContext();
-    await buildClient(syncContext).getEnvelope(
-      'api/v2/pos-bootstrap',
-      query: <String, dynamic>{
-        if (syncContext.staffId?.isNotEmpty == true)
-          'staff_id': syncContext.staffId,
-        if (syncContext.deviceId?.isNotEmpty == true)
-          'device_id': syncContext.deviceId,
-      },
-    );
     await _bootstrapSync.sync(syncContext);
     await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
   }
@@ -223,12 +233,14 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String email,
     required String password,
     required String deviceId,
+    String? registerId,
   }) async {
     final session = await loginOnly(
       loginBaseUrl: loginBaseUrl,
       email: email,
       password: password,
       deviceId: deviceId,
+      registerId: registerId,
     );
     await runBootstrapSync(session);
     return PosV2LoginResult(
@@ -243,6 +255,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String email,
     required String pin,
     required String deviceId,
+    String? registerId,
   }) async {
     final client = V2ApiClient(
       baseUrl: tenantBaseUrl,
@@ -261,14 +274,29 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         V2SyncUtils.asMap(loginEnvelope['data']) ?? const <String, dynamic>{};
     final staff =
         V2SyncUtils.asMap(loginData['staff']) ?? const <String, dynamic>{};
+    final deviceSession =
+        V2SyncUtils.asMap(loginData['device_session']) ??
+        const <String, dynamic>{};
     final effectiveBaseUrl =
         V2SyncUtils.asString(loginData['base_url']) ?? tenantBaseUrl.trim();
-    final effectiveToken = kFlinkV2FixedAuthToken;
+    final effectiveToken =
+        V2SyncUtils.asString(loginData['auth_token']) ??
+        kFlinkV2FixedAuthToken;
     final runtimeSession = PosV2RuntimeSessionStore.instance.currentSession;
     final locationId =
         V2SyncUtils.asString(loginData['location_id']) ??
         runtimeSession?.locationId ??
         '';
+    final effectiveRegisterId = _resolveRegisterId(
+      explicitRegisterId: registerId ?? runtimeSession?.registerId,
+      deviceId: deviceId,
+      responseRegisterId: V2SyncUtils.asString(deviceSession['register_id']),
+    );
+    if (locationId.isEmpty) {
+      throw Exception(
+        'PIN login succeeded but no location_id was resolved for this account. Configure the staff POS location before continuing.',
+      );
+    }
     final syncContext = V2SyncContext(
       baseUrl: effectiveBaseUrl,
       authToken: effectiveToken,
@@ -276,6 +304,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       tenantName: runtimeSession?.tenantName,
       tenantCode: runtimeSession?.tenantCode,
       deviceId: deviceId.trim(),
+      registerId: effectiveRegisterId,
       staffId: V2SyncUtils.asString(staff['staff_id']),
       staffEmail: V2SyncUtils.asString(staff['email']) ?? email.trim(),
       staffFullName: V2SyncUtils.asString(staff['full_name']),
@@ -361,6 +390,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
+          'register_id': effectiveRegisterId,
           'status': 'active',
           'logged_in_at': now,
           'last_seen_at': now,
@@ -376,6 +406,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
+          'register_id': effectiveRegisterId,
           'status': 'active',
           'last_seen_at': now,
           'updated_at': now,
@@ -396,12 +427,14 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String email,
     required String pin,
     required String deviceId,
+    String? registerId,
   }) async {
     final session = await pinLoginOnly(
       tenantBaseUrl: tenantBaseUrl,
       email: email,
       pin: pin,
       deviceId: deviceId,
+      registerId: registerId,
     );
     await runBootstrapSync(session);
     return PosV2LoginResult(
@@ -409,5 +442,23 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       loginEnvelope: const <String, dynamic>{},
       bootstrapEnvelope: const <String, dynamic>{},
     );
+  }
+
+  String _resolveRegisterId({
+    String? explicitRegisterId,
+    required String deviceId,
+    String? responseRegisterId,
+  }) {
+    final normalizedExplicit = explicitRegisterId?.trim();
+    if (normalizedExplicit != null && normalizedExplicit.isNotEmpty) {
+      return normalizedExplicit;
+    }
+
+    final normalizedResponse = responseRegisterId?.trim();
+    if (normalizedResponse != null && normalizedResponse.isNotEmpty) {
+      return normalizedResponse;
+    }
+
+    return deviceId.trim();
   }
 }

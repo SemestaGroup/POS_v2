@@ -414,6 +414,8 @@ class SalesOrderStore {
           'customer_id': record.customerLocalId,
           'sale_staff_id': saleStaffId,
           'id_pos': record.id,
+          'location_id': session.locationId,
+          'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
           'sale_staff_remote_id': session.staffId,
           'formatted_number': record.token,
@@ -447,6 +449,8 @@ class SalesOrderStore {
         updateValues: <String, Object?>{
           'customer_id': record.customerLocalId,
           'sale_staff_id': saleStaffId,
+          'location_id': session.locationId,
+          'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
           'sale_staff_remote_id': session.staffId,
           'formatted_number': record.token,
@@ -746,9 +750,13 @@ class SalesOrderStore {
     final saleAgent = int.tryParse(
       PosV2RuntimeSessionStore.instance.currentSession?.staffId ?? '',
     );
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
     return <String, Object?>{
       'id_pos': record.id,
       'clientid': record.customerRemoteId,
+      if ((session?.locationId ?? '').isNotEmpty) 'location_id': session!.locationId,
+      if ((session?.registerId ?? '').isNotEmpty) 'register_id': session!.registerId,
+      if ((session?.deviceId ?? '').isNotEmpty) 'device_id': session!.deviceId,
       'date': _formatSqlDate(record.createdAt),
       'duedate': _formatSqlDate(record.createdAt),
       'currency': defaultCurrencyId,

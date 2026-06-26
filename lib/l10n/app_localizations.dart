@@ -2087,6 +2087,126 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Promo requirements not met'**
   String get promoNotApplicable;
+
+  /// No description provided for @settingsGeneralTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'General'**
+  String get settingsGeneralTitle;
+
+  /// No description provided for @settingsGeneralSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'General settings and tenant profile'**
+  String get settingsGeneralSubtitle;
+
+  /// No description provided for @settingsStoreTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Store'**
+  String get settingsStoreTitle;
+
+  /// No description provided for @settingsStoreSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Store profile and operations configuration'**
+  String get settingsStoreSubtitle;
+
+  /// No description provided for @settingsPrinterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Printer'**
+  String get settingsPrinterTitle;
+
+  /// No description provided for @settingsPrinterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cashier and kitchen printer management'**
+  String get settingsPrinterSubtitle;
+
+  /// No description provided for @settingsSyncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync'**
+  String get settingsSyncTitle;
+
+  /// No description provided for @settingsSyncSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync and offline data management'**
+  String get settingsSyncSubtitle;
+
+  /// No description provided for @settingsDeviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device'**
+  String get settingsDeviceTitle;
+
+  /// No description provided for @settingsDeviceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device status and system updates'**
+  String get settingsDeviceSubtitle;
+
+  /// No description provided for @settingsCompanyNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Company Name'**
+  String get settingsCompanyNameLabel;
+
+  /// No description provided for @settingsLocationIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Location ID'**
+  String get settingsLocationIdLabel;
+
+  /// No description provided for @settingsServerUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL'**
+  String get settingsServerUrlLabel;
+
+  /// No description provided for @settingsDeviceIdLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID'**
+  String get settingsDeviceIdLabel;
+
+  /// No description provided for @settingsAppInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'App Info'**
+  String get settingsAppInfoTitle;
+
+  /// No description provided for @settingsAppInfoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Version and developer information'**
+  String get settingsAppInfoSubtitle;
+
+  /// No description provided for @settingsCheckUpdatesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for Updates'**
+  String get settingsCheckUpdatesTitle;
+
+  /// No description provided for @settingsCheckUpdatesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check if a newer version is available'**
+  String get settingsCheckUpdatesSubtitle;
+
+  /// No description provided for @settingsAllowSellOutOfStockTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Selling Out of Stock'**
+  String get settingsAllowSellOutOfStockTitle;
+
+  /// No description provided for @settingsAllowSellOutOfStockSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable adding products to cart even when system stock is 0'**
+  String get settingsAllowSellOutOfStockSubtitle;
 }
 
 class _AppLocalizationsDelegate
