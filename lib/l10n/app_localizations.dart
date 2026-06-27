@@ -1046,6 +1046,12 @@ abstract class AppLocalizations {
   /// **'Programmer'**
   String get programmerRoleLabel;
 
+  /// No description provided for @loginHeroTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage your business more efficiently\nwith a modern POS system.'**
+  String get loginHeroTagline;
+
   /// No description provided for @loginTitle.
   ///
   /// In en, this message translates to:

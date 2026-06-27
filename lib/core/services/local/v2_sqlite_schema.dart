@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 2;
+  static const int version = 3;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -1053,5 +1053,37 @@ CREATE INDEX IF NOT EXISTS idx_error_log_status_created
 
 CREATE INDEX IF NOT EXISTS idx_error_log_entity
   ON error_log(entity_type, entity_local_id, created_at);
+
+CREATE TABLE IF NOT EXISTS printer_device (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  printer_key TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  connection_type TEXT NOT NULL DEFAULT 'system',
+  connection_target TEXT,
+  network_port INTEGER NOT NULL DEFAULT 9100,
+  paper_profile_id TEXT NOT NULL DEFAULT 'thermal_58',
+  custom_width_mm REAL,
+  chars_per_line INTEGER,
+  font_scale REAL NOT NULL DEFAULT 1,
+  line_spacing REAL NOT NULL DEFAULT 1,
+  supports_autocut INTEGER NOT NULL DEFAULT 0,
+  roles_json TEXT NOT NULL DEFAULT '[]',
+  role_brand_filters_json TEXT NOT NULL DEFAULT '{}',
+  notes TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  last_tested_at TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  UNIQUE(tenant_id, printer_key),
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_printer_device_active
+  ON printer_device(tenant_id, is_active, paper_profile_id);
+
+CREATE INDEX IF NOT EXISTS idx_printer_device_connection
+  ON printer_device(tenant_id, connection_type, connection_target);
 ''';
 }

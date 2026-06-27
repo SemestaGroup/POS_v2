@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/localization/locale_manager.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../services/merchant_login_service.dart';
+import '../../../controllers/merchant_login_controller.dart';
 
 class MerchantLoginTabletView extends StatefulWidget {
   const MerchantLoginTabletView({super.key, this.onToggleLayout});
@@ -21,7 +21,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
   final _deviceIdController =
       TextEditingController(text: 'FLINKPOS-V2-DEVICE');
   final _registerIdController = TextEditingController();
-  final MerchantLoginService _loginAction = MerchantLoginService();
+  final MerchantLoginController _loginAction = MerchantLoginController();
 
   bool _isLoading = false;
   bool _isObscured = true;
@@ -138,6 +138,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
 
     return Scaffold(
       backgroundColor: _scaffoldBg,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
         child: Row(
           children: [
@@ -193,13 +194,14 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                     ),
                     // Content
                     Center(
-                      child: FadeTransition(
-                        opacity: _fadeAnimLeft,
-                        child: SlideTransition(
-                          position: _slideAnimLeft,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 40),
-                            child: Column(
+                      child: SingleChildScrollView(
+                        child: FadeTransition(
+                          opacity: _fadeAnimLeft,
+                          child: SlideTransition(
+                            position: _slideAnimLeft,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 // Logo
@@ -229,7 +231,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                                 ),
                                 const SizedBox(height: 10),
                                 Text(
-                                  'Kelola bisnis Anda lebih efisien\ndengan sistem kasir modern.',
+                                  l10n.loginHeroTagline,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontFamily: _fontRegular,
@@ -244,6 +246,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                         ),
                       ),
                     ),
+                  ),
                   ],
                 ),
               ),
@@ -256,30 +259,17 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                 color: Colors.white,
                 child: Stack(
                   children: [
-                    // Top-right corner: language switch + layout toggle
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: FadeTransition(
-                        opacity: _fadeAnimRight,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _buildLanguageSwitch(),
-                            const SizedBox(width: 8),
-                            _buildLayoutToggle(),
-                          ],
-                        ),
-                      ),
-                    ),
+
                     // Form content
-                    Center(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 40,
-                          vertical: 24,
-                        ),
-                        child: FadeTransition(
+                    Positioned.fill(
+                      bottom: MediaQuery.of(context).viewInsets.bottom,
+                      child: Center(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 40,
+                            vertical: 24,
+                          ),
+                          child: FadeTransition(
                           opacity: _fadeAnimRight,
                           child: SlideTransition(
                             position: _slideAnimRight,
@@ -288,6 +278,23 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                         ),
                       ),
                     ),
+                  ),
+                  // Top-right corner: language switch + layout toggle
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: FadeTransition(
+                      opacity: _fadeAnimRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildLanguageSwitch(),
+                          const SizedBox(width: 8),
+                          _buildLayoutToggle(),
+                        ],
+                      ),
+                    ),
+                  ),
                   ],
                 ),
               ),
@@ -358,35 +365,6 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
         ),
         const SizedBox(height: 20),
 
-        // Device ID field
-        _buildFieldLabel(l10n.deviceIdLabel),
-        const SizedBox(height: 8),
-        _buildTextField(
-          controller: _deviceIdController,
-          hint: 'FLINKPOS-V2-DEVICE',
-          icon: Icons.devices_rounded,
-        ),
-        const SizedBox(height: 20),
-
-        _buildFieldLabel('Register ID'),
-        const SizedBox(height: 8),
-        _buildTextField(
-          controller: _registerIdController,
-          hint: 'Optional during transition',
-          icon: Icons.point_of_sale_rounded,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          Localizations.localeOf(context).languageCode == 'id'
-              ? 'Kosongkan jika sementara masih ingin mengikuti Device ID.'
-              : 'Leave blank if this device should still inherit the Device ID during transition.',
-          style: TextStyle(
-            fontFamily: _fontRegular,
-            fontSize: 11,
-            color: Colors.grey.shade500,
-            height: 1.4,
-          ),
-        ),
 
         // Error message
         if (_errorMessage != null) ...[

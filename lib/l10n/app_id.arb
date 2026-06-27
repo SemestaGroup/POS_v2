@@ -179,6 +179,7 @@
   "cashierRoleLabel": "Kasir",
   "kitchenRoleLabel": "Dapur",
   "programmerRoleLabel": "Programmer",
+  "loginHeroTagline": "Kelola bisnis Anda lebih efisien\ndengan sistem kasir modern.",
   "loginTitle": "Masuk",
   "loginSubtitle": "Masukkan field yang dibutuhkan untuk request login ke pusat. Setelah berhasil, data tenant akan disinkronkan otomatis.",
   "centralLoginBaseUrl": "Central Login Base URL",

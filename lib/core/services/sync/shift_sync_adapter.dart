@@ -54,6 +54,81 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     );
   }
 
+  Future<V2SyncResult> closeShift(
+    V2SyncContext context, {
+    required int shiftRemoteId,
+    required int actualCash,
+    int? expectedCash,
+    int? totalNonCash,
+    Map<String, dynamic>? reconciliationJson,
+  }) async {
+    final now = DateTime.now();
+    final closedAt =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
+
+    final envelope = await buildClient(context).postEnvelope(
+      'api/v2/pos-shift-sessions/$shiftRemoteId/close',
+      body: <String, dynamic>{
+        'closed_at': closedAt,
+        'actual_cash': actualCash,
+        'expected_cash': expectedCash ?? 0,
+        'closing_balance': actualCash,
+        'total_non_cash': totalNonCash ?? 0,
+        'reconciliation_json': reconciliationJson ?? <String, dynamic>{},
+      },
+    );
+    final row =
+        V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
+
+    var upsertedCount = 0;
+    await databaseService.transaction((txn) async {
+      final tenantId = await ensureTenantId(txn, context);
+      if (row.isNotEmpty) {
+        upsertedCount += await _upsertShiftRow(txn, tenantId, row);
+      } else {
+        // Fallback: update locally by remote_id
+        await txn.rawUpdate(
+          '''
+          UPDATE shift_session
+          SET status = 'closed',
+              closed_at = ?,
+              actual_cash = ?,
+              expected_cash = ?,
+              closing_balance = ?,
+              total_non_cash = ?,
+              updated_at = ?
+          WHERE tenant_id = ? AND remote_id = ?
+          ''',
+          <Object?>[
+            closedAt,
+            actualCash,
+            expectedCash ?? 0,
+            actualCash,
+            totalNonCash ?? 0,
+            closedAt,
+            tenantId,
+            shiftRemoteId.toString(),
+          ],
+        );
+        upsertedCount = 1;
+      }
+      await touchCheckpoint(
+        txn,
+        tenantId,
+        endpointName: 'pos-shift-sessions/close',
+        scopeKey: shiftRemoteId.toString(),
+        notes: 'Shift closed.',
+      );
+    });
+
+    return V2SyncResult(
+      endpointName: 'pos-shift-sessions/close',
+      fetchedCount: 1,
+      upsertedCount: upsertedCount,
+    );
+  }
+
   Future<V2SyncResult> sync(
     V2SyncContext context, {
     Map<String, dynamic>? query,

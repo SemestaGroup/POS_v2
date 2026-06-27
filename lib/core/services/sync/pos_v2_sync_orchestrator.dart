@@ -150,6 +150,24 @@ class PosV2SyncOrchestrator {
     );
   }
 
+  Future<V2SyncResult> closeShift(
+    V2SyncContext context, {
+    required int shiftRemoteId,
+    required int actualCash,
+    int? expectedCash,
+    int? totalNonCash,
+    Map<String, dynamic>? reconciliationJson,
+  }) {
+    return _shift.closeShift(
+      context,
+      shiftRemoteId: shiftRemoteId,
+      actualCash: actualCash,
+      expectedCash: expectedCash,
+      totalNonCash: totalNonCash,
+      reconciliationJson: reconciliationJson,
+    );
+  }
+
   Future<V2SyncResult> syncActiveShift(V2SyncContext context) {
     return _shift.sync(context, path: 'api/v2/pos-shift-sessions/active');
   }

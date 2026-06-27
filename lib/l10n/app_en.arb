@@ -223,6 +223,7 @@
   "cashierRoleLabel": "Cashier",
   "kitchenRoleLabel": "Kitchen",
   "programmerRoleLabel": "Programmer",
+  "loginHeroTagline": "Manage your business more efficiently\nwith a modern POS system.",
   "loginTitle": "Sign In",
   "loginSubtitle": "Enter the fields required for the central login request. After success, tenant data will be synchronized automatically.",
   "centralLoginBaseUrl": "Central Login Base URL",

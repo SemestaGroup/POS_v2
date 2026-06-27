@@ -60,6 +60,9 @@ class DatabaseService {
       await _addColumnIfMissing(db, 'pos_order', 'register_id', 'TEXT');
       await _addColumnIfMissing(db, 'approval_request', 'register_id', 'TEXT');
     }
+    if (oldVersion < 3) {
+      // printer_device table will be created by schema application
+    }
   }
 
   Future<void> _addColumnIfMissing(

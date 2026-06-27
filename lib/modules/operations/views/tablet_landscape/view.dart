@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../master_data/customers/views/customer_list/tablet_landscape/view.dart';
 import '../../shift/views/shift_open/tablet_landscape/view.dart';
+import '../../shift/views/shift_close/tablet_landscape/view.dart';
 import '../../recap/views/tablet_landscape/view.dart';
 import '../../cash_flow/views/tablet_landscape/view.dart';
 import '../../kitchen/views/tablet_landscape/view.dart';
+import '../../shift/views/shift_history/tablet_landscape/view.dart';
 import '../../../../app/role_access/role_manager.dart';
 
 class _SubMenuDefinition {
@@ -38,9 +40,16 @@ class _OperationsShellViewState extends State<OperationsShellView> {
     return [
       _SubMenuDefinition(
         title: l10n.shiftMenu,
-        subtitle: 'Manage cashier shifts',
+        subtitle: 'Buka shift kasir',
         icon: Icons.access_time_rounded,
         view: const ShiftOpenView(),
+        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
+      ),
+      _SubMenuDefinition(
+        title: 'Tutup Shift',
+        subtitle: 'Tutup dan rekonsiliasi shift',
+        icon: Icons.lock_clock_outlined,
+        view: const ShiftCloseView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
       ),
       _SubMenuDefinition(
@@ -49,6 +58,13 @@ class _OperationsShellViewState extends State<OperationsShellView> {
         icon: Icons.receipt_long_rounded,
         view: const RecapView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
+      ),
+      _SubMenuDefinition(
+        title: 'Riwayat Shift',
+        subtitle: 'Histori shift dari database lokal',
+        icon: Icons.history_toggle_off_rounded,
+        view: const ShiftHistoryView(),
+        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
       ),
       _SubMenuDefinition(
         title: l10n.cashFlowMenu,

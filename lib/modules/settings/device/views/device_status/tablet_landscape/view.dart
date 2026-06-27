@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../stores/register_provisioning_store.dart';
+import '../../../controllers/register_provisioning_controller.dart';
+import '../../../models/register_provisioning_models.dart';
 
 class DeviceStatusView extends StatefulWidget {
   const DeviceStatusView({super.key});
@@ -10,7 +11,8 @@ class DeviceStatusView extends StatefulWidget {
 }
 
 class _DeviceStatusViewState extends State<DeviceStatusView> {
-  final RegisterProvisioningStore _store = RegisterProvisioningStore.instance;
+  final RegisterProvisioningController _store =
+      RegisterProvisioningController.instance;
 
   @override
   void initState() {

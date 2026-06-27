@@ -514,6 +514,10 @@ class AppLocalizationsId extends AppLocalizations {
   String get programmerRoleLabel => 'Programmer';
 
   @override
+  String get loginHeroTagline =>
+      'Kelola bisnis Anda lebih efisien\ndengan sistem kasir modern.';
+
+  @override
   String get loginTitle => 'Masuk';
 
   @override

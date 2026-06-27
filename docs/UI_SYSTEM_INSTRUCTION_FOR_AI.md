@@ -22,10 +22,10 @@ Tugasmu:
 
 ## Aturan Struktur Folder
 Untuk flow frontend baru di proyek ini:
-- jangan membuat folder `controller/` untuk pola baru
-- jangan membuat folder `model/` hanya untuk membungkus logic UI atau action ringan
-- gunakan `stores/` untuk state dan data siap-view
-- gunakan `services/` untuk action atau orchestration kecil
+- gunakan `controllers/` untuk state halaman, orchestration layar, dan action UI
+- gunakan `models/` untuk record, snapshot, DTO, atau state typed yang dipakai controller/view
+- gunakan `stores/` untuk shared read-layer lintas halaman atau cache/query layer yang lebih global
+- gunakan `services/` untuk helper aksi atau orchestration kecil yang tidak cocok ditaruh di controller
 - gunakan `shared/widgets/` untuk komponen presentasi yang dipakai ulang
 
 ## Gaya Visual Final
@@ -284,6 +284,34 @@ Tampilkan wajib:
 Tujuan UI:
 - ini adalah halaman operasional provisioning, bukan placeholder
 - harus rapi, kompak, dan jelas dipakai owner/supervisor
+
+### 22. Settings > Printers
+Sub menu `printer_list` wajib menampilkan:
+- nama printer
+- connection type
+- connection target
+- paper profile
+- chars per line
+- auto cut support
+- role badges
+- tombol test, edit, delete
+
+Sub menu `printer_mapping` wajib menampilkan:
+- role printer: cashier, kitchen, label, report
+- filter brand per role bila diperlukan
+- penjelasan bahwa filter kosong berarti printer menerima semua brand untuk role itu
+
+Sub menu `printer_test` wajib menampilkan:
+- preview sample receipt
+- width mm
+- chars per line
+- catatan jelas bahwa 50mm, 58mm, 76mm, dan 80mm harus terlihat berbeda
+
+Aturan khusus printer:
+- paper profile tidak boleh hanya beda label
+- paper profile harus mengubah lebar layout, wrapping, dan chars per line
+- 50mm harus lebih sempit dari 58mm
+- 80mm harus lebih lega dari 58mm
 
 ### 21. Settings > Device > App Update
 Tampilkan:

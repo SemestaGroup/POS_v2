@@ -513,6 +513,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get programmerRoleLabel => 'Programmer';
 
   @override
+  String get loginHeroTagline =>
+      'Manage your business more efficiently\nwith a modern POS system.';
+
+  @override
   String get loginTitle => 'Sign In';
 
   @override

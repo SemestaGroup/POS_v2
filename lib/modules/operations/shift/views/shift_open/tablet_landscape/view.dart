@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../../../settings/store/controllers/store_settings_controller.dart';
 import '../../../models/active_shift_store.dart';
 
 class ShiftOpenView extends StatefulWidget {
@@ -41,6 +42,42 @@ class _ShiftOpenViewState extends State<ShiftOpenView> {
     if (shiftName.isEmpty) {
       setState(() => _errorMessage = l10n.shiftGateIncomplete);
       return;
+    }
+
+    final shiftConfig = ShiftConfigController.instance.stateNotifier.value;
+    if (shiftConfig.shiftScheduleEnabled) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 20),
+              const SizedBox(width: 8),
+              const Text('Peringatan Jadwal Shift', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          content: Text(
+            'Anda akan menggantikan jadwal shift karyawan lain atau Anda tidak terdaftar pada slot waktu ini. Lanjutkan?',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Batal', style: TextStyle(fontSize: 12)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.orange.shade600,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Lanjutkan Buka Shift', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true || !mounted) return;
     }
 
     setState(() {
@@ -85,7 +122,7 @@ class _ShiftOpenViewState extends State<ShiftOpenView> {
           children: [
             // ── Top Bar ───────────────────────────────────────────────────────
             Container(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
               color: Colors.white,
               child: Row(
                 children: [
@@ -96,13 +133,19 @@ class _ShiftOpenViewState extends State<ShiftOpenView> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: Color(0xFF1A1D2E),
                     ),
+                  ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: ActiveShiftStore.instance.refresh,
+                    icon: const Icon(Icons.refresh_rounded, size: 14),
+                    label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                    style: TextButton.styleFrom(foregroundColor: primaryColor),
                   ),
                 ],
               ),
             ),
-            Divider(height: 1, thickness: 1, color: Colors.grey.shade200),
+            Divider(height: 1, color: Colors.grey.shade200),
             
             // ── Content ───────────────────────────────────────────────────────
             Expanded(

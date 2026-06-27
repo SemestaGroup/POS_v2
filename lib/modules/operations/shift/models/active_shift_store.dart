@@ -134,6 +134,64 @@ class ActiveShiftStore {
     await refresh();
   }
 
+  /// Returns estimated cash from local SQLite (payments with cash mode in this shift).
+  /// This is an estimate; server is authoritative for final expected_cash.
+  Future<int> getEstimatedCashFromSqlite() async {
+    final shift = activeShiftNotifier.value;
+    if (shift == null) return 0;
+
+    try {
+      final rows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT COALESCE(SUM(p.amount), 0) AS total_cash
+        FROM pos_order_payment p
+        JOIN pos_order o ON o.id = p.order_id
+        WHERE o.shift_session_id IS NOT NULL
+          AND o.shift_session_id = (
+            SELECT id FROM shift_session WHERE remote_id = ? LIMIT 1
+          )
+          AND (
+            LOWER(p.payment_mode_code) LIKE '%cash%'
+            OR LOWER(p.payment_mode_code) = 'tunai'
+            OR LOWER(p.paymentmode) LIKE '%cash%'
+          )
+          AND p.deleted_at IS NULL
+        ''',
+        <Object?>[shift.id.toString()],
+      );
+      if (rows.isEmpty) return 0;
+      final val = rows.first['total_cash'];
+      return _asInt(val) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<void> closeShift({
+    required int actualCash,
+    int? expectedCash,
+  }) async {
+    final shift = activeShiftNotifier.value;
+    if (shift == null) {
+      throw Exception('Tidak ada shift aktif untuk ditutup.');
+    }
+
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session == null) {
+      throw Exception('Session tidak ditemukan. Login ulang diperlukan.');
+    }
+
+    await _syncOrchestrator.closeShift(
+      session.toSyncContext(),
+      shiftRemoteId: shift.id,
+      actualCash: actualCash,
+      expectedCash: expectedCash,
+    );
+    await refresh();
+  }
+
   int? _asInt(Object? value) {
     if (value == null) {
       return null;

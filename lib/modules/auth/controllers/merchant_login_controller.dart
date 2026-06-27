@@ -1,7 +1,7 @@
 import '../../../core/services/sync/pos_v2_auth_service.dart';
 
-class MerchantLoginService {
-  MerchantLoginService({PosV2AuthService? authService})
+class MerchantLoginController {
+  MerchantLoginController({PosV2AuthService? authService})
       : _authService = authService ?? PosV2AuthService();
 
   final PosV2AuthService _authService;

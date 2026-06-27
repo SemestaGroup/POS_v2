@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/localization/locale_manager.dart';
 import '../../../../../l10n/app_localizations.dart';
-import '../../../services/merchant_login_service.dart';
+import '../../../controllers/merchant_login_controller.dart';
 
 class MerchantLoginMobileView extends StatefulWidget {
   const MerchantLoginMobileView({super.key, this.onToggleLayout});
@@ -21,7 +21,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
   final _deviceIdController =
       TextEditingController(text: 'FLINKPOS-V2-DEVICE');
   final _registerIdController = TextEditingController();
-  final MerchantLoginService _loginAction = MerchantLoginService();
+  final MerchantLoginController _loginAction = MerchantLoginController();
 
   bool _isLoading = false;
   bool _isObscured = true;
