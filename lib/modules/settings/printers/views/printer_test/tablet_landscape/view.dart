@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../../core/printing/models/printer_render_models.dart';
+import '../../../../../../core/printing/services/printer_rendering_service.dart';
 import '../../../controllers/printer_settings_controller.dart';
 import '../../../models/printer_settings_models.dart';
 
@@ -13,6 +15,7 @@ class PrinterTestView extends StatefulWidget {
 class _PrinterTestViewState extends State<PrinterTestView> {
   final PrinterSettingsController _controller = PrinterSettingsController.instance;
   String? _selectedPrinterKey;
+  PrinterDocumentType _selectedType = PrinterDocumentType.test;
 
   @override
   void initState() {
@@ -71,6 +74,23 @@ class _PrinterTestViewState extends State<PrinterTestView> {
                       .toList(growable: false),
                   onChanged: (value) => setState(() => _selectedPrinterKey = value),
                 ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<PrinterDocumentType>(
+                  initialValue: _selectedType,
+                  decoration: InputDecoration(
+                    labelText: 'Document Type',
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: PrinterDocumentType.values
+                      .map((type) => DropdownMenuItem(
+                            value: type,
+                            child: Text(_typeLabel(type), style: const TextStyle(fontSize: 12)),
+                          ))
+                      .toList(growable: false),
+                  onChanged: (value) => setState(() => _selectedType = value ?? PrinterDocumentType.test),
+                ),
                 const SizedBox(height: 14),
                 if (selected != null) _previewCard(selected),
               ],
@@ -82,7 +102,10 @@ class _PrinterTestViewState extends State<PrinterTestView> {
   }
 
   Widget _previewCard(PrinterDeviceConfig printer) {
-    final lines = _sampleLines(printer.effectiveCharsPerLine);
+    final sample = PrinterRenderingService.instance.buildSampleDocument(printer, _selectedType);
+    final lines = PrinterRenderingService.instance
+        .render(printer, sample)
+        .then((output) => output.previewText.split('\n'));
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -100,22 +123,28 @@ class _PrinterTestViewState extends State<PrinterTestView> {
             style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
           ),
           const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: SelectableText(
-              lines.join('\n'),
-              style: const TextStyle(
-                fontSize: 11,
-                height: 1.5,
-                fontFamily: 'monospace',
-                color: Color(0xFF111827),
-              ),
-            ),
+          FutureBuilder<List<String>>(
+            future: lines,
+            builder: (context, snapshot) {
+              final text = snapshot.data?.join('\n') ?? 'Loading preview...';
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: SelectableText(
+                  text,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    height: 1.5,
+                    fontFamily: 'monospace',
+                    color: Color(0xFF111827),
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 12),
           Row(
@@ -128,7 +157,7 @@ class _PrinterTestViewState extends State<PrinterTestView> {
               ),
               const SizedBox(width: 12),
               FilledButton.icon(
-                onPressed: () => _controller.printTest(printer),
+                onPressed: () => _controller.printTest(printer, type: _selectedType),
                 icon: const Icon(Icons.print_rounded, size: 16),
                 label: const Text('Preview / Print', style: TextStyle(fontSize: 11)),
               ),
@@ -139,63 +168,18 @@ class _PrinterTestViewState extends State<PrinterTestView> {
     );
   }
 
-  List<String> _sampleLines(int maxChars) {
-    final separator = '-' * maxChars;
-    return <String>[
-      _center('TEST PROFILE', maxChars),
-      separator,
-      _row('Order', '#TEST-001', maxChars),
-      _row('Queue', 'A-014', maxChars),
-      separator,
-      ..._wrap('1x Signature Latte Extra Shot with Oat Milk', maxChars),
-      ..._wrap('2x Butter Croissant', maxChars),
-      separator,
-      _row('Subtotal', '45.000', maxChars),
-      _row('Discount', '-5.000', maxChars),
-      _row('Total', '40.000', maxChars),
-      _row('Cash', '50.000', maxChars),
-      _row('Change', '10.000', maxChars),
-      separator,
-      _center('50mm must be tighter than 80mm.', maxChars),
-    ];
-  }
-
-  String _row(String left, String right, int maxChars) {
-    final safeLeft = left.length + right.length + 1 > maxChars
-        ? '${left.substring(0, (maxChars - right.length - 3).clamp(1, left.length))}..'
-        : left;
-    final padding = maxChars - safeLeft.length - right.length;
-    return '$safeLeft${' ' * (padding > 1 ? padding : 1)}$right';
-  }
-
-  String _center(String text, int maxChars) {
-    if (text.length >= maxChars) {
-      return text;
+  String _typeLabel(PrinterDocumentType type) {
+    switch (type) {
+      case PrinterDocumentType.receipt:
+        return 'Receipt';
+      case PrinterDocumentType.kitchenTicket:
+        return 'Kitchen Ticket';
+      case PrinterDocumentType.label:
+        return 'Label';
+      case PrinterDocumentType.report:
+        return 'Report';
+      case PrinterDocumentType.test:
+        return 'Generic Test';
     }
-    final padding = ((maxChars - text.length) / 2).floor();
-    return '${' ' * padding}$text';
-  }
-
-  List<String> _wrap(String text, int maxChars) {
-    if (text.length <= maxChars) {
-      return <String>[text];
-    }
-    final words = text.split(' ');
-    final lines = <String>[];
-    var current = '';
-    for (final word in words) {
-      if (current.isEmpty) {
-        current = word;
-      } else if ('$current $word'.length <= maxChars) {
-        current = '$current $word';
-      } else {
-        lines.add(current);
-        current = word;
-      }
-    }
-    if (current.isNotEmpty) {
-      lines.add(current);
-    }
-    return lines;
   }
 }

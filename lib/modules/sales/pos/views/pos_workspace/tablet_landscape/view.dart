@@ -12,6 +12,8 @@ import '../../../../shared/models/pos_promotion_service.dart';
 import '../../../../shared/models/sales_order_store.dart';
 import '../../../../shared/widgets/customer_picker_dialog.dart';
 import '../../../../orders/shared/orders_history_sync_service.dart';
+import '../../../../../../core/services/sync/pos_v2_options_service.dart';
+import 'dart:convert';
 
 import '../../../../orders/views/tablet_landscape/view.dart';
 
@@ -113,6 +115,10 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   String? _editingOrderToken;
   DateTime? _editingOrderCreatedAt;
 
+  bool _showProductName = true;
+  bool _showProductStock = true;
+  bool _showProductPrice = true;
+
   bool _isPlaceholderImage(String url) {
     if (url.isEmpty) return true;
     final lower = url.toLowerCase();
@@ -209,6 +215,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       PosCatalogStore.instance.refresh();
       _ensureDefaultCustomerSelected();
+      _loadDisplaySettings();
     });
     if (widget.embedded) {
       return;
@@ -222,6 +229,27 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         ),
       );
     });
+  }
+
+  Future<void> _loadDisplaySettings() async {
+    final options = await PosV2OptionsService.instance.getLocalOptions();
+    final raw = options['pos_app_settings']?.toString() ?? '{}';
+    Map<String, dynamic> appSettings = {};
+    try {
+      appSettings = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final display = appSettings['display'] is Map<String, dynamic>
+        ? appSettings['display'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    if (mounted) {
+      setState(() {
+        _showProductName = display['show_name'] ?? true;
+        _showProductStock = display['show_stock'] ?? true;
+        _showProductPrice = display['show_price'] ?? true;
+      });
+    }
   }
 
   void _handleCatalogSnapshotChanged() {
@@ -2922,16 +2950,17 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            name,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                              height: 1.2,
+                          if (_showProductName)
+                            Text(
+                              name,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                height: 1.2,
+                              ),
                             ),
-                          ),
                           if (product['promo'] != null) ...[
                             const SizedBox(height: 6),
                             Container(
@@ -2994,19 +3023,21 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Text(
-                    product['price']!,
-                    style: TextStyle(
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11,
+                  if (_showProductPrice)
+                    Text(
+                      product['price']!,
+                      style: TextStyle(
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 11,
+                      ),
                     ),
-                  ),
                   const Spacer(),
-                  Text(
-                    '${l10n.stock} : ${product['stock']}',
-                    style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
-                  ),
+                  if (_showProductStock)
+                    Text(
+                      '${l10n.stock} : ${product['stock']}',
+                      style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
+                    ),
                 ],
               ),
             ],

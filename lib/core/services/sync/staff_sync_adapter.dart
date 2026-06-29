@@ -17,12 +17,28 @@ class StaffSyncAdapter extends BaseV2SyncAdapter {
                 ),
               )
               .toList(growable: false)
-        : V2SyncUtils.asMapList(payload is Map ? payload['value'] : null);
+        : payload is Map<String, dynamic>
+        ? (payload['data'] is List
+              ? V2SyncUtils.asMapList(payload['data'])
+              : payload['data'] is Map<String, dynamic>
+              ? <Map<String, dynamic>>[
+                  V2SyncUtils.asMap(payload['data']) ??
+                      const <String, dynamic>{},
+                ]
+              : V2SyncUtils.asMapList(payload['value']))
+        : const <Map<String, dynamic>>[];
 
     var upsertedCount = 0;
     await databaseService.transaction((txn) async {
       final tenantId = await ensureTenantId(txn, context);
       final now = V2SyncUtils.nowIso();
+
+      await txn.update(
+        'staff',
+        <String, Object?>{'deleted_at': now, 'updated_at': now},
+        where: 'tenant_id = ?',
+        whereArgs: <Object?>[tenantId],
+      );
 
       for (final row in rows) {
         final remoteId = V2SyncUtils.asString(

@@ -452,7 +452,35 @@ Daftar request approval untuk supervisor/owner di web back office.
 }
 ```
 
-## 9. Staff Profile
+## 9. Staff
+
+### `GET /pos-staff`
+Mengambil daftar staff POS dengan envelope V2 konsisten.
+
+### `POST /pos-staff`
+Membuat staff POS baru.
+
+### Request
+```json
+{
+  "firstname": "Alfan",
+  "lastname": "Rahman",
+  "email": "alfan@example.com",
+  "password": "secret-123",
+  "pin": "1234",
+  "phonenumber": "6281234567890",
+  "role_code": "cashier",
+  "active": true
+}
+```
+
+### `PUT /pos-staff/{id}`
+Mengupdate data staff POS. `password` opsional; jika tidak dikirim, password lama tetap dipakai.
+
+### `DELETE /pos-staff/{id}`
+Menonaktifkan staff POS secara aman. Endpoint ini melakukan deactivation, bukan hard delete.
+
+## 10. Staff Profile
 
 ### `GET /pos-staff/me`
 Mengambil profil user aktif.
@@ -476,18 +504,19 @@ Mengambil profil user aktif.
 ```
 
 ### `PUT /pos-staff/me`
-Update profil dasar user aktif.
+Update profil dasar user aktif. Karena tenant API saat ini belum memakai auth identity resolver per-user untuk endpoint ini, kirim `staff_id` atau `email` di body sebagai target update.
 
 ### Request
 ```json
 {
+  "staff_id": 7,
   "firstname": "Alfan",
   "lastname": "Rahman",
   "phonenumber": "6281234567890"
 }
 ```
 
-## 10. Password Change
+## 11. Password Change
 
 ### `POST /pos-staff/change-password`
 Endpoint ini opsional, tetapi direkomendasikan bila nanti POS user ingin mandiri mengganti password.
@@ -514,7 +543,7 @@ Endpoint ini opsional, tetapi direkomendasikan bila nanti POS user ingin mandiri
 }
 ```
 
-## 11. Future Optional Endpoints
+## 12. Future Optional Endpoints
 Belum wajib di fase awal, tetapi disiapkan arahnya:
 - `GET /pos-staff/{id}/performance`
 - `POST /pos-activity-logs/bulk`

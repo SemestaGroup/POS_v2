@@ -1,4 +1,3 @@
-import '../../network/v2_api_client.dart';
 import 'base_v2_sync_adapter.dart';
 import 'v2_sync_context.dart';
 import 'v2_sync_result.dart';
@@ -12,50 +11,20 @@ class PromotionsSyncAdapter extends BaseV2SyncAdapter {
     Map<String, dynamic>? query,
     bool allowNotFoundEmpty = false,
   }) async {
-    Map<String, dynamic> envelope;
+    List<Map<String, dynamic>> rows;
     try {
-      final originalUri = Uri.parse(context.normalizedBaseUrl);
-      String newHost = originalUri.host;
-      String newScheme = originalUri.scheme;
-      
-      // Centralize promotions to main domain without tenant subdomain
-      final hostParts = newHost.split('.');
-      if (hostParts.length > 2) {
-        newHost = hostParts.sublist(1).join('.');
-        if (newHost == 'flinkaja.com' || newHost.endsWith('.flinkaja.com')) {
-          newScheme = 'https'; // Always use https for production centralized API
-        }
-      }
-      
-      final promotionBaseUrl = originalUri.replace(
-        scheme: newScheme,
-        host: newHost,
-      ).toString();
-
-      final client = V2ApiClient(
-        baseUrl: promotionBaseUrl,
-        authToken: context.authToken,
-      );
-
-      envelope = await client.getEnvelope('api/v2/pos-promotions', query: query);
+      final envelope = await buildClient(
+        context,
+      ).getEnvelope('api/v2/pos-promotions', query: query);
+      rows = V2SyncUtils.asMapList(envelope['data']);
     } catch (error) {
       if (allowNotFoundEmpty &&
           error.toString().contains('Promotion not found')) {
-        return V2SyncResult(
-          endpointName: 'pos-promotions',
-          fetchedCount: 0,
-          upsertedCount: 0,
-          replacedChildCount: 0,
-          meta: <String, Object?>{
-            'scopeKey': query == null || query.isEmpty
-                ? 'default'
-                : query.toString(),
-          },
-        );
+        rows = const <Map<String, dynamic>>[];
+      } else {
+        rethrow;
       }
-      rethrow;
     }
-    final rows = V2SyncUtils.asMapList(envelope['data']);
     final scopeKey = query == null || query.isEmpty
         ? 'default'
         : query.toString();
@@ -66,6 +35,19 @@ class PromotionsSyncAdapter extends BaseV2SyncAdapter {
     await databaseService.transaction((txn) async {
       final tenantId = await ensureTenantId(txn, context);
       final now = V2SyncUtils.nowIso();
+      final locationId = V2SyncUtils.asString(query?['id_location']);
+      final remoteIds = rows
+          .map((row) => V2SyncUtils.asString(row['id']))
+          .whereType<String>()
+          .toList(growable: false);
+
+      await _markMissingPromotionsDeleted(
+        txn,
+        tenantId,
+        now: now,
+        keepRemoteIds: remoteIds,
+        locationId: locationId,
+      );
 
       for (final row in rows) {
         final remoteId = V2SyncUtils.asString(row['id']);
@@ -212,6 +194,40 @@ class PromotionsSyncAdapter extends BaseV2SyncAdapter {
       upsertedCount: upsertedCount,
       replacedChildCount: replacedChildCount,
       meta: <String, Object?>{'scopeKey': scopeKey},
+    );
+  }
+
+  Future<void> _markMissingPromotionsDeleted(
+    dynamic txn,
+    int tenantId, {
+    required String now,
+    required List<String> keepRemoteIds,
+    String? locationId,
+  }) async {
+    final where = StringBuffer('tenant_id = ? AND deleted_at IS NULL');
+    final whereArgs = <Object?>[tenantId];
+
+    if (locationId != null && locationId.isNotEmpty) {
+      where.write(
+        ' AND id IN ('
+        'SELECT promotion_id FROM promotion_location '
+        'WHERE tenant_id = ? AND location_id = ?'
+        ')',
+      );
+      whereArgs.addAll(<Object?>[tenantId, locationId]);
+    }
+
+    if (keepRemoteIds.isNotEmpty) {
+      final placeholders = List.filled(keepRemoteIds.length, '?').join(',');
+      where.write(' AND remote_id NOT IN ($placeholders)');
+      whereArgs.addAll(keepRemoteIds);
+    }
+
+    await txn.update(
+      'promotion',
+      <String, Object?>{'deleted_at': now, 'updated_at': now},
+      where: where.toString(),
+      whereArgs: whereArgs,
     );
   }
 

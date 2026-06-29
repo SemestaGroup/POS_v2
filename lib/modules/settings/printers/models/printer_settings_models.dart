@@ -197,6 +197,7 @@ class PrinterSettingsState {
     required this.isSaving,
     required this.printers,
     required this.availableBrands,
+    this.lastDispatchResult,
     this.errorMessage,
   });
 
@@ -204,6 +205,7 @@ class PrinterSettingsState {
   final bool isSaving;
   final List<PrinterDeviceConfig> printers;
   final List<String> availableBrands;
+  final String? lastDispatchResult;
   final String? errorMessage;
 
   PrinterSettingsState copyWith({
@@ -211,6 +213,7 @@ class PrinterSettingsState {
     bool? isSaving,
     List<PrinterDeviceConfig>? printers,
     List<String>? availableBrands,
+    String? lastDispatchResult,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -219,6 +222,7 @@ class PrinterSettingsState {
       isSaving: isSaving ?? this.isSaving,
       printers: printers ?? this.printers,
       availableBrands: availableBrands ?? this.availableBrands,
+      lastDispatchResult: lastDispatchResult ?? this.lastDispatchResult,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }

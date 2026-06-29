@@ -236,6 +236,10 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     int? preservedManualDiscountValue;
     String? preservedLocationId;
     String? preservedRegisterId;
+    int? preservedShiftSessionId;
+    int? preservedDeviceSessionId;
+    String? preservedShiftSessionRemoteId;
+    String? preservedDeviceSessionRemoteId;
     if (existingLocalId != null) {
       final existingRows = await executor.query(
         'pos_order',
@@ -245,6 +249,10 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
           'manual_discount_value',
           'location_id',
           'register_id',
+          'shift_session_id',
+          'device_session_id',
+          'shift_session_remote_id',
+          'device_session_remote_id',
         ],
         where: 'id = ?',
         whereArgs: <Object?>[existingLocalId],
@@ -256,6 +264,18 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         preservedOrderNote = existingRows.first['order_note']?.toString();
         preservedLocationId = existingRows.first['location_id']?.toString();
         preservedRegisterId = existingRows.first['register_id']?.toString();
+        preservedShiftSessionId = _asNullableInt(
+          existingRows.first['shift_session_id'],
+        );
+        preservedDeviceSessionId = _asNullableInt(
+          existingRows.first['device_session_id'],
+        );
+        preservedShiftSessionRemoteId = existingRows
+            .first['shift_session_remote_id']
+            ?.toString();
+        preservedDeviceSessionRemoteId = existingRows
+            .first['device_session_remote_id']
+            ?.toString();
         final manualValue = existingRows.first['manual_discount_value'];
         if (manualValue is int) {
           preservedManualDiscountValue = manualValue;
@@ -288,6 +308,33 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
       tenantId,
       saleStaffRemoteId,
     );
+    final incomingShiftSessionRemoteId = V2SyncUtils.asString(
+      row['shift_session_id'],
+    );
+    final resolvedShiftSessionRemoteId =
+        incomingShiftSessionRemoteId ?? preservedShiftSessionRemoteId;
+    final shiftSessionLocalId = resolvedShiftSessionRemoteId == null
+        ? preservedShiftSessionId
+        : await findLocalIdByRemoteId(
+                executor,
+                'shift_session',
+                tenantId,
+                resolvedShiftSessionRemoteId,
+              ) ??
+              preservedShiftSessionId;
+    final incomingDeviceSessionRemoteId = V2SyncUtils.asString(
+      row['device_session_id'],
+    );
+    final resolvedDeviceSessionRemoteId =
+        incomingDeviceSessionRemoteId ?? preservedDeviceSessionRemoteId;
+    final deviceSessionLocalId = await _findDeviceSessionLocalId(
+      executor,
+      tenantId,
+      remoteId: resolvedDeviceSessionRemoteId,
+      deviceId: V2SyncUtils.asString(row['device_id']),
+      staffRemoteId: saleStaffRemoteId,
+      fallbackLocalId: preservedDeviceSessionId,
+    );
     final resolvedLocationId =
         V2SyncUtils.asString(row['location_id']) ?? preservedLocationId;
     final resolvedRegisterId =
@@ -313,12 +360,16 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'tenant_id': tenantId,
         'customer_id': customerLocalId,
         'sale_staff_id': saleStaffId,
+        'shift_session_id': shiftSessionLocalId,
+        'device_session_id': deviceSessionLocalId,
         'remote_id': remoteId,
         'id_pos': idPos,
         'location_id': resolvedLocationId,
         'register_id': resolvedRegisterId,
         'customer_remote_id': customerRemoteId,
         'sale_staff_remote_id': saleStaffRemoteId,
+        'shift_session_remote_id': resolvedShiftSessionRemoteId,
+        'device_session_remote_id': resolvedDeviceSessionRemoteId,
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
@@ -339,7 +390,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'shipping_state': V2SyncUtils.asString(row['shipping_state']),
         'shipping_postal_code': V2SyncUtils.asString(row['shipping_zip']),
         'shipping_country': V2SyncUtils.asString(row['shipping_country']),
-        'allowed_payment_modes_json': _encodeFlexibleValue(
+        'allowed_payment_modes_json': _encodeAllowedPaymentModesJson(
           row['allowed_payment_modes'],
         ),
         'source_channel': V2SyncUtils.asString(row['source_channel']) ?? 'pos',
@@ -381,12 +432,16 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
       updateValues: <String, Object?>{
         'customer_id': customerLocalId,
         'sale_staff_id': saleStaffId,
+        'shift_session_id': shiftSessionLocalId,
+        'device_session_id': deviceSessionLocalId,
         'remote_id': remoteId,
         'id_pos': idPos,
         'location_id': resolvedLocationId,
         'register_id': resolvedRegisterId,
         'customer_remote_id': customerRemoteId,
         'sale_staff_remote_id': saleStaffRemoteId,
+        'shift_session_remote_id': resolvedShiftSessionRemoteId,
+        'device_session_remote_id': resolvedDeviceSessionRemoteId,
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
@@ -407,7 +462,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'shipping_state': V2SyncUtils.asString(row['shipping_state']),
         'shipping_postal_code': V2SyncUtils.asString(row['shipping_zip']),
         'shipping_country': V2SyncUtils.asString(row['shipping_country']),
-        'allowed_payment_modes_json': _encodeFlexibleValue(
+        'allowed_payment_modes_json': _encodeAllowedPaymentModesJson(
           row['allowed_payment_modes'],
         ),
         'source_channel': V2SyncUtils.asString(row['source_channel']) ?? 'pos',
@@ -589,14 +644,99 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     return combined.isEmpty ? null : combined;
   }
 
-  String? _encodeFlexibleValue(dynamic value) {
+  Future<int?> _findDeviceSessionLocalId(
+    DatabaseExecutor executor,
+    int tenantId, {
+    String? remoteId,
+    String? deviceId,
+    String? staffRemoteId,
+    int? fallbackLocalId,
+  }) async {
+    if (remoteId != null && remoteId.isNotEmpty) {
+      return await findLocalIdByRemoteId(
+            executor,
+            'device_session',
+            tenantId,
+            remoteId,
+          ) ??
+          fallbackLocalId;
+    }
+    if (deviceId == null || deviceId.isEmpty) {
+      return fallbackLocalId;
+    }
+
+    final where = StringBuffer('tenant_id = ? AND device_id = ?');
+    final whereArgs = <Object?>[tenantId, deviceId];
+    if (staffRemoteId != null && staffRemoteId.isNotEmpty) {
+      where.write(
+        ' AND (staff_remote_id = ? OR staff_remote_id IS NULL OR staff_remote_id = \'\')',
+      );
+      whereArgs.add(staffRemoteId);
+    }
+
+    final rows = await executor.query(
+      'device_session',
+      columns: const <String>['id'],
+      where: where.toString(),
+      whereArgs: whereArgs,
+      orderBy:
+          "CASE WHEN status = 'active' THEN 0 ELSE 1 END, updated_at DESC, id DESC",
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return fallbackLocalId;
+    }
+    return _asNullableInt(rows.first['id']) ?? fallbackLocalId;
+  }
+
+  String? _encodeAllowedPaymentModesJson(dynamic value) {
     if (value == null) {
       return null;
     }
-    if (value is String) {
+    if (value is List || value is Map) {
+      return V2SyncUtils.encodeJson(value);
+    }
+
+    final text = V2SyncUtils.asString(value);
+    if (text == null) {
+      return null;
+    }
+
+    final decoded = V2SyncUtils.decodeLooseJson(text);
+    if (decoded is List || decoded is Map) {
+      return V2SyncUtils.encodeJson(decoded);
+    }
+
+    final phpSerializedValues = RegExp(r's:\d+:"([^"]*)"')
+        .allMatches(text)
+        .map((match) => match.group(1))
+        .whereType<String>()
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (phpSerializedValues.isNotEmpty) {
+      return V2SyncUtils.encodeJson(phpSerializedValues);
+    }
+
+    final csvValues = text
+        .split(',')
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
+    if (csvValues.length > 1) {
+      return V2SyncUtils.encodeJson(csvValues);
+    }
+
+    return V2SyncUtils.encodeJson(text);
+  }
+
+  int? _asNullableInt(Object? value) {
+    if (value is int) {
       return value;
     }
-    return V2SyncUtils.encodeJson(value);
+    if (value == null) {
+      return null;
+    }
+    return int.tryParse(value.toString());
   }
 
   int _discountTotal(Map<String, dynamic> row) {

@@ -45,11 +45,11 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                 'Aturan operasional pembukaan shift, kas, dan disiplin perangkat.',
                 style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 8),
 
               // ── Quick Rules ──────────────────────────────────────────────
               const _SectionLabel('Aturan Kas & Shift'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
               _switchTile(
                 title: 'Wajibkan Modal Awal',
                 subtitle: 'Kasir wajib memasukkan saldo awal saat buka shift.',
@@ -57,7 +57,6 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                 onChanged: (value) => _controller.updateQuickRules(
                     requireOpeningBalance: value),
               ),
-              const SizedBox(height: 8),
               _switchTile(
                 title: 'Auto Print Rekap Shift',
                 subtitle: 'Cetak rekap otomatis saat shift ditutup.',
@@ -65,7 +64,6 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                 onChanged: (value) =>
                     _controller.updateQuickRules(autoPrintShiftRecap: value),
               ),
-              const SizedBox(height: 8),
               _switchTile(
                 title: 'Izinkan Edit Saldo Akhir',
                 subtitle:
@@ -75,11 +73,11 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                     _controller.updateQuickRules(allowEditActualCash: value),
               ),
 
-              const SizedBox(height: 18),
+              const SizedBox(height: 10),
 
               // ── Jadwal Shift ─────────────────────────────────────────────
               const _SectionLabel('Konfigurasi Jadwal Shift'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
               _switchTile(
                 title: 'Aktifkan Pembatasan Jadwal Shift',
                 subtitle:
@@ -89,30 +87,24 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                 onChanged: (value) => _controller.updateShiftSchedule(
                     enabled: value),
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF3CD),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFFFE69C)),
-                ),
+              const SizedBox(height: 2),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline_rounded,
-                        size: 14, color: Color(0xFF856404)),
-                    const SizedBox(width: 8),
+                    Icon(Icons.info_outline_rounded,
+                        size: 16, color: Colors.blue.shade600),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Jika jadwal shift tidak dikonfigurasi: siapapun yang login dan membuka shift/outlet '
+                        'Jika jadwal shift tidak dikonfigurasi: siapapun yang login dan membuka shift '
                         'akan dianggap bertanggung jawab atas shift tersebut tanpa batasan.\n\n'
-                        'Jika jadwal shift aktif: hanya akun yang terdaftar untuk slot waktu tersebut yang dapat '
-                        'membuka shift tanpa peringatan. Staf lain akan melihat popup konfirmasi:\n'
-                        '"Anda akan menggantikan jadwal shift karyawan [Nama]. Lanjutkan?"',
+                        'Jika jadwal shift aktif: hanya staf terdaftar untuk slot waktu tersebut yang dapat '
+                        'membuka shift tanpa peringatan.',
                         style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.brown.shade700,
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
                           height: 1.5,
                         ),
                       ),
@@ -121,11 +113,11 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                 ),
               ),
 
-              const SizedBox(height: 14),
+              const SizedBox(height: 10),
 
               // ── Device Discipline ────────────────────────────────────────
               const _SectionLabel('Disiplin Perangkat'),
-              const SizedBox(height: 8),
+              const SizedBox(height: 2),
               _infoCard(
                 [
                   _InfoRow(
@@ -172,15 +164,10 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
     required bool value,
     required ValueChanged<bool> onChanged,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Column(
@@ -188,44 +175,47 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
               children: [
                 Text(title,
                     style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w700)),
-                const SizedBox(height: 3),
+                        fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
+                const SizedBox(height: 4),
                 Text(subtitle,
                     style: const TextStyle(
                         fontSize: 11,
                         color: Color(0xFF6B7280),
-                        height: 1.45)),
+                        height: 1.4)),
               ],
             ),
           ),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          const SizedBox(width: 16),
+          Transform.scale(
+            scale: 0.75,
+            child: Switch.adaptive(
+              value: value, 
+              onChanged: onChanged,
+              activeTrackColor: Theme.of(context).colorScheme.primary,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _infoCard(List<_InfoRow> rows) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       child: Column(
         children: rows
             .map(
               (row) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: 6),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(row.label,
                         style: const TextStyle(
-                            fontSize: 11, color: Color(0xFF6B7280))),
+                            fontSize: 12, color: Color(0xFF6B7280))),
                     Text(row.value,
                         style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: Color(0xFF374151))),
                   ],
@@ -243,14 +233,32 @@ class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
 
   @override
-  Widget build(BuildContext context) => Text(
-        text,
-        style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF6B7280),
-            letterSpacing: 0.3),
-      );
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 4, 
+            height: 14, 
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary, 
+              borderRadius: BorderRadius.circular(2)
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF374151),
+                letterSpacing: 0.2),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _InfoRow {

@@ -2213,6 +2213,270 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enable adding products to cart even when system stock is 0'**
   String get settingsAllowSellOutOfStockSubtitle;
+
+  /// No description provided for @settingsSuccessSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings saved successfully'**
+  String get settingsSuccessSave;
+
+  /// No description provided for @settingsFailSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save settings'**
+  String get settingsFailSave;
+
+  /// No description provided for @settingsAppConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'App Configuration'**
+  String get settingsAppConfig;
+
+  /// No description provided for @settingsActiveRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Role'**
+  String get settingsActiveRole;
+
+  /// No description provided for @settingsLanguage.
+  ///
+  /// In en, this message translates to:
+  /// **'Language'**
+  String get settingsLanguage;
+
+  /// No description provided for @settingsSyncMasterData.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Master Data'**
+  String get settingsSyncMasterData;
+
+  /// No description provided for @settingsSyncing.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing Master Data...'**
+  String get settingsSyncing;
+
+  /// No description provided for @settingsSyncError.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Error'**
+  String get settingsSyncError;
+
+  /// No description provided for @settingsPartialSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Partial Synced - Tap to Full Sync'**
+  String get settingsPartialSynced;
+
+  /// No description provided for @settingsSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Synced'**
+  String get settingsSynced;
+
+  /// No description provided for @settingsStoreApi.
+  ///
+  /// In en, this message translates to:
+  /// **'Store & API Settings'**
+  String get settingsStoreApi;
+
+  /// No description provided for @settingsOperatingMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Operating Mode'**
+  String get settingsOperatingMode;
+
+  /// No description provided for @settingsOnlineStoreUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Online Store Base URL'**
+  String get settingsOnlineStoreUrl;
+
+  /// No description provided for @settingsWebhookUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Webhook URL (Transaction)'**
+  String get settingsWebhookUrl;
+
+  /// No description provided for @settingsDisplayConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'Display Configuration'**
+  String get settingsDisplayConfig;
+
+  /// No description provided for @settingsShowImage.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Product Image'**
+  String get settingsShowImage;
+
+  /// No description provided for @settingsShowImageDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Always display product image on grid'**
+  String get settingsShowImageDesc;
+
+  /// No description provided for @settingsShowName.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Product Name'**
+  String get settingsShowName;
+
+  /// No description provided for @settingsShowNameDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Display product name on grid'**
+  String get settingsShowNameDesc;
+
+  /// No description provided for @settingsShowStock.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Product Stock'**
+  String get settingsShowStock;
+
+  /// No description provided for @settingsShowStockDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Display available stock on grid'**
+  String get settingsShowStockDesc;
+
+  /// No description provided for @settingsShowPrice.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Product Price'**
+  String get settingsShowPrice;
+
+  /// No description provided for @settingsShowPriceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Display product price on grid'**
+  String get settingsShowPriceDesc;
+
+  /// No description provided for @settingsMinDisplayOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Minimum 2 display options must be active.'**
+  String get settingsMinDisplayOptions;
+
+  /// No description provided for @settingsSelfOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Self Order Settings'**
+  String get settingsSelfOrder;
+
+  /// No description provided for @settingsEnableSelfOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable Self Order'**
+  String get settingsEnableSelfOrder;
+
+  /// No description provided for @settingsEnableSelfOrderDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Activate hybrid self order mode'**
+  String get settingsEnableSelfOrderDesc;
+
+  /// No description provided for @settingsRequireTableNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Require Table Number'**
+  String get settingsRequireTableNumber;
+
+  /// No description provided for @settingsRequireTableNumberDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer must provide table number'**
+  String get settingsRequireTableNumberDesc;
+
+  /// No description provided for @settingsAllowGuestCheckout.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Guest Checkout'**
+  String get settingsAllowGuestCheckout;
+
+  /// No description provided for @settingsAllowGuestCheckoutDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer can checkout without registration'**
+  String get settingsAllowGuestCheckoutDesc;
+
+  /// No description provided for @settingsEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit {title}'**
+  String settingsEditTitle(String title);
+
+  /// No description provided for @settingsCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get settingsCancel;
+
+  /// No description provided for @settingsSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settingsSave;
+
+  /// No description provided for @settingsClose.
+  ///
+  /// In en, this message translates to:
+  /// **'Close'**
+  String get settingsClose;
+
+  /// No description provided for @settingsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'(Empty)'**
+  String get settingsEmpty;
+
+  /// No description provided for @settingsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'App'**
+  String get settingsApp;
+
+  /// No description provided for @settingsVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get settingsVersion;
+
+  /// No description provided for @settingsTenant.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant'**
+  String get settingsTenant;
+
+  /// No description provided for @settingsTenantCode.
+  ///
+  /// In en, this message translates to:
+  /// **'Tenant Code'**
+  String get settingsTenantCode;
+
+  /// No description provided for @settingsStaff.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff'**
+  String get settingsStaff;
+
+  /// No description provided for @settingsRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get settingsRole;
+
+  /// No description provided for @settingsLastBootstrap.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Bootstrap'**
+  String get settingsLastBootstrap;
+
+  /// No description provided for @settingsNever.
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get settingsNever;
 }
 
 class _AppLocalizationsDelegate

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../controllers/printer_settings_controller.dart';
 import '../../../models/printer_settings_models.dart';
+import 'dart:convert';
+import 'package:blue_thermal_printer/blue_thermal_printer.dart';
+import '../../../../../../core/services/sync/pos_v2_options_service.dart';
 
 class PrinterListView extends StatefulWidget {
   const PrinterListView({super.key});
@@ -13,12 +16,93 @@ class PrinterListView extends StatefulWidget {
 class _PrinterListViewState extends State<PrinterListView> {
   final PrinterSettingsController _controller = PrinterSettingsController.instance;
 
+  bool _autoPrint = false;
+  List<BluetoothDevice> _bluetoothDevices = [];
+  Map<String, dynamic> _appSettings = {};
+  bool _isLoadingBluetooth = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _controller.refresh();
+      _loadInitialData();
     });
+  }
+
+  Future<void> _loadInitialData() async {
+    final options = await PosV2OptionsService.instance.getLocalOptions();
+    final raw = options['pos_app_settings']?.toString() ?? '{}';
+    try {
+      _appSettings = jsonDecode(raw) as Map<String, dynamic>;
+    } catch (_) {}
+
+    final printing = _appSettings['printing'] is Map<String, dynamic>
+        ? _appSettings['printing'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    if (mounted) {
+      setState(() {
+        _autoPrint = printing['auto_print'] ?? false;
+        _isLoadingBluetooth = true;
+      });
+    }
+
+    try {
+      final devices = await BlueThermalPrinter.instance.getBondedDevices();
+      if (mounted) {
+        setState(() {
+          _bluetoothDevices = devices;
+          _isLoadingBluetooth = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingBluetooth = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _updateAutoPrint(bool val) async {
+    setState(() => _autoPrint = val);
+
+    final opts = await PosV2OptionsService.instance.getLocalOptions();
+    Map<String, dynamic> latestSettings = {};
+    try {
+      latestSettings = jsonDecode(opts['pos_app_settings']?.toString() ?? '{}');
+    } catch (_) {}
+
+    final printing = latestSettings['printing'] is Map<String, dynamic>
+        ? latestSettings['printing'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    printing['auto_print'] = val;
+    latestSettings['printing'] = printing;
+    
+    // Also update local cached settings to avoid UI mismatch if needed
+    _appSettings = latestSettings;
+
+    PosV2OptionsService.instance.updateOption('pos_app_settings', jsonEncode(latestSettings));
+  }
+
+  void _openEditorWithDevice(BuildContext context, BluetoothDevice device) {
+    final newPrinter = PrinterDeviceConfig(
+      id: 0,
+      printerKey: '',
+      displayName: device.name ?? 'Bluetooth Printer',
+      connectionType: 'bluetooth',
+      connectionTarget: device.address,
+      paperProfileId: 'thermal_58',
+      networkPort: 9100,
+      fontScale: 1.0,
+      lineSpacing: 0,
+      supportsAutoCut: false,
+      roles: const ['cashier'],
+      roleBrandFilters: const {},
+      isActive: true,
+    );
+    _openEditor(context, newPrinter);
   }
 
   @override
@@ -77,22 +161,69 @@ class _PrinterListViewState extends State<PrinterListView> {
                 ),
               ),
             ],
+            if (state.lastDispatchResult != null) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Text(
+                  state.lastDispatchResult!,
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF374151)),
+                ),
+              ),
+            ],
             Expanded(
-              child: state.printers.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No printer profiles yet.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+              child: ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8F9FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFEEEFF8), width: 1),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.print_rounded, size: 20, color: primary),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Auto Print Receipt', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              Text('Automatically print receipt when order is paid/completed.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _autoPrint,
+                          onChanged: _updateAutoPrint,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (state.printers.isNotEmpty)
+                     const Padding(
+                       padding: EdgeInsets.only(bottom: 8),
+                       child: Text('Saved Printers', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                     ),
+                  
+                  if (state.printers.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Center(
+                        child: Text(
+                          'No printer profiles yet.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        ),
                       ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: state.printers.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final printer = state.printers[index];
-                        final profile = printer.paperProfile;
-                        return Container(
+                    ),
+
+                  for (final printer in state.printers)
+                     Padding(
+                       padding: const EdgeInsets.only(bottom: 8),
+                       child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -142,7 +273,7 @@ class _PrinterListViewState extends State<PrinterListView> {
                                       spacing: 8,
                                       runSpacing: 6,
                                       children: [
-                                        _mini(profile.label),
+                                        _mini(printer.paperProfile.label),
                                         _mini('${printer.effectiveCharsPerLine} chars/line'),
                                         _mini('${printer.effectiveWidthMm.toStringAsFixed(0)}mm'),
                                         _mini(printer.supportsAutoCut ? 'Auto Cut' : 'Manual Tear'),
@@ -183,9 +314,64 @@ class _PrinterListViewState extends State<PrinterListView> {
                               ),
                             ],
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                     ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text('Paired Bluetooth Devices', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                  if (_isLoadingBluetooth)
+                    const Center(child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ))
+                  else if (_bluetoothDevices.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          'No paired Bluetooth devices found.',
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        ),
+                      ),
+                    )
+                  else
+                    for (final device in _bluetoothDevices)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.bluetooth_rounded, size: 20, color: Colors.blue),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(device.name ?? 'Unknown', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  Text(device.address ?? '-', style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                                ],
+                              ),
+                            ),
+                            OutlinedButton(
+                              onPressed: () {
+                                _openEditorWithDevice(context, device);
+                              },
+                              child: const Text('Add Profile', style: TextStyle(fontSize: 11)),
+                            )
+                          ],
+                        ),
+                      ),
+                ],
+              ),
             ),
           ],
         );

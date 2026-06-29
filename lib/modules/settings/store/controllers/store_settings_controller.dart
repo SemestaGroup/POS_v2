@@ -21,18 +21,25 @@ class StoreProfileController {
       clearError: true,
     );
     try {
-      await PosV2OptionsService.instance.fetchAndSaveOptions();
+      // Do not auto-fetch from API to respect offline-first and reduce unnecessary background syncs.
+      // await PosV2OptionsService.instance.fetchAndSaveOptions();
+      
       final options = await PosV2OptionsService.instance.getLocalOptions();
+      
       final session = PosV2RuntimeSessionStore.instance.currentSession ??
           await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+
+      // Ensure we extract business info from pos_options as requested by user
+      final appSettings = _asMap(options['pos_app_settings']);
+      
       stateNotifier.value = stateNotifier.value.copyWith(
         isLoading: false,
-        tenantName: session?.tenantName,
-        tenantCode: session?.tenantCode,
-        baseUrl: session?.baseUrl,
-        locationId: session?.locationId,
-        deviceId: session?.deviceId,
-        registerId: session?.registerId,
+        tenantName: options['tenant_name']?.toString() ?? appSettings['tenant_name']?.toString() ?? session?.tenantName,
+        tenantCode: options['tenant_code']?.toString() ?? appSettings['tenant_code']?.toString() ?? session?.tenantCode,
+        baseUrl: options['base_url']?.toString() ?? session?.baseUrl,
+        locationId: options['location_id']?.toString() ?? appSettings['location_id']?.toString() ?? session?.locationId,
+        deviceId: options['device_id']?.toString() ?? session?.deviceId,
+        registerId: options['register_id']?.toString() ?? session?.registerId,
         feedbackUrl: options['pos_feedback_url']?.toString(),
         onlineStoreBaseUrl: options['pos_online_store_base_url']?.toString(),
         version: options['version']?.toString(),
@@ -74,7 +81,9 @@ class ShiftConfigController {
       clearError: true,
     );
     try {
-      await PosV2OptionsService.instance.fetchAndSaveOptions();
+      // Do not auto-fetch from API to respect offline-first and reduce unnecessary background syncs.
+      // await PosV2OptionsService.instance.fetchAndSaveOptions();
+      
       final options = await PosV2OptionsService.instance.getLocalOptions();
       final appSettings = _asMap(options['pos_app_settings']);
       final devicePolicy = _asMap(options['pos_device_session_policy']);

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/motion/smooth_reveal.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../core/services/sync/pos_v2_sync_status_store.dart';
 import '../../../modules/auth/widgets/pin_account_switch_dialog.dart';
-import '../../role_access/role_manager.dart';
+
+
 
 class SidebarItem {
   SidebarItem({

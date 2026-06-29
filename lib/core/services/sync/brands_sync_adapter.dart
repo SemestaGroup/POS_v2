@@ -10,7 +10,7 @@ class BrandsSyncAdapter extends BaseV2SyncAdapter {
     final envelope = await buildClient(
       context,
     ).getEnvelope('api/v2/pos-brands');
-    final rows = V2SyncUtils.asMapList(envelope['brands']);
+    final rows = V2SyncUtils.asMapList(envelope['data'] ?? envelope['brands']);
     var upsertedCount = 0;
 
     await databaseService.transaction((txn) async {

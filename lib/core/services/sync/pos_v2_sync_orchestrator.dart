@@ -183,6 +183,80 @@ class PosV2SyncOrchestrator {
     return _selfOrder.syncSessions(context, query: query);
   }
 
+  Future<V2SyncResult> openSelfOrderSession(
+    V2SyncContext context, {
+    required int locationId,
+    String? tableQrToken,
+    String? sourceChannel,
+    String? businessDate,
+    String? tableCode,
+    String? orderType,
+    int? createdByStaffId,
+    int? queueNumber,
+    String? customerName,
+    String? paymentStage,
+    String? status,
+    Map<String, dynamic>? metadataJson,
+  }) {
+    return _selfOrder.open(
+      context,
+      locationId: locationId,
+      tableQrToken: tableQrToken,
+      sourceChannel: sourceChannel,
+      businessDate: businessDate,
+      tableCode: tableCode,
+      orderType: orderType,
+      createdByStaffId: createdByStaffId,
+      queueNumber: queueNumber,
+      customerName: customerName,
+      paymentStage: paymentStage,
+      status: status,
+      metadataJson: metadataJson,
+    );
+  }
+
+  Future<V2SyncResult> linkSelfOrderSessionOrder(
+    V2SyncContext context, {
+    required int sessionRemoteId,
+    int? invoiceId,
+    String? idPos,
+    int? queueNumber,
+    String? orderType,
+    String? paymentStage,
+    String? status,
+    int? updatedByStaffId,
+  }) {
+    return _selfOrder.linkOrder(
+      context,
+      sessionRemoteId: sessionRemoteId,
+      invoiceId: invoiceId,
+      idPos: idPos,
+      queueNumber: queueNumber,
+      orderType: orderType,
+      paymentStage: paymentStage,
+      status: status,
+      updatedByStaffId: updatedByStaffId,
+    );
+  }
+
+  Future<V2SyncResult> closeSelfOrderSession(
+    V2SyncContext context, {
+    required int sessionRemoteId,
+    int? updatedByStaffId,
+    String? status,
+    String? paymentStage,
+    String? reason,
+  }) {
+    return _selfOrder.closeSession(
+      context,
+      sessionRemoteId: sessionRemoteId,
+      updatedByStaffId: updatedByStaffId,
+      status: status,
+      paymentStage: paymentStage,
+      reason: reason,
+    );
+  }
+
   Future<V2SyncResult> syncPromotions(
     V2SyncContext context, {
     Map<String, dynamic>? query,
@@ -266,20 +340,22 @@ class PosV2SyncOrchestrator {
     ];
   }
 
-  Future<List<V2SyncResult>> syncEssentialStartup(
+  Future<List<V2SyncResult>> syncPartialStartup(
     V2SyncContext context, {
     int initialCatalogPages = 1,
-    int initialCatalogPageSize = 120,
+    int initialCatalogPageSize = 500,
   }) async {
     final results = <V2SyncResult>[];
     results.add(await syncBootstrap(context));
+
+    // Partial startup: Options, Active Shift, Categories, Promotions, Active Orders, and Products.
     results.addAll(
       await Future.wait<V2SyncResult>([
         syncActiveShiftForContext(context),
         syncCategories(context),
-        syncBrands(context),
       ]),
     );
+
     results.addAll(
       await syncItemsPaged(
         context,
@@ -289,6 +365,7 @@ class PosV2SyncOrchestrator {
         maxPages: initialCatalogPages,
       ),
     );
+
     results.add(
       await syncPromotions(
         context,
@@ -299,24 +376,46 @@ class PosV2SyncOrchestrator {
         allowNotFoundEmpty: true,
       ),
     );
+
+    results.add(
+      await syncOrders(
+        context,
+        query: <String, dynamic>{'status': 'active', 'limit': 200, 'page': 1},
+        pullDetails: false,
+        detailLimit: 50,
+      ),
+    );
+
     return results;
   }
 
-  Future<List<V2SyncResult>> syncDeferredStartup(
+  Future<List<V2SyncResult>> syncRemainingMasterData(
     V2SyncContext context, {
     int remainingCatalogStartPage = 2,
-    int remainingCatalogPageSize = 200,
+    int remainingCatalogPageSize = 500,
     Duration delayBetweenCatalogPages = const Duration(milliseconds: 220),
   }) async {
     final results = <V2SyncResult>[];
     results.addAll(
       await Future.wait<V2SyncResult>([
+        syncBrands(context),
         syncStaff(context),
+        syncCustomers(context),
         syncShiftHistory(context),
         syncSelfOrderSessions(context),
-        syncPromotions(context, allowNotFoundEmpty: true),
       ]),
     );
+
+    // History Orders
+    results.add(
+      await syncOrders(
+        context,
+        query: <String, dynamic>{'status': 'completed', 'limit': 50, 'page': 1},
+        pullDetails: false,
+        detailLimit: 12,
+      ),
+    );
+
     results.addAll(
       await syncItemsPaged(
         context,

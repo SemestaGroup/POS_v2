@@ -25,14 +25,44 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
 
     const chunkSize = 50;
     for (var i = 0; i < rows.length; i += chunkSize) {
-      final chunk = rows.skip(i).take(chunkSize);
+      final chunk = rows.skip(i).take(chunkSize).toList();
       await databaseService.transaction((txn) async {
         final now = V2SyncUtils.nowIso();
         final tenantId = await ensureTenantId(txn, context);
 
+        // Fetch existing timestamps to skip unchanged items
+        final remoteIds = chunk
+            .map((r) => V2SyncUtils.asString(r['id']))
+            .whereType<String>()
+            .toList();
+            
+        final existingMap = <String, String>{};
+        if (remoteIds.isNotEmpty) {
+          final placeholders = List.filled(remoteIds.length, '?').join(',');
+          final existingRows = await txn.query(
+            'product',
+            columns: ['remote_id', 'source_updated_at'],
+            where: 'tenant_id = ? AND remote_id IN ($placeholders)',
+            whereArgs: [tenantId, ...remoteIds],
+          );
+          for (final row in existingRows) {
+            final rid = row['remote_id'] as String;
+            final sup = row['source_updated_at'] as String?;
+            if (sup != null) {
+              existingMap[rid] = sup;
+            }
+          }
+        }
+
         for (final row in chunk) {
           final itemId = V2SyncUtils.asString(row['id']);
           if (itemId == null) {
+            continue;
+          }
+
+          final newUpdatedAt = V2SyncUtils.asString(row['updated_at']);
+          if (newUpdatedAt != null && existingMap[itemId] == newUpdatedAt) {
+            // Unchanged, skip processing to save time
             continue;
           }
 

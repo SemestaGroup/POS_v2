@@ -1165,4 +1165,141 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsAllowSellOutOfStockSubtitle =>
       'Enable adding products to cart even when system stock is 0';
+
+  @override
+  String get settingsSuccessSave => 'Settings saved successfully';
+
+  @override
+  String get settingsFailSave => 'Failed to save settings';
+
+  @override
+  String get settingsAppConfig => 'App Configuration';
+
+  @override
+  String get settingsActiveRole => 'Active Role';
+
+  @override
+  String get settingsLanguage => 'Language';
+
+  @override
+  String get settingsSyncMasterData => 'Sync Master Data';
+
+  @override
+  String get settingsSyncing => 'Syncing Master Data...';
+
+  @override
+  String get settingsSyncError => 'Sync Error';
+
+  @override
+  String get settingsPartialSynced => 'Partial Synced - Tap to Full Sync';
+
+  @override
+  String get settingsSynced => 'Synced';
+
+  @override
+  String get settingsStoreApi => 'Store & API Settings';
+
+  @override
+  String get settingsOperatingMode => 'Operating Mode';
+
+  @override
+  String get settingsOnlineStoreUrl => 'Online Store Base URL';
+
+  @override
+  String get settingsWebhookUrl => 'Webhook URL (Transaction)';
+
+  @override
+  String get settingsDisplayConfig => 'Display Configuration';
+
+  @override
+  String get settingsShowImage => 'Show Product Image';
+
+  @override
+  String get settingsShowImageDesc => 'Always display product image on grid';
+
+  @override
+  String get settingsShowName => 'Show Product Name';
+
+  @override
+  String get settingsShowNameDesc => 'Display product name on grid';
+
+  @override
+  String get settingsShowStock => 'Show Product Stock';
+
+  @override
+  String get settingsShowStockDesc => 'Display available stock on grid';
+
+  @override
+  String get settingsShowPrice => 'Show Product Price';
+
+  @override
+  String get settingsShowPriceDesc => 'Display product price on grid';
+
+  @override
+  String get settingsMinDisplayOptions =>
+      'Minimum 2 display options must be active.';
+
+  @override
+  String get settingsSelfOrder => 'Self Order Settings';
+
+  @override
+  String get settingsEnableSelfOrder => 'Enable Self Order';
+
+  @override
+  String get settingsEnableSelfOrderDesc => 'Activate hybrid self order mode';
+
+  @override
+  String get settingsRequireTableNumber => 'Require Table Number';
+
+  @override
+  String get settingsRequireTableNumberDesc =>
+      'Customer must provide table number';
+
+  @override
+  String get settingsAllowGuestCheckout => 'Allow Guest Checkout';
+
+  @override
+  String get settingsAllowGuestCheckoutDesc =>
+      'Customer can checkout without registration';
+
+  @override
+  String settingsEditTitle(String title) {
+    return 'Edit $title';
+  }
+
+  @override
+  String get settingsCancel => 'Cancel';
+
+  @override
+  String get settingsSave => 'Save';
+
+  @override
+  String get settingsClose => 'Close';
+
+  @override
+  String get settingsEmpty => '(Empty)';
+
+  @override
+  String get settingsApp => 'App';
+
+  @override
+  String get settingsVersion => 'Version';
+
+  @override
+  String get settingsTenant => 'Tenant';
+
+  @override
+  String get settingsTenantCode => 'Tenant Code';
+
+  @override
+  String get settingsStaff => 'Staff';
+
+  @override
+  String get settingsRole => 'Role';
+
+  @override
+  String get settingsLastBootstrap => 'Last Bootstrap';
+
+  @override
+  String get settingsNever => 'Never';
 }

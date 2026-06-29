@@ -1162,4 +1162,143 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get settingsAllowSellOutOfStockSubtitle =>
       'Izinkan menambahkan produk ke keranjang meski stok sistem 0';
+
+  @override
+  String get settingsSuccessSave => 'Pengaturan berhasil disimpan';
+
+  @override
+  String get settingsFailSave => 'Gagal menyimpan pengaturan';
+
+  @override
+  String get settingsAppConfig => 'Konfigurasi Aplikasi';
+
+  @override
+  String get settingsActiveRole => 'Peran Aktif';
+
+  @override
+  String get settingsLanguage => 'Bahasa';
+
+  @override
+  String get settingsSyncMasterData => 'Sinkronisasi Data Master';
+
+  @override
+  String get settingsSyncing => 'Sedang menyinkronkan Data Master...';
+
+  @override
+  String get settingsSyncError => 'Kesalahan Sinkronisasi';
+
+  @override
+  String get settingsPartialSynced =>
+      'Tersinkron Sebagian - Ketuk untuk Sinkronisasi Penuh';
+
+  @override
+  String get settingsSynced => 'Tersinkron';
+
+  @override
+  String get settingsStoreApi => 'Pengaturan Toko & API';
+
+  @override
+  String get settingsOperatingMode => 'Mode Operasi';
+
+  @override
+  String get settingsOnlineStoreUrl => 'URL Dasar Toko Online';
+
+  @override
+  String get settingsWebhookUrl => 'URL Webhook (Transaksi)';
+
+  @override
+  String get settingsDisplayConfig => 'Konfigurasi Tampilan';
+
+  @override
+  String get settingsShowImage => 'Tampilkan Gambar Produk';
+
+  @override
+  String get settingsShowImageDesc => 'Selalu tampilkan gambar produk di kisi';
+
+  @override
+  String get settingsShowName => 'Tampilkan Nama Produk';
+
+  @override
+  String get settingsShowNameDesc => 'Tampilkan nama produk di kisi';
+
+  @override
+  String get settingsShowStock => 'Tampilkan Stok Produk';
+
+  @override
+  String get settingsShowStockDesc => 'Tampilkan stok yang tersedia di kisi';
+
+  @override
+  String get settingsShowPrice => 'Tampilkan Harga Produk';
+
+  @override
+  String get settingsShowPriceDesc => 'Tampilkan harga produk di kisi';
+
+  @override
+  String get settingsMinDisplayOptions =>
+      'Minimal 2 opsi tampilan harus aktif.';
+
+  @override
+  String get settingsSelfOrder => 'Pengaturan Pesanan Mandiri';
+
+  @override
+  String get settingsEnableSelfOrder => 'Aktifkan Pesanan Mandiri';
+
+  @override
+  String get settingsEnableSelfOrderDesc =>
+      'Aktifkan mode pesanan mandiri hibrida';
+
+  @override
+  String get settingsRequireTableNumber => 'Wajibkan Nomor Meja';
+
+  @override
+  String get settingsRequireTableNumberDesc =>
+      'Pelanggan harus memberikan nomor meja';
+
+  @override
+  String get settingsAllowGuestCheckout => 'Izinkan Checkout Tamu';
+
+  @override
+  String get settingsAllowGuestCheckoutDesc =>
+      'Pelanggan dapat melakukan checkout tanpa registrasi';
+
+  @override
+  String settingsEditTitle(String title) {
+    return 'Ubah $title';
+  }
+
+  @override
+  String get settingsCancel => 'Batal';
+
+  @override
+  String get settingsSave => 'Simpan';
+
+  @override
+  String get settingsClose => 'Tutup';
+
+  @override
+  String get settingsEmpty => '(Kosong)';
+
+  @override
+  String get settingsApp => 'Aplikasi';
+
+  @override
+  String get settingsVersion => 'Versi';
+
+  @override
+  String get settingsTenant => 'Tenant';
+
+  @override
+  String get settingsTenantCode => 'Kode Tenant';
+
+  @override
+  String get settingsStaff => 'Staf';
+
+  @override
+  String get settingsRole => 'Peran';
+
+  @override
+  String get settingsLastBootstrap => 'Bootstrap Terakhir';
+
+  @override
+  String get settingsNever => 'Tidak Pernah';
 }

@@ -24,10 +24,30 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
 
     await databaseService.transaction((txn) async {
       final tenantId = await ensureTenantId(txn, context);
+      final affectedOrderIds = <int>{};
       for (final row in rows) {
-        final didUpsert = await _upsertPaymentRow(txn, tenantId, row);
-        if (didUpsert) {
+        final orderLocalId = await _upsertPaymentRow(txn, tenantId, row);
+        if (orderLocalId != null) {
           upsertedCount += 1;
+          affectedOrderIds.add(orderLocalId);
+        }
+      }
+
+      for (final orderLocalId in affectedOrderIds) {
+        await _refreshOrderPaymentSummary(txn, tenantId, orderLocalId);
+      }
+
+      if (affectedOrderIds.isEmpty) {
+        for (final row in rows) {
+          final orderLocalId = await findOrderLocalId(
+            txn,
+            tenantId,
+            remoteId: V2SyncUtils.asString(row['invoiceid']),
+            idPos: V2SyncUtils.asString(row['id_pos']),
+          );
+          if (orderLocalId != null && affectedOrderIds.add(orderLocalId)) {
+            await _refreshOrderPaymentSummary(txn, tenantId, orderLocalId);
+          }
         }
       }
 
@@ -48,7 +68,7 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
     );
   }
 
-  Future<bool> _upsertPaymentRow(
+  Future<int?> _upsertPaymentRow(
     DatabaseExecutor executor,
     int tenantId,
     Map<String, dynamic> row,
@@ -59,7 +79,7 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
     final paymentModeRemoteId = V2SyncUtils.asString(row['paymentmode']);
 
     if (remoteId == null && idPos == null && invoiceRemoteId == null) {
-      return false;
+      return null;
     }
 
     final orderLocalId = await findOrderLocalId(
@@ -137,6 +157,52 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
       },
     );
 
-    return true;
+    return orderLocalId;
+  }
+
+  Future<void> _refreshOrderPaymentSummary(
+    DatabaseExecutor executor,
+    int tenantId,
+    int orderLocalId,
+  ) async {
+    final aggregateRows = await executor.query(
+      'pos_order_payment',
+      columns: const <String>['SUM(amount) AS total_paid'],
+      where: 'tenant_id = ? AND order_id = ? AND deleted_at IS NULL',
+      whereArgs: <Object?>[tenantId, orderLocalId],
+      limit: 1,
+    );
+    final orderRows = await executor.query(
+      'pos_order',
+      columns: const <String>['total_amount'],
+      where: 'tenant_id = ? AND id = ?',
+      whereArgs: <Object?>[tenantId, orderLocalId],
+      limit: 1,
+    );
+    if (orderRows.isEmpty) {
+      return;
+    }
+
+    final paidAmount = V2SyncUtils.asInt(aggregateRows.first['total_paid']);
+    final totalAmount = V2SyncUtils.asInt(orderRows.first['total_amount']);
+    final totalLeftToPay = totalAmount > paidAmount
+        ? totalAmount - paidAmount
+        : 0;
+    final changeAmount = paidAmount > totalAmount
+        ? paidAmount - totalAmount
+        : 0;
+    final now = V2SyncUtils.nowIso();
+
+    await executor.update(
+      'pos_order',
+      <String, Object?>{
+        'amount_received': paidAmount,
+        'change_amount': changeAmount,
+        'total_left_to_pay_amount': totalLeftToPay,
+        'updated_at': now,
+      },
+      where: 'tenant_id = ? AND id = ?',
+      whereArgs: <Object?>[tenantId, orderLocalId],
+    );
   }
 }

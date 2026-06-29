@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../general/views/general_settings/tablet_landscape/view.dart' show GeneralSettingsSaveAction, GeneralSettingsView;
+
 import '../../../../app/role_access/role_manager.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../device/views/app_update/tablet_landscape/view.dart';
@@ -324,6 +326,51 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                                               ],
                                             ),
                                           ),
+                                          if (selectedCategory.title ==
+                                              l10n.settingsGeneralTitle)
+                                            ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  GeneralSettingsSaveAction
+                                                      .isSaving,
+                                              builder: (context, saving, child) {
+                                                return FilledButton.icon(
+                                                  onPressed: saving
+                                                      ? null
+                                                      : () => GeneralSettingsSaveAction
+                                                          .triggerSave
+                                                          .value++,
+                                                  style: FilledButton.styleFrom(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+                                                    minimumSize: const Size(0, 34),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(8),
+                                                    ),
+                                                  ),
+                                                  icon: saving
+                                                      ? const SizedBox(
+                                                          width: 14,
+                                                          height: 14,
+                                                          child:
+                                                              CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                            color: Colors.white,
+                                                          ),
+                                                        )
+                                                      : const Icon(
+                                                          Icons.save_rounded,
+                                                          size: 16,
+                                                        ),
+                                                  label: const Text(
+                                                    'Simpan',
+                                                    style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.bold,
+                                                        letterSpacing: 0.3,
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
                                         ],
                                       ),
                                     ),

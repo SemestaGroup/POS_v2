@@ -192,7 +192,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              _primaryColor.withOpacity(0.05),
+              _primaryColor.withValues(alpha: 0.05),
               _scaffoldBg,
             ],
           ),
@@ -205,7 +205,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: _primaryColor.withOpacity(0.10),
+                color: _primaryColor.withValues(alpha: 0.10),
               ),
               child: const Icon(
                 CupertinoIcons.arrow_2_circlepath,

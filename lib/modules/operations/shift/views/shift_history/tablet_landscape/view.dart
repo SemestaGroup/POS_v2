@@ -181,7 +181,7 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                       : ListView.separated(
                           padding: const EdgeInsets.all(20),
                           itemCount: _rows.length,
-                          separatorBuilder: (_, __) =>
+                          separatorBuilder: (context, index) =>
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) => _buildCard(
                             _rows[index],
