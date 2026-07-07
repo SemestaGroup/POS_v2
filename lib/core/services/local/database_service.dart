@@ -63,6 +63,13 @@ class DatabaseService {
     if (oldVersion < 3) {
       // printer_device table will be created by schema application
     }
+    if (oldVersion < 4) {
+      // pos_role table will be created by schema application
+    }
+    if (oldVersion < 5) {
+      await _addColumnIfMissing(db, 'shift_session', 'eod_group_id', 'TEXT');
+      // shift_eod_archive will be created by schema application
+    }
   }
 
   Future<void> _addColumnIfMissing(
@@ -172,6 +179,29 @@ class DatabaseService {
     final db = _database;
     _database = null;
     await db?.close();
+  }
+
+  Future<void> resetDatabase() async {
+    final db = await database;
+    await db.execute('PRAGMA foreign_keys = OFF');
+    try {
+      final tableRows = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+      );
+      final tableNames = tableRows
+          .map((row) => row['name']?.toString())
+          .whereType<String>()
+          .where((name) => name.isNotEmpty)
+          .toList(growable: false);
+
+      for (final tableName in tableNames) {
+        await db.delete(tableName);
+      }
+
+      await db.execute("DELETE FROM sqlite_sequence");
+    } finally {
+      await db.execute('PRAGMA foreign_keys = ON');
+    }
   }
 
   Future<List<Map<String, Object?>>> rawQuery(

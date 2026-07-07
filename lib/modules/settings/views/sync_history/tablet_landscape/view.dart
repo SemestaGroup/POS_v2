@@ -43,7 +43,7 @@ class SyncHistoryView extends StatelessWidget {
               OutlinedButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.download_rounded, size: 16),
-                label: const Text('Unduh Log'),
+                label: Text(AppLocalizations.of(context)!.syncDownloadLog),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

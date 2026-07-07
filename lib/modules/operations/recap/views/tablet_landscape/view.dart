@@ -12,13 +12,95 @@ class RecapView extends StatefulWidget {
 
 class _RecapViewState extends State<RecapView> {
   final RecapStore _store = RecapStore.instance;
+  DateTime _selectedArchiveDate = DateTime.now();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _store.refresh();
+      _store.fetchArchives(_selectedArchiveDate);
     });
+  }
+
+  Future<void> _handleEod(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.fact_check_rounded, color: Colors.red.shade600, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Text(
+              'End of Day (EOD)',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+        content: const SizedBox(
+          width: 320,
+          child: Text(
+            'Aksi ini akan mencetak struk rekapitulasi semua shift tertutup saat ini dan mengarsipkannya. Apakah Anda yakin ingin melanjutkan?',
+            style: TextStyle(fontSize: 12, height: 1.4),
+          ),
+        ),
+        actions: [
+          OutlinedButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal', style: TextStyle(fontSize: 12)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+            child: const Text('Proses EOD', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    await _store.executeEndOfDay();
+    if (mounted) {
+      if (_store.snapshotNotifier.value.errorMessage != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_store.snapshotNotifier.value.errorMessage!),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('End of Day berhasil diproses.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _store.fetchArchives(_selectedArchiveDate);
+      }
+    }
+  }
+
+  Future<void> _pickDate(BuildContext context) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedArchiveDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (date != null && mounted) {
+      setState(() => _selectedArchiveDate = date);
+      _store.fetchArchives(date);
+    }
   }
 
   @override
@@ -27,70 +109,244 @@ class _RecapViewState extends State<RecapView> {
     final primaryColor = theme.colorScheme.primary;
     final currencyFmt = NumberFormat('#,###', 'id_ID');
 
-    return ValueListenableBuilder<RecapSnapshot>(
-      valueListenable: _store.snapshotNotifier,
-      builder: (context, snapshot, _) {
-        if (snapshot.isLoading && snapshot.shifts.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (snapshot.errorMessage != null && snapshot.shifts.isEmpty) {
-          return Center(
-            child: Text(
-              snapshot.errorMessage!,
-              style: TextStyle(color: Colors.red.shade600),
-            ),
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              color: Colors.white,
-              child: Row(
-                children: [
-                  Icon(Icons.history_rounded, color: primaryColor, size: 18),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Rekap Shift',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    onPressed: _store.refresh,
-                    icon: const Icon(Icons.refresh_rounded, size: 14),
-                    label: const Text('Refresh', style: TextStyle(fontSize: 11)),
-                    style: TextButton.styleFrom(foregroundColor: primaryColor),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: Colors.grey.shade200),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            color: Colors.white,
+            child: Column(
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(child: _card('Total Transaksi', '${snapshot.totalTransactions}', Icons.receipt_long_rounded, primaryColor)),
-                        const SizedBox(width: 10),
-                        Expanded(child: _card('Total Pendapatan', 'Rp ${currencyFmt.format(snapshot.totalRevenue)}', Icons.payments_rounded, const Color(0xFF10B981))),
-                        const SizedBox(width: 10),
-                        Expanded(child: _card('Total Shift', '${snapshot.shifts.length}', Icons.access_time_rounded, const Color(0xFFF59E0B))),
-                      ],
+                    Icon(Icons.history_rounded, color: primaryColor, size: 18),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Rekap & EOD',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                     ),
-                    const SizedBox(height: 18),
-                    _shiftTable(snapshot, currencyFmt),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: () {
+                        _store.refresh();
+                        _store.fetchArchives(_selectedArchiveDate);
+                      },
+                      icon: const Icon(Icons.refresh_rounded, size: 14),
+                      label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                      style: TextButton.styleFrom(foregroundColor: primaryColor),
+                    ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                TabBar(
+                  labelColor: primaryColor,
+                  unselectedLabelColor: Colors.grey.shade600,
+                  indicatorColor: primaryColor,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                  tabs: const [
+                    Tab(text: 'Rekap Saat Ini'),
+                    Tab(text: 'Arsip EOD'),
+                  ],
+                ),
+              ],
             ),
-          ],
-        );
-      },
+          ),
+          Divider(height: 1, color: Colors.grey.shade200),
+          Expanded(
+            child: ValueListenableBuilder<RecapSnapshot>(
+              valueListenable: _store.snapshotNotifier,
+              builder: (context, snapshot, _) {
+                return TabBarView(
+                  children: [
+                    _buildCurrentRecap(snapshot, currencyFmt, primaryColor),
+                    _buildArchive(snapshot, currencyFmt, primaryColor),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrentRecap(RecapSnapshot snapshot, NumberFormat currencyFmt, Color primaryColor) {
+    if (snapshot.isLoading && snapshot.shifts.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (snapshot.errorMessage != null && snapshot.shifts.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      snapshot.errorMessage!,
+                      style: TextStyle(color: Colors.red.shade600, fontSize: 12),
+                    ),
+                  ),
+                Row(
+                  children: [
+                    Expanded(child: _card('Total Transaksi', '${snapshot.totalTransactions}', Icons.receipt_long_rounded, primaryColor)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _card('Total Pendapatan', 'Rp ${currencyFmt.format(snapshot.totalRevenue)}', Icons.payments_rounded, const Color(0xFF10B981))),
+                    const SizedBox(width: 10),
+                    Expanded(child: _card('Shift Tertutup', '${snapshot.shifts.length}', Icons.access_time_rounded, const Color(0xFFF59E0B))),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                _shiftTable(snapshot, currencyFmt),
+              ],
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _handleEod(context),
+                icon: const Icon(Icons.print_rounded, size: 16),
+                label: const Text('Cetak & Akhiri Hari (EOD)', style: TextStyle(fontSize: 12)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildArchive(RecapSnapshot snapshot, NumberFormat currencyFmt, Color primaryColor) {
+    final dateFmt = DateFormat('dd MMM yyyy', 'id_ID');
+    final timeFmt = DateFormat('HH:mm', 'id_ID');
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          color: Colors.white,
+          child: Row(
+            children: [
+              const Text('Filter Tanggal:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(width: 12),
+              OutlinedButton.icon(
+                onPressed: () => _pickDate(context),
+                icon: const Icon(Icons.calendar_today_rounded, size: 14),
+                label: Text(dateFmt.format(_selectedArchiveDate), style: const TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: Colors.grey.shade200),
+        Expanded(
+          child: snapshot.isLoading && snapshot.archivedEods.isEmpty
+              ? const Center(child: CircularProgressIndicator())
+              : snapshot.archivedEods.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Tidak ada arsip EOD pada tanggal ini.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: snapshot.archivedEods.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final archive = snapshot.archivedEods[index];
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade200),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.fact_check_rounded, color: Colors.red.shade600, size: 24),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      archive.eodCode,
+                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Waktu EOD: ${timeFmt.format(archive.createdAt)}',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'Rp ${currencyFmt.format(archive.totalRevenue)}',
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFF10B981)),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${archive.totalTransactions} Transaksi',
+                                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(width: 20),
+                              OutlinedButton.icon(
+                                onPressed: () {
+                                  // TODO: Re-print logic
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Fitur cetak ulang segera hadir.')),
+                                  );
+                                },
+                                icon: const Icon(Icons.print_rounded, size: 14),
+                                label: const Text('Cetak', style: TextStyle(fontSize: 11)),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+        ),
+      ],
     );
   }
 
@@ -137,13 +393,23 @@ class _RecapViewState extends State<RecapView> {
     final dateFmt = DateFormat('dd MMM yyyy, HH:mm', 'id_ID');
 
     if (snapshot.shifts.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(
-          child: Text(
-            'Belum ada riwayat shift.',
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade100),
+        ),
+        child: Column(
+          children: [
+            Icon(Icons.check_circle_outline_rounded, size: 40, color: Colors.grey.shade300),
+            const SizedBox(height: 12),
+            Text(
+              'Belum ada shift tertutup untuk direkap.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
         ),
       );
     }
@@ -153,7 +419,11 @@ class _RecapViewState extends State<RecapView> {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          color: const Color(0xFFF9FAFB),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            border: Border.all(color: Colors.grey.shade100),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          ),
           child: const Row(
             children: [
               _ShiftHeader('Nama Shift', 3),
@@ -165,50 +435,60 @@ class _RecapViewState extends State<RecapView> {
             ],
           ),
         ),
-        Divider(height: 1, color: Colors.grey.shade100),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: snapshot.shifts.length,
-          separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade100),
-          itemBuilder: (context, index) {
-            final shift = snapshot.shifts[index];
-            final isOpen = shift.status == 'open';
-            return Container(
-              color: index.isOdd ? Colors.transparent : const Color(0xFFFAFAFB),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-              child: Row(
-                children: [
-                  _ShiftCell(shift.shiftName, 3, bold: true),
-                  _ShiftCell(shift.staffName, 2),
-                  _ShiftCell(dateFmt.format(shift.openedAt), 3),
-                  _ShiftCell(shift.closedAt != null ? dateFmt.format(shift.closedAt!) : '—', 3),
-                  _ShiftCell('Rp ${currencyFmt.format(shift.openingBalance)}', 2),
-                  Expanded(
-                    flex: 2,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isOpen ? const Color(0xFFDBEAFE) : const Color(0xFFF3F4F6),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          isOpen ? 'Open' : 'Closed',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: isOpen ? const Color(0xFF1D4ED8) : const Color(0xFF6B7280),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              left: BorderSide(color: Colors.grey.shade100),
+              right: BorderSide(color: Colors.grey.shade100),
+              bottom: BorderSide(color: Colors.grey.shade100),
+            ),
+            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: snapshot.shifts.length,
+            separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade100),
+            itemBuilder: (context, index) {
+              final shift = snapshot.shifts[index];
+              final isOpen = shift.status == 'open';
+              return Container(
+                color: index.isOdd ? Colors.transparent : const Color(0xFFFAFAFB),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                child: Row(
+                  children: [
+                    _ShiftCell(shift.shiftName, 3, bold: true),
+                    _ShiftCell(shift.staffName, 2),
+                    _ShiftCell(dateFmt.format(shift.openedAt), 3),
+                    _ShiftCell(shift.closedAt != null ? dateFmt.format(shift.closedAt!) : '—', 3),
+                    _ShiftCell('Rp ${currencyFmt.format(shift.openingBalance)}', 2),
+                    Expanded(
+                      flex: 2,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isOpen ? const Color(0xFFFEF2F2) : const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            isOpen ? 'Open' : 'Closed',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: isOpen ? const Color(0xFFDC2626) : const Color(0xFF6B7280),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
     );

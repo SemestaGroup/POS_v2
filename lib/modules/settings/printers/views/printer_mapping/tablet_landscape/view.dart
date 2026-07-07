@@ -1,3 +1,4 @@
+import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../controllers/printer_settings_controller.dart';
@@ -49,7 +50,7 @@ class _PrinterMappingViewState extends State<PrinterMappingView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Printer Mapping', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(AppLocalizations.of(context)!.printerMappingTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               const SizedBox(height: 3),
               const Text(
                 'Map cashier, kitchen, label, and report roles to each printer. Brand filters are optional; empty means print all for that role.',
@@ -131,7 +132,7 @@ class _PrinterMappingViewState extends State<PrinterMappingView> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${_roleLabel(role)} Brand Filter', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(AppLocalizations.of(context)!.printerBrandFilter(_roleLabel(role)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
                   Text(
                     selectedBrands.isEmpty ? 'Empty means print all brands for this role.' : 'Only selected brands will be routed here for this role.',

@@ -105,6 +105,84 @@ class AppLocalizationsEn extends AppLocalizations {
   String get payNow => 'Pay Now';
 
   @override
+  String get paymentScreenTitle => 'Payment';
+
+  @override
+  String get selectPaymentMethod =>
+      'Select a payment method before continuing.';
+
+  @override
+  String get paymentMethodLabel => 'Payment Method';
+
+  @override
+  String get orderTypeLabel => 'Order Type';
+
+  @override
+  String get itemsLabel => 'Items';
+
+  @override
+  String get reviewOrderTitle => 'Review Order';
+
+  @override
+  String get changeLabel => 'Change';
+
+  @override
+  String get totalAmountLabel => 'Total Amount';
+
+  @override
+  String get exactPaymentHint =>
+      'This method will be recorded as an exact payment for the current total.';
+
+  @override
+  String get insertManually => 'Insert Manually';
+
+  @override
+  String get confirmPayment => 'Confirm Payment';
+
+  @override
+  String get paymentConfirmationTitle => 'Confirm Payment';
+
+  @override
+  String get paymentConfirmationSubtitle =>
+      'Make sure the order type, payment method, and total are correct.';
+
+  @override
+  String get paymentSuccessTitle => 'Payment Successful';
+
+  @override
+  String paymentSuccessMessage(String paymentModeName) {
+    return 'Payment has been saved with $paymentModeName and the order is now marked as completed.';
+  }
+
+  @override
+  String get paymentModeUnavailableMessage =>
+      'No payment method is available for this order type yet.';
+
+  @override
+  String get paymentProcessingFailedMessage =>
+      'Payment could not be processed. Please try again.';
+
+  @override
+  String get orderProcessingFailedMessage =>
+      'Order could not be processed. Please try again.';
+
+  @override
+  String get paymentSummaryTitle => 'Payment Summary';
+
+  @override
+  String get paymentAutoMatchedHint =>
+      'This payment method was matched automatically with the current order type.';
+
+  @override
+  String get continueAction => 'Continue';
+
+  @override
+  String get backAction => 'Back';
+
+  @override
+  String get done => 'Done';
+
+  @override
   String get searchProduct => 'Search Product...';
 
   @override
@@ -340,6 +418,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncDataAction => 'Sync Data';
 
   @override
+  String get syncDataStartedMessage => 'Data synchronization started.';
+
+  @override
+  String get syncDataSuccessMessage =>
+      'Catalog, promotions, and customers have been refreshed.';
+
+  @override
+  String syncDataFailedMessage(String message) {
+    return 'Data synchronization failed: $message';
+  }
+
+  @override
   String get closeOutletAction => 'Close Outlet';
 
   @override
@@ -542,8 +632,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loginButton => 'Login';
 
   @override
-  String get loginFormIncomplete =>
-      'Complete email, password, and device ID first.';
+  String get loginFormIncomplete => 'Complete email and password first.';
 
   @override
   String get loginRequiredMessage =>
@@ -573,6 +662,81 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose a user and enter the PIN first.';
 
   @override
+  String get switchStaffTitle => 'Switch Staff';
+
+  @override
+  String get switchStaffSubtitle =>
+      'Please select your account and enter your PIN to continue.';
+
+  @override
+  String get switchStaffLockAppAction => 'Lock App';
+
+  @override
+  String get switchStaffLockedMessage => 'App locked.';
+
+  @override
+  String get switchStaffSyncAction => 'Sync Staff';
+
+  @override
+  String get switchStaffSyncedMessage => 'Staff synced.';
+
+  @override
+  String get switchStaffLogoutLocationAction => 'Logout Location';
+
+  @override
+  String get switchStaffLoggedOutLocationMessage => 'Logged out of location.';
+
+  @override
+  String get switchStaffNoCurrentSession => 'No staff selected';
+
+  @override
+  String get switchStaffCurrentSessionTitle => 'Current Session';
+
+  @override
+  String get switchStaffSelectAccountPrompt => 'Select an account to continue';
+
+  @override
+  String get switchStaffSecureTitle => 'Secure Switch';
+
+  @override
+  String get switchStaffSecureSubtitle =>
+      'Your session is protected\nwith PIN verification';
+
+  @override
+  String get switchStaffRoleAccessTitle => 'Role Based Access';
+
+  @override
+  String get switchStaffRoleAccessSubtitle =>
+      'Access is limited based\non user role';
+
+  @override
+  String get switchStaffAuditTitle => 'Audit Logged';
+
+  @override
+  String get switchStaffAuditSubtitle =>
+      'All staff switches are\nlogged for audit';
+
+  @override
+  String get switchStaffPoweredBy => 'POWERED BY FLINK POS';
+
+  @override
+  String get switchStaffAddStaffAction => 'Add Staff';
+
+  @override
+  String get switchStaffAddStaffSoon => 'Add Staff coming soon!';
+
+  @override
+  String get switchStaffOwnerOnly => 'OWNER ONLY';
+
+  @override
+  String get switchStaffPinRequired => 'PIN is required';
+
+  @override
+  String switchStaffEnterPinFor(String name) {
+    return 'Enter PIN for $name';
+  }
+
+  @override
   String get shiftGateTitle => 'Open Shift First';
 
   @override
@@ -594,6 +758,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get openShiftAction => 'Open Shift And Continue';
+
+  @override
+  String get shiftCloseAddPaymentMethodAction => 'Add Payment Method';
+
+  @override
+  String get shiftCloseAddPaymentMethodTitle => 'Choose Payment Method';
+
+  @override
+  String get shiftCloseNoAdditionalPaymentModes =>
+      'No additional payment methods are available to add.';
+
+  @override
+  String get shiftCloseNoPaymentMethodRecap =>
+      'No non-cash payment recap has been added yet.';
+
+  @override
+  String get shiftCloseNonCashSummaryLabel => 'Total Non-Cash';
 
   @override
   String get chooseBrandTitle => 'Choose Brand';
@@ -1302,4 +1483,167 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsNever => 'Never';
+
+  @override
+  String get enterWithoutShift => 'Enter Without Opening Shift';
+
+  @override
+  String get enterWithoutShiftHint =>
+      'You will enter in read-only mode. Transactions are disabled.';
+
+  @override
+  String get readOnlyWarning =>
+      'View-Only Mode: You cannot process transactions.';
+
+  @override
+  String get readOnlyWarningActiveShift =>
+      'An active shift exists, but you cannot add, remove or edit orders in view-only mode.';
+
+  @override
+  String get printToKitchen => 'Print to Kitchen';
+
+  @override
+  String get delete => 'Delete';
+
+  @override
+  String get printerPairedBluetoothDevices => 'Paired Bluetooth Devices';
+
+  @override
+  String get printerAddProfile => 'Add Profile';
+
+  @override
+  String get printerDeleteTitle => 'Delete Profile';
+
+  @override
+  String get printerTypeSystem => 'System';
+
+  @override
+  String get printerTypeNetwork => 'Network';
+
+  @override
+  String get printerTypeBluetooth => 'Bluetooth';
+
+  @override
+  String get printerTypeUsb => 'USB';
+
+  @override
+  String get printerSupportsAutoCut => 'Supports Auto-Cut';
+
+  @override
+  String get printerActive => 'Active';
+
+  @override
+  String get printerMappingTitle => 'Printer Mapping';
+
+  @override
+  String get printerTestTitle => 'Printer Test';
+
+  @override
+  String get printerTestNoActiveProfile =>
+      'No active printer profile available. Add one first.';
+
+  @override
+  String get printerTestPreviewPrint => 'Preview / Print';
+
+  @override
+  String get storeProfileTitle => 'Store Profile';
+
+  @override
+  String get storeProfileDesc =>
+      'Current tenant identity and public POS/store links';
+
+  @override
+  String get refresh => 'Refresh';
+
+  @override
+  String get storeProfileInventorySettings => 'Inventory Settings';
+
+  @override
+  String get syncCenterTitle => 'Sync Center';
+
+  @override
+  String get syncCenterDesc =>
+      'Observe queue health and trigger lightweight recovery actions.';
+
+  @override
+  String get syncCurrentStatus => 'Current Sync Status';
+
+  @override
+  String get yes => 'Yes';
+
+  @override
+  String get no => 'No';
+
+  @override
+  String get syncFlushQueue => 'Flush Queue';
+
+  @override
+  String get syncRefreshBootstrap => 'Refresh Bootstrap';
+
+  @override
+  String get syncHistoryTitle => 'Sync History';
+
+  @override
+  String get syncHistoryDesc => 'Recent queue activity and local error logs.';
+
+  @override
+  String get syncHistoryNoQueue => 'No recent queue entries.';
+
+  @override
+  String get syncHistoryNoErrors => 'No recent error logs.';
+
+  @override
+  String get logoutConfirmTitle => 'Confirm Logout';
+
+  @override
+  String get logoutConfirmMessage =>
+      'Are you sure you want to log out of this account?';
+
+  @override
+  String get logoutSession => 'Log Out Session';
+
+  @override
+  String get profileInfoTitle => 'Profile Information';
+
+  @override
+  String get profileInfoEmail => 'Registered Email';
+
+  @override
+  String get profileInfoActiveDevice => 'Active Device';
+
+  @override
+  String get profileInfoDeviceId => 'Device ID';
+
+  @override
+  String get profileInfoRegisterId => 'Register ID';
+
+  @override
+  String get syncStart => 'Start Sync';
+
+  @override
+  String get syncDownloadLog => 'Download Log';
+
+  @override
+  String get printerDeleteConfirmMessage =>
+      'Are you sure you want to delete this printer profile?';
+
+  @override
+  String printerBrandFilter(String role) {
+    return '$role Brand Filter';
+  }
+
+  @override
+  String syncStage(String stage) {
+    return 'Stage: $stage';
+  }
+
+  @override
+  String syncBlocking(String status) {
+    return 'Blocking: $status';
+  }
+
+  @override
+  String syncProgress(int progress) {
+    return 'Progress: $progress%';
+  }
 }

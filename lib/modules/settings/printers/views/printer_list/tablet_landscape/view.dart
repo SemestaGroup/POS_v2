@@ -5,6 +5,8 @@ import '../../../models/printer_settings_models.dart';
 import 'dart:convert';
 import 'package:blue_thermal_printer/blue_thermal_printer.dart';
 import '../../../../../../core/services/sync/pos_v2_options_service.dart';
+import '../../../../../../core/services/sync/pos_v2_sync_status_store.dart';
+import '../../../../../../l10n/app_localizations.dart';
 
 class PrinterListView extends StatefulWidget {
   const PrinterListView({super.key});
@@ -28,13 +30,31 @@ class _PrinterListViewState extends State<PrinterListView> {
       _controller.refresh();
       _loadInitialData();
     });
+    PosV2SyncStatusStore.instance.statusNotifier.addListener(_onSyncStatusChanged);
+  }
+
+  @override
+  void dispose() {
+    PosV2SyncStatusStore.instance.statusNotifier.removeListener(_onSyncStatusChanged);
+    super.dispose();
+  }
+
+  void _onSyncStatusChanged() {
+    final status = PosV2SyncStatusStore.instance.statusNotifier.value;
+    if (!status.isSyncing) {
+      _loadInitialData();
+    }
   }
 
   Future<void> _loadInitialData() async {
     final options = await PosV2OptionsService.instance.getLocalOptions();
-    final raw = options['pos_app_settings']?.toString() ?? '{}';
+    final raw = options['pos_app_settings'];
     try {
-      _appSettings = jsonDecode(raw) as Map<String, dynamic>;
+      if (raw is Map) {
+        _appSettings = Map<String, dynamic>.from(raw);
+      } else if (raw is String && raw.isNotEmpty) {
+        _appSettings = jsonDecode(raw) as Map<String, dynamic>;
+      }
     } catch (_) {}
 
     final printing = _appSettings['printing'] is Map<String, dynamic>
@@ -308,7 +328,7 @@ class _PrinterListViewState extends State<PrinterListView> {
                                   OutlinedButton(
                                     onPressed: state.isSaving ? null : () => _delete(context, printer),
                                     style: OutlinedButton.styleFrom(foregroundColor: Colors.red.shade600),
-                                    child: const Text('Delete', style: TextStyle(fontSize: 11)),
+                                    child: Text(AppLocalizations.of(context)!.delete, style: const TextStyle(fontSize: 11)),
                                   ),
                                 ],
                               ),
@@ -319,9 +339,9 @@ class _PrinterListViewState extends State<PrinterListView> {
                   
                   const SizedBox(height: 16),
                   
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text('Paired Bluetooth Devices', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(AppLocalizations.of(context)!.printerPairedBluetoothDevices, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                   ),
                   if (_isLoadingBluetooth)
                     const Center(child: Padding(
@@ -365,7 +385,7 @@ class _PrinterListViewState extends State<PrinterListView> {
                               onPressed: () {
                                 _openEditorWithDevice(context, device);
                               },
-                              child: const Text('Add Profile', style: TextStyle(fontSize: 11)),
+                              child: Text(AppLocalizations.of(context)!.printerAddProfile, style: const TextStyle(fontSize: 11)),
                             )
                           ],
                         ),
@@ -383,11 +403,11 @@ class _PrinterListViewState extends State<PrinterListView> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Printer'),
-        content: Text('Delete ${printer.displayName}?'),
+        title: Text(AppLocalizations.of(context)!.printerDeleteTitle),
+        content: Text(AppLocalizations.of(context)!.printerDeleteConfirmMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
+          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(AppLocalizations.of(context)!.cancel)),
+          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(AppLocalizations.of(context)!.delete)),
         ],
       ),
     );
@@ -436,11 +456,11 @@ class _PrinterListViewState extends State<PrinterListView> {
                     const SizedBox(height: 10),
                     DropdownButtonFormField<String>(
                       initialValue: connectionType,
-                      items: const [
-                        DropdownMenuItem(value: 'system', child: Text('System Print / Browser', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'network', child: Text('Network / LAN', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'bluetooth', child: Text('Bluetooth', style: TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'usb', child: Text('USB', style: TextStyle(fontSize: 12))),
+                      items: [
+                        DropdownMenuItem(value: 'system', child: Text(AppLocalizations.of(context)!.printerTypeSystem, style: const TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'network', child: Text(AppLocalizations.of(context)!.printerTypeNetwork, style: const TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'bluetooth', child: Text(AppLocalizations.of(context)!.printerTypeBluetooth, style: const TextStyle(fontSize: 12))),
+                        DropdownMenuItem(value: 'usb', child: Text(AppLocalizations.of(context)!.printerTypeUsb, style: const TextStyle(fontSize: 12))),
                       ],
                       onChanged: (value) => setDialogState(() => connectionType = value ?? 'system'),
                       decoration: _decoration('Connection Type'),
@@ -511,14 +531,14 @@ class _PrinterListViewState extends State<PrinterListView> {
                       value: autoCut,
                       dense: true,
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Supports Auto Cut', style: TextStyle(fontSize: 12)),
+                      title: Text(AppLocalizations.of(context)!.printerSupportsAutoCut, style: const TextStyle(fontSize: 12)),
                       onChanged: (value) => setDialogState(() => autoCut = value),
                     ),
                     SwitchListTile.adaptive(
                       value: isActive,
                       dense: true,
                       contentPadding: EdgeInsets.zero,
-                      title: const Text('Active', style: TextStyle(fontSize: 12)),
+                      title: Text(AppLocalizations.of(context)!.printerActive, style: const TextStyle(fontSize: 12)),
                       onChanged: (value) => setDialogState(() => isActive = value),
                     ),
                   ],
@@ -526,7 +546,7 @@ class _PrinterListViewState extends State<PrinterListView> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(AppLocalizations.of(context)!.cancel)),
               FilledButton(
                 onPressed: () async {
                   final selectedProfile = kPrinterPaperProfiles.firstWhere(
@@ -574,7 +594,7 @@ class _PrinterListViewState extends State<PrinterListView> {
                     Navigator.of(context).pop();
                   }
                 },
-                child: const Text('Save'),
+                child: Text(AppLocalizations.of(context)!.save),
               ),
             ],
           );

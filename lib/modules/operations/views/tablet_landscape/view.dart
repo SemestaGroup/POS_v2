@@ -122,7 +122,6 @@ class _OperationsShellViewState extends State<OperationsShellView> {
               ? _selectedSubMenuIndex
               : 0;
 
-          final selectedCategory = filteredSubMenus[safeIndex];
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -226,18 +225,9 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    child: AnimatedSwitcher(
-                                      duration: const Duration(milliseconds: 200),
-                                      layoutBuilder: (currentChild, previousChildren) {
-                                        return Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            ...previousChildren,
-                                            ...[currentChild].whereType<Widget>(),
-                                          ],
-                                        );
-                                      },
-                                      child: selectedCategory.view,
+                                    child: IndexedStack(
+                                      index: safeIndex,
+                                      children: filteredSubMenus.map((m) => m.view).toList(),
                                     ),
                                   ),
                                 ],

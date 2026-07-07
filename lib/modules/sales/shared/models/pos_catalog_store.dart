@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/local/database_service.dart';
 import '../../../../core/services/local/product_image_cache_service.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
@@ -278,10 +279,7 @@ class PosCatalogStore {
     if (value.isEmpty) {
       return ''; // No image available — UI will show fallback icon
     }
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    return 'https://flinkaja.com/uploads/products/$value';
+    return AppConstants.getProductImageUrl(value);
   }
 
   static String _formatStock(Object? value) {

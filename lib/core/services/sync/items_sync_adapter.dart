@@ -35,7 +35,7 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
             .map((r) => V2SyncUtils.asString(r['id']))
             .whereType<String>()
             .toList();
-            
+
         final existingMap = <String, String>{};
         if (remoteIds.isNotEmpty) {
           final placeholders = List.filled(remoteIds.length, '?').join(',');
@@ -311,6 +311,50 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
           scopeKey: scopeKey,
           notes: 'Catalog items synced from api/v2/pos-items.',
         );
+      });
+    }
+
+    if (query == null || query.isEmpty) {
+      await databaseService.transaction((txn) async {
+        final tenantId = await ensureTenantId(txn, context);
+        final now = V2SyncUtils.nowIso();
+
+        final allRemoteIds = rows
+            .map((r) => V2SyncUtils.asString(r['id']))
+            .whereType<String>()
+            .toSet();
+
+        final existingRows = await txn.query(
+          'product',
+          columns: const <String>['remote_id'],
+          where: 'tenant_id = ? AND deleted_at IS NULL',
+          whereArgs: <Object?>[tenantId],
+        );
+
+        final toDelete = <String>[];
+        for (final row in existingRows) {
+          final rid = row['remote_id'] as String?;
+          if (rid != null && !allRemoteIds.contains(rid)) {
+            toDelete.add(rid);
+          }
+        }
+
+        if (toDelete.isNotEmpty) {
+          for (var i = 0; i < toDelete.length; i += 50) {
+            final chunk = toDelete.skip(i).take(50).toList();
+            final placeholders = List.filled(chunk.length, '?').join(',');
+            await txn.update(
+              'product',
+              <String, Object?>{
+                'deleted_at': now,
+                'status': 'inactive',
+                'updated_at': now,
+              },
+              where: 'tenant_id = ? AND remote_id IN ($placeholders)',
+              whereArgs: <Object?>[tenantId, ...chunk],
+            );
+          }
+        }
       });
     }
 

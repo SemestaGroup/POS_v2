@@ -278,6 +278,144 @@ abstract class AppLocalizations {
   /// **'Pay Now'**
   String get payNow;
 
+  /// No description provided for @paymentScreenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment'**
+  String get paymentScreenTitle;
+
+  /// No description provided for @selectPaymentMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a payment method before continuing.'**
+  String get selectPaymentMethod;
+
+  /// No description provided for @paymentMethodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Method'**
+  String get paymentMethodLabel;
+
+  /// No description provided for @orderTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Order Type'**
+  String get orderTypeLabel;
+
+  /// No description provided for @itemsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Items'**
+  String get itemsLabel;
+
+  /// No description provided for @reviewOrderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Order'**
+  String get reviewOrderTitle;
+
+  /// No description provided for @changeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get changeLabel;
+
+  /// No description provided for @totalAmountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Amount'**
+  String get totalAmountLabel;
+
+  /// No description provided for @exactPaymentHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This method will be recorded as an exact payment for the current total.'**
+  String get exactPaymentHint;
+
+  /// No description provided for @insertManually.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert Manually'**
+  String get insertManually;
+
+  /// No description provided for @confirmPayment.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Payment'**
+  String get confirmPayment;
+
+  /// No description provided for @paymentConfirmationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Payment'**
+  String get paymentConfirmationTitle;
+
+  /// No description provided for @paymentConfirmationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Make sure the order type, payment method, and total are correct.'**
+  String get paymentConfirmationSubtitle;
+
+  /// No description provided for @paymentSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Successful'**
+  String get paymentSuccessTitle;
+
+  /// No description provided for @paymentSuccessMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment has been saved with {paymentModeName} and the order is now marked as completed.'**
+  String paymentSuccessMessage(String paymentModeName);
+
+  /// No description provided for @paymentModeUnavailableMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'No payment method is available for this order type yet.'**
+  String get paymentModeUnavailableMessage;
+
+  /// No description provided for @paymentProcessingFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment could not be processed. Please try again.'**
+  String get paymentProcessingFailedMessage;
+
+  /// No description provided for @orderProcessingFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Order could not be processed. Please try again.'**
+  String get orderProcessingFailedMessage;
+
+  /// No description provided for @paymentSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment Summary'**
+  String get paymentSummaryTitle;
+
+  /// No description provided for @paymentAutoMatchedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This payment method was matched automatically with the current order type.'**
+  String get paymentAutoMatchedHint;
+
+  /// No description provided for @continueAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get continueAction;
+
+  /// No description provided for @backAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Back'**
+  String get backAction;
+
+  /// No description provided for @done.
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get done;
+
   /// No description provided for @searchProduct.
   ///
   /// In en, this message translates to:
@@ -722,6 +860,24 @@ abstract class AppLocalizations {
   /// **'Sync Data'**
   String get syncDataAction;
 
+  /// No description provided for @syncDataStartedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Data synchronization started.'**
+  String get syncDataStartedMessage;
+
+  /// No description provided for @syncDataSuccessMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Catalog, promotions, and customers have been refreshed.'**
+  String get syncDataSuccessMessage;
+
+  /// No description provided for @syncDataFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Data synchronization failed: {message}'**
+  String syncDataFailedMessage(String message);
+
   /// No description provided for @closeOutletAction.
   ///
   /// In en, this message translates to:
@@ -1103,7 +1259,7 @@ abstract class AppLocalizations {
   /// No description provided for @loginFormIncomplete.
   ///
   /// In en, this message translates to:
-  /// **'Complete email, password, and device ID first.'**
+  /// **'Complete email and password first.'**
   String get loginFormIncomplete;
 
   /// No description provided for @loginRequiredMessage.
@@ -1154,6 +1310,144 @@ abstract class AppLocalizations {
   /// **'Choose a user and enter the PIN first.'**
   String get switchAccountIncomplete;
 
+  /// No description provided for @switchStaffTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch Staff'**
+  String get switchStaffTitle;
+
+  /// No description provided for @switchStaffSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select your account and enter your PIN to continue.'**
+  String get switchStaffSubtitle;
+
+  /// No description provided for @switchStaffLockAppAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Lock App'**
+  String get switchStaffLockAppAction;
+
+  /// No description provided for @switchStaffLockedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'App locked.'**
+  String get switchStaffLockedMessage;
+
+  /// No description provided for @switchStaffSyncAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Staff'**
+  String get switchStaffSyncAction;
+
+  /// No description provided for @switchStaffSyncedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff synced.'**
+  String get switchStaffSyncedMessage;
+
+  /// No description provided for @switchStaffLogoutLocationAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout Location'**
+  String get switchStaffLogoutLocationAction;
+
+  /// No description provided for @switchStaffLoggedOutLocationMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Logged out of location.'**
+  String get switchStaffLoggedOutLocationMessage;
+
+  /// No description provided for @switchStaffNoCurrentSession.
+  ///
+  /// In en, this message translates to:
+  /// **'No staff selected'**
+  String get switchStaffNoCurrentSession;
+
+  /// No description provided for @switchStaffCurrentSessionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Session'**
+  String get switchStaffCurrentSessionTitle;
+
+  /// No description provided for @switchStaffSelectAccountPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an account to continue'**
+  String get switchStaffSelectAccountPrompt;
+
+  /// No description provided for @switchStaffSecureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Secure Switch'**
+  String get switchStaffSecureTitle;
+
+  /// No description provided for @switchStaffSecureSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your session is protected\nwith PIN verification'**
+  String get switchStaffSecureSubtitle;
+
+  /// No description provided for @switchStaffRoleAccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Role Based Access'**
+  String get switchStaffRoleAccessTitle;
+
+  /// No description provided for @switchStaffRoleAccessSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Access is limited based\non user role'**
+  String get switchStaffRoleAccessSubtitle;
+
+  /// No description provided for @switchStaffAuditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Audit Logged'**
+  String get switchStaffAuditTitle;
+
+  /// No description provided for @switchStaffAuditSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All staff switches are\nlogged for audit'**
+  String get switchStaffAuditSubtitle;
+
+  /// No description provided for @switchStaffPoweredBy.
+  ///
+  /// In en, this message translates to:
+  /// **'POWERED BY FLINK POS'**
+  String get switchStaffPoweredBy;
+
+  /// No description provided for @switchStaffAddStaffAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Staff'**
+  String get switchStaffAddStaffAction;
+
+  /// No description provided for @switchStaffAddStaffSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Staff coming soon!'**
+  String get switchStaffAddStaffSoon;
+
+  /// No description provided for @switchStaffOwnerOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'OWNER ONLY'**
+  String get switchStaffOwnerOnly;
+
+  /// No description provided for @switchStaffPinRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'PIN is required'**
+  String get switchStaffPinRequired;
+
+  /// No description provided for @switchStaffEnterPinFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter PIN for {name}'**
+  String switchStaffEnterPinFor(String name);
+
   /// No description provided for @shiftGateTitle.
   ///
   /// In en, this message translates to:
@@ -1195,6 +1489,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Shift And Continue'**
   String get openShiftAction;
+
+  /// No description provided for @shiftCloseAddPaymentMethodAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Payment Method'**
+  String get shiftCloseAddPaymentMethodAction;
+
+  /// No description provided for @shiftCloseAddPaymentMethodTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Payment Method'**
+  String get shiftCloseAddPaymentMethodTitle;
+
+  /// No description provided for @shiftCloseNoAdditionalPaymentModes.
+  ///
+  /// In en, this message translates to:
+  /// **'No additional payment methods are available to add.'**
+  String get shiftCloseNoAdditionalPaymentModes;
+
+  /// No description provided for @shiftCloseNoPaymentMethodRecap.
+  ///
+  /// In en, this message translates to:
+  /// **'No non-cash payment recap has been added yet.'**
+  String get shiftCloseNoPaymentMethodRecap;
+
+  /// No description provided for @shiftCloseNonCashSummaryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Non-Cash'**
+  String get shiftCloseNonCashSummaryLabel;
 
   /// No description provided for @chooseBrandTitle.
   ///
@@ -2477,6 +2801,300 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Never'**
   String get settingsNever;
+
+  /// No description provided for @enterWithoutShift.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Without Opening Shift'**
+  String get enterWithoutShift;
+
+  /// No description provided for @enterWithoutShiftHint.
+  ///
+  /// In en, this message translates to:
+  /// **'You will enter in read-only mode. Transactions are disabled.'**
+  String get enterWithoutShiftHint;
+
+  /// No description provided for @readOnlyWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'View-Only Mode: You cannot process transactions.'**
+  String get readOnlyWarning;
+
+  /// No description provided for @readOnlyWarningActiveShift.
+  ///
+  /// In en, this message translates to:
+  /// **'An active shift exists, but you cannot add, remove or edit orders in view-only mode.'**
+  String get readOnlyWarningActiveShift;
+
+  /// No description provided for @printToKitchen.
+  ///
+  /// In en, this message translates to:
+  /// **'Print to Kitchen'**
+  String get printToKitchen;
+
+  /// No description provided for @delete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get delete;
+
+  /// No description provided for @printerPairedBluetoothDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'Paired Bluetooth Devices'**
+  String get printerPairedBluetoothDevices;
+
+  /// No description provided for @printerAddProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Profile'**
+  String get printerAddProfile;
+
+  /// No description provided for @printerDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Profile'**
+  String get printerDeleteTitle;
+
+  /// No description provided for @printerTypeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get printerTypeSystem;
+
+  /// No description provided for @printerTypeNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get printerTypeNetwork;
+
+  /// No description provided for @printerTypeBluetooth.
+  ///
+  /// In en, this message translates to:
+  /// **'Bluetooth'**
+  String get printerTypeBluetooth;
+
+  /// No description provided for @printerTypeUsb.
+  ///
+  /// In en, this message translates to:
+  /// **'USB'**
+  String get printerTypeUsb;
+
+  /// No description provided for @printerSupportsAutoCut.
+  ///
+  /// In en, this message translates to:
+  /// **'Supports Auto-Cut'**
+  String get printerSupportsAutoCut;
+
+  /// No description provided for @printerActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get printerActive;
+
+  /// No description provided for @printerMappingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Printer Mapping'**
+  String get printerMappingTitle;
+
+  /// No description provided for @printerTestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Printer Test'**
+  String get printerTestTitle;
+
+  /// No description provided for @printerTestNoActiveProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'No active printer profile available. Add one first.'**
+  String get printerTestNoActiveProfile;
+
+  /// No description provided for @printerTestPreviewPrint.
+  ///
+  /// In en, this message translates to:
+  /// **'Preview / Print'**
+  String get printerTestPreviewPrint;
+
+  /// No description provided for @storeProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Store Profile'**
+  String get storeProfileTitle;
+
+  /// No description provided for @storeProfileDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Current tenant identity and public POS/store links'**
+  String get storeProfileDesc;
+
+  /// No description provided for @refresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get refresh;
+
+  /// No description provided for @storeProfileInventorySettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Inventory Settings'**
+  String get storeProfileInventorySettings;
+
+  /// No description provided for @syncCenterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync Center'**
+  String get syncCenterTitle;
+
+  /// No description provided for @syncCenterDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Observe queue health and trigger lightweight recovery actions.'**
+  String get syncCenterDesc;
+
+  /// No description provided for @syncCurrentStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Current Sync Status'**
+  String get syncCurrentStatus;
+
+  /// No description provided for @yes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get yes;
+
+  /// No description provided for @no.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get no;
+
+  /// No description provided for @syncFlushQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'Flush Queue'**
+  String get syncFlushQueue;
+
+  /// No description provided for @syncRefreshBootstrap.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh Bootstrap'**
+  String get syncRefreshBootstrap;
+
+  /// No description provided for @syncHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync History'**
+  String get syncHistoryTitle;
+
+  /// No description provided for @syncHistoryDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent queue activity and local error logs.'**
+  String get syncHistoryDesc;
+
+  /// No description provided for @syncHistoryNoQueue.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent queue entries.'**
+  String get syncHistoryNoQueue;
+
+  /// No description provided for @syncHistoryNoErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'No recent error logs.'**
+  String get syncHistoryNoErrors;
+
+  /// No description provided for @logoutConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm Logout'**
+  String get logoutConfirmTitle;
+
+  /// No description provided for @logoutConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to log out of this account?'**
+  String get logoutConfirmMessage;
+
+  /// No description provided for @logoutSession.
+  ///
+  /// In en, this message translates to:
+  /// **'Log Out Session'**
+  String get logoutSession;
+
+  /// No description provided for @profileInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile Information'**
+  String get profileInfoTitle;
+
+  /// No description provided for @profileInfoEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Registered Email'**
+  String get profileInfoEmail;
+
+  /// No description provided for @profileInfoActiveDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Device'**
+  String get profileInfoActiveDevice;
+
+  /// No description provided for @profileInfoDeviceId.
+  ///
+  /// In en, this message translates to:
+  /// **'Device ID'**
+  String get profileInfoDeviceId;
+
+  /// No description provided for @profileInfoRegisterId.
+  ///
+  /// In en, this message translates to:
+  /// **'Register ID'**
+  String get profileInfoRegisterId;
+
+  /// No description provided for @syncStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Sync'**
+  String get syncStart;
+
+  /// No description provided for @syncDownloadLog.
+  ///
+  /// In en, this message translates to:
+  /// **'Download Log'**
+  String get syncDownloadLog;
+
+  /// No description provided for @printerDeleteConfirmMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this printer profile?'**
+  String get printerDeleteConfirmMessage;
+
+  /// No description provided for @printerBrandFilter.
+  ///
+  /// In en, this message translates to:
+  /// **'{role} Brand Filter'**
+  String printerBrandFilter(String role);
+
+  /// No description provided for @syncStage.
+  ///
+  /// In en, this message translates to:
+  /// **'Stage: {stage}'**
+  String syncStage(String stage);
+
+  /// No description provided for @syncBlocking.
+  ///
+  /// In en, this message translates to:
+  /// **'Blocking: {status}'**
+  String syncBlocking(String status);
+
+  /// No description provided for @syncProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress: {progress}%'**
+  String syncProgress(int progress);
 }
 
 class _AppLocalizationsDelegate

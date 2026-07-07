@@ -1,3 +1,4 @@
+import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
@@ -70,15 +71,15 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Konfirmasi Keluar',
-            style: TextStyle(fontWeight: FontWeight.w700)),
-        content: const Text(
-          'Apakah Anda yakin ingin keluar dari sesi ini? Anda harus login kembali menggunakan PIN atau password.',
+        title: Text(AppLocalizations.of(context)!.logoutConfirmTitle,
+            style: const TextStyle(fontWeight: FontWeight.w700)),
+        content: Text(
+          AppLocalizations.of(context)!.logoutConfirmMessage,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Batal'),
+            child: Text(AppLocalizations.of(context)!.cancel),
           ),
           FilledButton(
             onPressed: () {
@@ -86,7 +87,7 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
               _performLogout();
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
-            child: const Text('Keluar'),
+            child: Text(AppLocalizations.of(context)!.logoutSession),
           ),
         ],
       ),
@@ -199,7 +200,7 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
                     FilledButton.icon(
                       onPressed: _confirmLogout,
                       icon: const Icon(Icons.logout_rounded, size: 16),
-                      label: const Text('Keluar Sesi'),
+                      label: Text(AppLocalizations.of(context)!.logoutSession),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         padding: const EdgeInsets.symmetric(
@@ -209,19 +210,19 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
                   ],
                 ),
                 const SizedBox(height: 32),
-                const Text(
-                  'Informasi Profil',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context)!.profileInfoTitle,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A1D2E),
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildInfoRow('Email Terdaftar', _staffEmail),
-                _buildInfoRow('Perangkat Aktif', _deviceName),
-                _buildInfoRow('Device ID', _deviceId),
-                _buildInfoRow('Register ID', _registerId, isLast: true),
+                _buildInfoRow(AppLocalizations.of(context)!.profileInfoEmail, _staffEmail),
+                _buildInfoRow(AppLocalizations.of(context)!.profileInfoActiveDevice, _deviceName),
+                _buildInfoRow(AppLocalizations.of(context)!.profileInfoDeviceId, _deviceId),
+                _buildInfoRow(AppLocalizations.of(context)!.profileInfoRegisterId, _registerId, isLast: true),
               ],
             ),
           ),

@@ -24,6 +24,26 @@ class _ShiftOpenViewState extends State<ShiftOpenView> {
   void initState() {
     super.initState();
     ActiveShiftStore.instance.refresh();
+    _setDefaultShiftName();
+  }
+
+  void _setDefaultShiftName() {
+    final now = DateTime.now();
+    
+    final staffName = PosV2RuntimeSessionStore.instance.currentSession?.staffFullName ?? 'Kasir';
+    final firstName = staffName.split(' ').first;
+    
+    final hour = now.hour;
+    String period = 'Pagi';
+    if (hour >= 11 && hour < 15) {
+      period = 'Siang';
+    } else if (hour >= 15 && hour < 18) {
+      period = 'Sore';
+    } else if (hour >= 18 || hour < 4) {
+      period = 'Malam';
+    }
+    
+    _shiftNameController.text = '$firstName $period';
   }
 
   @override
@@ -161,7 +181,8 @@ class _ShiftOpenViewState extends State<ShiftOpenView> {
                     ],
 
                     // ── Open Shift Form ─────────────────────────────────────────
-                    _buildOpenShiftForm(theme, primaryColor, l10n, activeShift),
+                    if (activeShift == null)
+                      _buildOpenShiftForm(theme, primaryColor, l10n, activeShift),
                   ],
                 ),
               ),

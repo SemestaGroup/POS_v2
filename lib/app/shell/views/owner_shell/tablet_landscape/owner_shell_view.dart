@@ -8,6 +8,7 @@ import '../../../../../modules/master_data/views/tablet_landscape/view.dart';
 import '../../../../../modules/settings/views/tablet_landscape/view.dart';
 import '../../../widgets/sidebar_widget.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../../modules/operations/shift/models/active_shift_store.dart';
 
 class OwnerShellView extends StatefulWidget {
   const OwnerShellView({super.key});
@@ -124,7 +125,10 @@ class _OwnerShellViewState extends State<OwnerShellView> {
       case 0:
         return const OwnerOverviewView(key: ValueKey('owner_overview'));
       case 1:
-        return const PosWorkspaceView(key: ValueKey('owner_sales'));
+        return PosWorkspaceView(
+          key: const ValueKey('owner_sales'),
+          isReadOnly: ActiveShiftStore.instance.isReadOnly,
+        );
       case 2:
         return const OperationsShellView(key: ValueKey('owner_operations'));
       case 3:

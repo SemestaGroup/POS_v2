@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import '../../../../core/constants/app_constants.dart';
 
 import '../../../../core/services/local/database_service.dart';
 import '../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../operations/stores/operations_read_stores.dart';
 
 class SalesOrderLineItem {
   const SalesOrderLineItem({
@@ -84,6 +86,48 @@ class SalesOrderRecord {
   int get totalAmount =>
       (subtotalAmount - orderLevelDiscountAmount).clamp(0, 1 << 31);
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
+}
+
+class SalesPaymentModeOption {
+  const SalesPaymentModeOption({
+    required this.remoteId,
+    required this.name,
+    this.description,
+    this.selectedByDefault = false,
+  });
+
+  final String remoteId;
+  final String name;
+  final String? description;
+  final bool selectedByDefault;
+}
+
+class SalesPaymentModeSnapshot {
+  const SalesPaymentModeSnapshot({
+    required this.options,
+    this.preselectedRemoteId,
+    this.matchedByOrderType = false,
+  });
+
+  final List<SalesPaymentModeOption> options;
+  final String? preselectedRemoteId;
+  final bool matchedByOrderType;
+}
+
+class _PaymentModeResolution {
+  const _PaymentModeResolution({
+    required this.options,
+    required this.allowedRemoteIds,
+    this.selectedRemoteId,
+    this.selectedName,
+    this.matchedByOrderType = false,
+  });
+
+  final List<SalesPaymentModeOption> options;
+  final List<String> allowedRemoteIds;
+  final String? selectedRemoteId;
+  final String? selectedName;
+  final bool matchedByOrderType;
 }
 
 class SalesOrderStore {
@@ -293,7 +337,7 @@ class SalesOrderStore {
     }
   }
 
-  void createOrder({
+  Future<void> createOrder({
     required int statusCode,
     required List<SalesOrderLineItem> items,
     required String customerName,
@@ -311,7 +355,10 @@ class SalesOrderStore {
     String? existingOrderId,
     String? existingOrderToken,
     DateTime? existingCreatedAt,
-  }) {
+    String? paymentModeRemoteId,
+    String? paymentModeName,
+    bool processQueueNow = false,
+  }) async {
     if (items.isEmpty) {
       return;
     }
@@ -349,7 +396,37 @@ class SalesOrderStore {
       record,
       ...recordsNotifier.value.where((item) => item.id != record.id),
     ];
-    unawaited(_persistOrderRecord(record));
+    await _persistOrderRecord(
+      record,
+      paymentModeRemoteId: paymentModeRemoteId,
+      paymentModeName: paymentModeName,
+      processQueueNow: processQueueNow,
+    );
+  }
+
+  Future<SalesPaymentModeSnapshot> loadPaymentModeSnapshot({
+    required Iterable<String> orderTypes,
+  }) async {
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session == null) {
+      return const SalesPaymentModeSnapshot(
+        options: <SalesPaymentModeOption>[],
+      );
+    }
+
+    final database = await DatabaseService.instance.database;
+    final resolution = await _resolvePaymentModeResolution(
+      database,
+      session.tenantId,
+      orderTypes: orderTypes,
+    );
+    return SalesPaymentModeSnapshot(
+      options: resolution.options,
+      preselectedRemoteId: resolution.selectedRemoteId,
+      matchedByOrderType: resolution.matchedByOrderType,
+    );
   }
 
   List<SalesOrderRecord> recordsForStatuses(Set<int> statusCodes) {
@@ -380,7 +457,12 @@ class SalesOrderStore {
     resumeOrderNotifier.value = null;
   }
 
-  Future<void> _persistOrderRecord(SalesOrderRecord record) async {
+  Future<void> _persistOrderRecord(
+    SalesOrderRecord record, {
+    String? paymentModeRemoteId,
+    String? paymentModeName,
+    bool processQueueNow = false,
+  }) async {
     final session =
         PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
@@ -418,7 +500,6 @@ class SalesOrderStore {
           'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
           'sale_staff_remote_id': session.staffId,
-          'formatted_number': record.token,
           'order_date': _formatSqlDate(record.createdAt),
           'business_date': _formatSqlDate(record.createdAt),
           'currency_remote_id': defaultCurrencyId.toString(),
@@ -453,7 +534,6 @@ class SalesOrderStore {
           'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
           'sale_staff_remote_id': session.staffId,
-          'formatted_number': record.token,
           'order_date': _formatSqlDate(record.createdAt),
           'business_date': _formatSqlDate(record.createdAt),
           'currency_remote_id': defaultCurrencyId.toString(),
@@ -532,9 +612,13 @@ class SalesOrderStore {
         rows: itemRows,
       );
 
-      final allowedPaymentModes = await _resolveAllowedPaymentModeRemoteIds(
+      final paymentModeResolution = await _resolvePaymentModeResolution(
         txn,
         session.tenantId,
+        orderTypes: record.items
+            .map((item) => item.orderType ?? record.orderType)
+            .followedBy(<String>[record.orderType]),
+        preferredPaymentModeRemoteId: paymentModeRemoteId,
       );
 
       await _enqueueOrderMutation(
@@ -545,31 +629,49 @@ class SalesOrderStore {
         posOrderId,
         existingRemoteId,
         record,
-        allowedPaymentModes: allowedPaymentModes,
+        allowedPaymentModes: paymentModeResolution.allowedRemoteIds,
         operation: hasRemoteOrder ? 'update_order' : 'create_order',
         method: hasRemoteOrder ? 'PUT' : 'POST',
       );
 
       if (record.statusCode == 2) {
-        await _persistOrderPayment(txn, session, posOrderId, record);
+        await _persistOrderPayment(
+          txn,
+          session,
+          posOrderId,
+          record,
+          paymentModeRemoteId:
+              paymentModeResolution.selectedRemoteId ?? paymentModeRemoteId,
+          paymentModeName:
+              paymentModeResolution.selectedName ?? paymentModeName,
+        );
       }
     });
 
-    unawaited(PosV2SyncQueueProcessor.instance.flushPending());
+    if (processQueueNow) {
+      // Flush only this order's queue items so we don't accidentally send
+      // unrelated pending orders from other sessions at the same time.
+      await PosV2SyncQueueProcessor.instance.flushForOrder(record.id);
+      // Then flush any remaining items (e.g. leftover from prior sessions)
+      // in the background so the UI is not blocked.
+      unawaited(PosV2SyncQueueProcessor.instance.flushPending());
+    } else {
+      unawaited(PosV2SyncQueueProcessor.instance.flushPending());
+    }
     await refreshFromPersistence();
+    unawaited(RecapStore.instance.refresh());
+    unawaited(CashFlowStore.instance.refresh());
   }
 
   Future<void> _persistOrderPayment(
     dynamic txn,
     PosV2RuntimeSession session,
     int posOrderId,
-    SalesOrderRecord record,
-  ) async {
+    SalesOrderRecord record, {
+    String? paymentModeRemoteId,
+    String? paymentModeName,
+  }) async {
     final now = _formatSqlDateTime(DateTime.now());
-    final paymentModeRemoteId = await _resolveDefaultPaymentModeRemoteId(
-      txn,
-      session.tenantId,
-    );
     await DatabaseService.instance.upsertByUnique(
       txn,
       'pos_order_payment',
@@ -582,7 +684,7 @@ class SalesOrderStore {
         'invoice_remote_id': null,
         'id_pos': record.id,
         'payment_mode_remote_id': paymentModeRemoteId,
-        'payment_mode_name_snapshot': paymentModeRemoteId,
+        'payment_mode_name_snapshot': paymentModeName ?? paymentModeRemoteId,
         'amount': record.totalAmount,
         'payment_method': 'pay_now',
         'payment_date': now,
@@ -600,7 +702,7 @@ class SalesOrderStore {
       updateValues: <String, Object?>{
         'order_id': posOrderId,
         'payment_mode_remote_id': paymentModeRemoteId,
-        'payment_mode_name_snapshot': paymentModeRemoteId,
+        'payment_mode_name_snapshot': paymentModeName ?? paymentModeRemoteId,
         'amount': record.totalAmount,
         'payment_date': now,
         'recorded_at': now,
@@ -637,6 +739,143 @@ class SalesOrderStore {
       endpoint: 'api/v2/pos-transaction',
       dedupeKey: 'pos-transaction:pay_now:${record.id}',
       requestBody: payload,
+    );
+  }
+
+  Future<_PaymentModeResolution> _resolvePaymentModeResolution(
+    dynamic executor,
+    int tenantId, {
+    required Iterable<String> orderTypes,
+    String? preferredPaymentModeRemoteId,
+  }) async {
+    final paymentModeRows = await executor.query(
+      'payment_mode',
+      columns: <String>[
+        'remote_id',
+        'name',
+        'description',
+        'selected_by_default',
+      ],
+      where: 'tenant_id = ? AND deleted_at IS NULL AND is_active = 1',
+      whereArgs: <Object?>[tenantId],
+      orderBy: 'selected_by_default DESC, id ASC',
+    );
+    final orderTypeRows = await executor.query(
+      'order_type',
+      columns: <String>['code', 'name'],
+      where: 'tenant_id = ? AND deleted_at IS NULL AND is_active = 1',
+      whereArgs: <Object?>[tenantId],
+      orderBy: 'id ASC',
+    );
+
+    final allOptions = <SalesPaymentModeOption>[];
+    for (final row in paymentModeRows) {
+      final remoteId = row['remote_id']?.toString().trim() ?? '';
+      final name = row['name']?.toString().trim() ?? '';
+      if (remoteId.isEmpty || name.isEmpty) {
+        continue;
+      }
+      allOptions.add(
+        SalesPaymentModeOption(
+          remoteId: remoteId,
+          name: name,
+          description: row['description']?.toString(),
+          selectedByDefault:
+              (row['selected_by_default']?.toString() ?? '').trim() == '1',
+        ),
+      );
+    }
+
+    if (allOptions.isEmpty) {
+      return const _PaymentModeResolution(
+        options: <SalesPaymentModeOption>[],
+        allowedRemoteIds: <String>['1'],
+      );
+    }
+
+    final requestedTokens = orderTypes
+        .map(_normalizeNameToken)
+        .where((token) => token.isNotEmpty)
+        .toSet();
+    final activeOrderTypeTokens = <String>{...requestedTokens};
+    final knownOrderTypeTokens = <String>{};
+    for (final row in orderTypeRows) {
+      final codeToken = _normalizeNameToken(row['code']?.toString());
+      final nameToken = _normalizeNameToken(row['name']?.toString());
+      if (codeToken.isNotEmpty) {
+        knownOrderTypeTokens.add(codeToken);
+      }
+      if (nameToken.isNotEmpty) {
+        knownOrderTypeTokens.add(nameToken);
+      }
+      if (requestedTokens.contains(codeToken) ||
+          requestedTokens.contains(nameToken)) {
+        if (codeToken.isNotEmpty) {
+          activeOrderTypeTokens.add(codeToken);
+        }
+        if (nameToken.isNotEmpty) {
+          activeOrderTypeTokens.add(nameToken);
+        }
+      }
+    }
+
+    final duplicatedModeTokens = allOptions
+        .map((option) => _normalizeNameToken(option.name))
+        .where(knownOrderTypeTokens.contains)
+        .toSet();
+    final matchedOptions = allOptions
+        .where(
+          (option) =>
+              activeOrderTypeTokens.contains(_normalizeNameToken(option.name)),
+        )
+        .toList(growable: false);
+    final matchedByOrderType = matchedOptions.isNotEmpty;
+
+    var filteredOptions = matchedOptions;
+
+    if (filteredOptions.isEmpty) {
+      filteredOptions = allOptions
+          .where(
+            (option) => !duplicatedModeTokens.contains(
+              _normalizeNameToken(option.name),
+            ),
+          )
+          .toList(growable: false);
+    }
+
+    if (filteredOptions.isEmpty) {
+      filteredOptions = allOptions;
+    }
+
+    SalesPaymentModeOption? selectedOption;
+    if (preferredPaymentModeRemoteId != null &&
+        preferredPaymentModeRemoteId.trim().isNotEmpty) {
+      selectedOption = filteredOptions.firstWhere(
+        (option) => option.remoteId == preferredPaymentModeRemoteId.trim(),
+        orElse: () => const SalesPaymentModeOption(remoteId: '', name: ''),
+      );
+      if (selectedOption.remoteId.isEmpty) {
+        selectedOption = null;
+      }
+    }
+    selectedOption ??= filteredOptions.firstWhere(
+      (option) => option.selectedByDefault,
+      orElse: () => filteredOptions.first,
+    );
+
+    final allowedRemoteIds = filteredOptions
+        .map((option) => option.remoteId)
+        .where((value) => value.isNotEmpty)
+        .toList(growable: false);
+
+    return _PaymentModeResolution(
+      options: filteredOptions,
+      allowedRemoteIds: allowedRemoteIds.isNotEmpty
+          ? allowedRemoteIds
+          : const <String>['1'],
+      selectedRemoteId: selectedOption.remoteId,
+      selectedName: selectedOption.name,
+      matchedByOrderType: matchedByOrderType,
     );
   }
 
@@ -753,9 +992,11 @@ class SalesOrderStore {
     final session = PosV2RuntimeSessionStore.instance.currentSession;
     return <String, Object?>{
       'id_pos': record.id,
-      'clientid': record.customerRemoteId,
-      if ((session?.locationId ?? '').isNotEmpty) 'location_id': session!.locationId,
-      if ((session?.registerId ?? '').isNotEmpty) 'register_id': session!.registerId,
+      'clientid': int.tryParse(record.customerRemoteId) ?? 0,
+      if ((session?.locationId ?? '').isNotEmpty)
+        'location_id': session!.locationId,
+      if ((session?.registerId ?? '').isNotEmpty)
+        'register_id': session!.registerId,
       if ((session?.deviceId ?? '').isNotEmpty) 'device_id': session!.deviceId,
       'date': _formatSqlDate(record.createdAt),
       'duedate': _formatSqlDate(record.createdAt),
@@ -767,9 +1008,9 @@ class SalesOrderStore {
           : record.customerName,
       if (!isCreate) 'status': record.statusCode.toString(),
       'order_type': _toBackendOrderTypeCode(record.orderType),
-      'subtotal': record.subtotalAmount.toString(),
-      'manual_discount_value': record.orderLevelDiscountAmount.toString(),
-      'total': record.totalAmount.toString(),
+      'subtotal': record.subtotalAmount,
+      'manual_discount_value': record.orderLevelDiscountAmount,
+      'total': record.totalAmount,
       'prefix': 'POS-',
       'allowed_payment_modes': allowedPaymentModes,
       if (saleAgent != null && saleAgent > 0) 'sale_agent': saleAgent,
@@ -785,7 +1026,7 @@ class SalesOrderStore {
               'description': item.name,
               'long_description': '',
               'qty': item.quantity,
-              'rate': item.activeUnitPrice.toString(),
+              'rate': item.activeUnitPrice,
               'unit': '',
               'taxname': const <String>[],
               'order': index + 1,
@@ -897,48 +1138,6 @@ class SalesOrderStore {
     );
   }
 
-  Future<String?> _resolveDefaultPaymentModeRemoteId(
-    dynamic txn,
-    int tenantId,
-  ) async {
-    final rows = await txn.query(
-      'payment_mode',
-      columns: <String>['remote_id'],
-      where: 'tenant_id = ? AND deleted_at IS NULL AND is_active = 1',
-      whereArgs: <Object?>[tenantId],
-      orderBy: 'selected_by_default DESC, id ASC',
-      limit: 1,
-    );
-    if (rows.isEmpty) {
-      return null;
-    }
-    return rows.first['remote_id']?.toString();
-  }
-
-  Future<List<String>> _resolveAllowedPaymentModeRemoteIds(
-    dynamic txn,
-    int tenantId,
-  ) async {
-    final rows = await txn.query(
-      'payment_mode',
-      columns: <String>['remote_id'],
-      where: 'tenant_id = ? AND deleted_at IS NULL AND is_active = 1',
-      whereArgs: <Object?>[tenantId],
-      orderBy: 'selected_by_default DESC, id ASC',
-    );
-    final ids = <String>[];
-    for (final row in rows) {
-      final value = row['remote_id']?.toString();
-      if (value != null && value.isNotEmpty) {
-        ids.add(value);
-      }
-    }
-    if (ids.isNotEmpty) {
-      return ids;
-    }
-    return const <String>['1'];
-  }
-
   void _recalculateSequence(List<SalesOrderRecord> records) {
     var maxSequence = 0;
     for (final record in records) {
@@ -1007,19 +1206,15 @@ class SalesOrderStore {
   }
 
   String _toBackendOrderTypeCode(String localOrderType) {
-    switch (localOrderType) {
-      case 'take_away':
-        return 'takeaway';
-      case 'shopee_food':
-        return 'shopeefood';
-      case 'go_food':
-        return 'gofood';
-      case 'grab_food':
-        return 'grabfood';
-      case 'dine_in':
-      default:
-        return 'dinein';
+    final normalized = _normalizeNameToken(localOrderType);
+    return normalized.isEmpty ? 'dinein' : normalized;
+  }
+
+  String _normalizeNameToken(String? value) {
+    if (value == null) {
+      return '';
     }
+    return value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   Map<String, Object?>? _optionalField(String key, Object? value) {
@@ -1037,9 +1232,6 @@ class SalesOrderStore {
     if (value.isEmpty) {
       return '';
     }
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    return 'https://flinkaja.com/uploads/products/$value';
+    return AppConstants.getProductImageUrl(value);
   }
 }

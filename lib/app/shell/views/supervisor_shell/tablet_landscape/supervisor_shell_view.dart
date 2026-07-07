@@ -7,6 +7,7 @@ import '../../../../../modules/reports/views/tablet_landscape/view.dart';
 import '../../../../../modules/master_data/views/tablet_landscape/view.dart';
 import '../../../widgets/sidebar_widget.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../../modules/operations/shift/models/active_shift_store.dart';
 
 class SupervisorShellView extends StatefulWidget {
   const SupervisorShellView({super.key});
@@ -127,7 +128,10 @@ class _SupervisorShellViewState extends State<SupervisorShellView> {
       case 0:
         return const SupervisorOverviewView(key: ValueKey('spv_overview'));
       case 1:
-        return const PosWorkspaceView(key: ValueKey('spv_sales'));
+        return PosWorkspaceView(
+          key: const ValueKey('spv_sales'),
+          isReadOnly: ActiveShiftStore.instance.isReadOnly,
+        );
       case 2:
         return const OperationsShellView(key: ValueKey('spv_operations'));
       case 3:

@@ -32,12 +32,21 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     super.initState();
     _loadOptions();
     GeneralSettingsSaveAction.triggerSave.addListener(_onGlobalSaveTriggered);
+    PosV2SyncStatusStore.instance.statusNotifier.addListener(_onSyncStatusChanged);
   }
 
   @override
   void dispose() {
     GeneralSettingsSaveAction.triggerSave.removeListener(_onGlobalSaveTriggered);
+    PosV2SyncStatusStore.instance.statusNotifier.removeListener(_onSyncStatusChanged);
     super.dispose();
+  }
+
+  void _onSyncStatusChanged() {
+    final status = PosV2SyncStatusStore.instance.statusNotifier.value;
+    if (!status.isSyncing && !GeneralSettingsSaveAction.isSaving.value) {
+      _loadOptions();
+    }
   }
 
   void _onGlobalSaveTriggered() {
@@ -229,8 +238,12 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
           builder: (context) {
             Map<String, dynamic> opModeJson = {};
             try {
-              final raw = _options['pos_operating_mode']?.toString() ?? '{}';
-              opModeJson = jsonDecode(raw) as Map<String, dynamic>;
+              final raw = _options['pos_operating_mode'];
+              if (raw is Map) {
+                opModeJson = Map<String, dynamic>.from(raw);
+              } else if (raw is String && raw.isNotEmpty) {
+                opModeJson = jsonDecode(raw) as Map<String, dynamic>;
+              }
             } catch (_) {}
 
             final currentMode = opModeJson['mode']?.toString() ?? 'classic';
@@ -271,7 +284,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
         const SizedBox(height: 8),
         _buildOptionTile(
           l10n.settingsWebhookUrl,
-          _options['pos_transaction_webhook_url']?.toString() ?? '',
+          _options['pos_transaction_webhook_url']?.toString() ?? _options['transaction_webhook_url']?.toString() ?? '',
           Icons.webhook_rounded,
           (val) => _updateOption('pos_transaction_webhook_url', val),
         ),
@@ -286,8 +299,12 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
         // Parse the JSON
         Map<String, dynamic> appSettings = {};
         try {
-          final raw = _options['pos_app_settings']?.toString() ?? '{}';
-          appSettings = jsonDecode(raw) as Map<String, dynamic>;
+          final raw = _options['pos_app_settings'];
+          if (raw is Map) {
+            appSettings = Map<String, dynamic>.from(raw);
+          } else if (raw is String && raw.isNotEmpty) {
+            appSettings = jsonDecode(raw) as Map<String, dynamic>;
+          }
         } catch (_) {}
 
         final display = appSettings['display'] is Map<String, dynamic>
@@ -370,8 +387,12 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
       builder: (context) {
         Map<String, dynamic> selfOrderSettings = {};
         try {
-          final raw = _options['pos_self_order_settings']?.toString() ?? '{}';
-          selfOrderSettings = jsonDecode(raw) as Map<String, dynamic>;
+          final raw = _options['pos_self_order_settings'];
+          if (raw is Map) {
+            selfOrderSettings = Map<String, dynamic>.from(raw);
+          } else if (raw is String && raw.isNotEmpty) {
+            selfOrderSettings = jsonDecode(raw) as Map<String, dynamic>;
+          }
         } catch (_) {}
 
         final enableSelfOrder = selfOrderSettings['enable_self_order'] ?? false;

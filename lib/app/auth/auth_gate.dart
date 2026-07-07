@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../modules/auth/views/merchant_login_wrapper.dart';
-import '../../modules/auth/views/shift_gate_screen.dart';
-import '../../modules/auth/views/sync_bootstrap_screen.dart';
+import '../../modules/auth/views/shift_gate/tablet_landscape/shift_gate_screen.dart';
+import '../../modules/auth/views/sync_bootstrap/tablet_landscape/sync_bootstrap_screen.dart';
 import 'controllers/auth_gate_controller.dart';
 import 'models/auth_gate_state.dart';
 import '../shell/views/main_shell_router.dart';

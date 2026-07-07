@@ -18,8 +18,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _deviceIdController =
-      TextEditingController(text: 'FLINKPOS-V2-DEVICE');
+  final _deviceIdController = TextEditingController();
   final _registerIdController = TextEditingController();
   final MerchantLoginController _loginAction = MerchantLoginController();
 
@@ -61,11 +60,11 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     );
     _slideAnimLeft =
         Tween<Offset>(begin: const Offset(0, 0.08), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
-      ),
-    );
+          CurvedAnimation(
+            parent: _animController,
+            curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _fadeAnimRight = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -75,13 +74,24 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     );
     _slideAnimRight =
         Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.25, 1.0, curve: Curves.easeOutCubic),
-      ),
-    );
+          CurvedAnimation(
+            parent: _animController,
+            curve: const Interval(0.25, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
 
     _animController.forward();
+
+    // Auto-generate a unique human-readable Device ID: FLINKPOS{YYYYMMDDHHmmssSSS}
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final mo = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final h = now.hour.toString().padLeft(2, '0');
+    final mi = now.minute.toString().padLeft(2, '0');
+    final s = now.second.toString().padLeft(2, '0');
+    final ms = now.millisecond.toString().padLeft(3, '0');
+    _deviceIdController.text = 'FLINKPOS$y$mo$d$h$mi$s$ms';
   }
 
   @override
@@ -99,8 +109,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     if (_isLoading) return;
 
     if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.isEmpty ||
-        _deviceIdController.text.trim().isEmpty) {
+        _passwordController.text.isEmpty) {
       setState(() {
         _errorMessage = l10n.loginFormIncomplete;
       });
@@ -200,53 +209,57 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                           child: SlideTransition(
                             position: _slideAnimLeft,
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                              ),
                               child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                // Logo
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(24),
-                                  child: Image.asset(
-                                    'assets/img/main_logo.jpeg',
-                                    width: 200,
-                                    height: 200,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => const Icon(
-                                      Icons.store_rounded,
-                                      size: 120,
-                                      color: Colors.white,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Logo
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(24),
+                                    child: Image.asset(
+                                      'assets/img/main_logo.jpeg',
+                                      width: 200,
+                                      height: 200,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => const Icon(
+                                        Icons.store_rounded,
+                                        size: 120,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 32),
-                                const Text(
-                                  'Flink POS',
-                                  style: TextStyle(
-                                    fontFamily: _fontBold,
-                                    fontSize: 28,
-                                    color: Colors.white,
-                                    letterSpacing: 0.5,
+                                  const SizedBox(height: 32),
+                                  const Text(
+                                    'Flink POS',
+                                    style: TextStyle(
+                                      fontFamily: _fontBold,
+                                      fontSize: 28,
+                                      color: Colors.white,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                                Text(
-                                  l10n.loginHeroTagline,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontFamily: _fontRegular,
-                                    fontSize: 14,
-                                     color: Colors.white.withValues(alpha: 0.80),
-                                    height: 1.6,
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    l10n.loginHeroTagline,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontFamily: _fontRegular,
+                                      fontSize: 14,
+                                      color: Colors.white.withValues(
+                                        alpha: 0.80,
+                                      ),
+                                      height: 1.6,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -259,7 +272,6 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                 color: Colors.white,
                 child: Stack(
                   children: [
-
                     // Form content
                     Positioned.fill(
                       bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -270,31 +282,31 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                             vertical: 24,
                           ),
                           child: FadeTransition(
-                          opacity: _fadeAnimRight,
-                          child: SlideTransition(
-                            position: _slideAnimRight,
-                            child: _buildLoginForm(l10n),
+                            opacity: _fadeAnimRight,
+                            child: SlideTransition(
+                              position: _slideAnimRight,
+                              child: _buildLoginForm(l10n),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  // Top-right corner: language switch + layout toggle
-                  Positioned(
-                    top: 16,
-                    right: 16,
-                    child: FadeTransition(
-                      opacity: _fadeAnimRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _buildLanguageSwitch(),
-                          const SizedBox(width: 8),
-                          _buildLayoutToggle(),
-                        ],
+                    // Top-right corner: language switch + layout toggle
+                    Positioned(
+                      top: 16,
+                      right: 16,
+                      child: FadeTransition(
+                        opacity: _fadeAnimRight,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _buildLanguageSwitch(),
+                            const SizedBox(width: 8),
+                            _buildLayoutToggle(),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                   ],
                 ),
               ),
@@ -365,7 +377,6 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
         ),
         const SizedBox(height: 20),
 
-
         // Error message
         if (_errorMessage != null) ...[
           const SizedBox(height: 20),
@@ -378,8 +389,11 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded,
-                    color: Color(0xFFEF4444), size: 18),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFEF4444),
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -409,9 +423,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
               height: 52,
               child: _isLoading
                   ? const Center(
-                      child: CircularProgressIndicator(
-                        color: _primaryColor,
-                      ),
+                      child: CircularProgressIndicator(color: _primaryColor),
                     )
                   : ElevatedButton(
                       onPressed: () {
@@ -496,18 +508,18 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
                   _isObscured
                       ? Icons.visibility_outlined
                       : Icons.visibility_off_outlined,
-                  color:
-                      _isObscured ? Colors.grey[400] : _primaryColor,
+                  color: _isObscured ? Colors.grey[400] : _primaryColor,
                   size: 20,
                 ),
-                onPressed: () =>
-                    setState(() => _isObscured = !_isObscured),
+                onPressed: () => setState(() => _isObscured = !_isObscured),
               )
             : null,
         filled: true,
         fillColor: _scaffoldBg,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade200),
@@ -539,8 +551,11 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
             child: DropdownButton<String>(
               value: locale.languageCode,
               isDense: true,
-              icon: Icon(Icons.expand_more,
-                  size: 18, color: Colors.grey.shade600),
+              icon: Icon(
+                Icons.expand_more,
+                size: 18,
+                color: Colors.grey.shade600,
+              ),
               style: TextStyle(
                 fontFamily: _fontMedium,
                 fontSize: 12,
@@ -595,11 +610,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: Icon(
-            Icons.smartphone,
-            size: 18,
-            color: Colors.grey.shade600,
-          ),
+          child: Icon(Icons.smartphone, size: 18, color: Colors.grey.shade600),
         ),
       ),
     );

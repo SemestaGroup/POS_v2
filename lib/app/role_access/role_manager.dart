@@ -23,16 +23,21 @@ class RoleManager {
     switch (roleCode?.trim().toLowerCase()) {
       case 'owner':
       case 'admin':
+      case '1':
         return AppRole.owner;
       case 'supervisor':
       case 'spv':
+      case '2':
         return AppRole.supervisor;
       case 'kitchen':
+      case '4':
         return AppRole.kitchen;
       case 'programmer':
       case 'developer':
+      case '5':
         return AppRole.programmer;
       case 'cashier':
+      case '3':
       default:
         return AppRole.cashier;
     }

@@ -43,7 +43,7 @@ class SyncCenterView extends StatelessWidget {
               FilledButton.icon(
                 onPressed: () {},
                 icon: const Icon(Icons.sync_rounded, size: 16),
-                label: const Text('Mulai Sinkronisasi'),
+                label: Text(AppLocalizations.of(context)!.syncStart),
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),

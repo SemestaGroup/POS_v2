@@ -15,6 +15,9 @@ class AuthGateController {
     ActiveShiftStore.instance.activeShiftNotifier.addListener(
       _handleShiftChanged,
     );
+    ActiveShiftStore.instance.readOnlyModeNotifier.addListener(
+      _handleReadOnlyModeChanged,
+    );
   }
 
   static final AuthGateController instance = AuthGateController._();
@@ -33,6 +36,8 @@ class AuthGateController {
   }
 
   void _handleSessionChanged() {
+    // Reset read-only mode on new session (logout/re-login).
+    ActiveShiftStore.instance.exitReadOnlyMode();
     stateNotifier.value = stateNotifier.value.copyWith(isRestoring: true);
     _evaluateSession(PosV2RuntimeSessionStore.instance.currentSession);
   }
@@ -42,6 +47,16 @@ class AuthGateController {
       PosV2RuntimeSessionStore.instance.currentSession,
       isShiftPoll: true,
     );
+  }
+
+  void _handleReadOnlyModeChanged() {
+    // When a non-cashier chooses "enter without shift", navigate to shell.
+    if (ActiveShiftStore.instance.isReadOnly) {
+      stateNotifier.value = stateNotifier.value.copyWith(
+        isRestoring: false,
+        screen: AuthGateScreen.shell,
+      );
+    }
   }
 
   Future<void> _evaluateSession(
@@ -63,11 +78,27 @@ class AuthGateController {
       } else {
         await ActiveShiftStore.instance.refresh();
         final role = RoleManager.fromCode(session.staffRoleCode);
-        final requiresShift =
-            role == AppRole.cashier && (session.staffId?.isNotEmpty ?? false);
-        final needsShiftOpen =
-            requiresShift && ActiveShiftStore.instance.activeShiftNotifier.value == null;
-        nextScreen = needsShiftOpen ? AuthGateScreen.shift : AuthGateScreen.shell;
+        final isCashier = role == AppRole.cashier;
+        final hasActiveShift =
+            ActiveShiftStore.instance.activeShiftNotifier.value != null;
+
+        if (isCashier) {
+          // Cashier must always have an active shift before accessing the shell.
+          final needsShiftOpen =
+              (session.staffId?.isNotEmpty ?? false) && !hasActiveShift;
+          nextScreen =
+              needsShiftOpen ? AuthGateScreen.shift : AuthGateScreen.shell;
+        } else {
+          // Non-cashier (owner/supervisor/etc.):
+          // • If there's already an active shift on this device → go straight to shell (read-only warning shown in UI).
+          // • If no active shift → show ShiftGate where they can open a shift OR enter read-only.
+          // • If readOnlyMode was already set → go to shell (handled by _handleReadOnlyModeChanged, but guard here too).
+          if (hasActiveShift || ActiveShiftStore.instance.isReadOnly) {
+            nextScreen = AuthGateScreen.shell;
+          } else {
+            nextScreen = AuthGateScreen.shift;
+          }
+        }
       }
     }
 

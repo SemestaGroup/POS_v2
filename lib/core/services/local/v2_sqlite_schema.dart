@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 3;
+  static const int version = 5;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS shift_session (
   total_non_cash INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'open',
   note TEXT,
+  eod_group_id TEXT,
   reconciliation_json TEXT,
   raw_payload_json TEXT,
   sync_state TEXT NOT NULL DEFAULT 'clean',
@@ -165,6 +166,27 @@ CREATE INDEX IF NOT EXISTS idx_shift_session_staff_status
 
 CREATE INDEX IF NOT EXISTS idx_shift_session_device
   ON shift_session(tenant_id, source_device_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_shift_session_status
+  ON shift_session(tenant_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_shift_session_eod_group_id
+  ON shift_session(tenant_id, eod_group_id);
+
+CREATE TABLE IF NOT EXISTS shift_eod_archive (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  eod_code TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  total_transactions INTEGER NOT NULL DEFAULT 0,
+  total_revenue INTEGER NOT NULL DEFAULT 0,
+  summary_json TEXT,
+  UNIQUE(tenant_id, eod_code),
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_shift_eod_archive_created_at
+  ON shift_eod_archive(tenant_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_shift_session_register
   ON shift_session(tenant_id, register_id, status);
@@ -342,6 +364,41 @@ CREATE TABLE IF NOT EXISTS brand (
 
 CREATE INDEX IF NOT EXISTS idx_brand_name
   ON brand(tenant_id, name);
+
+CREATE TABLE IF NOT EXISTS staff (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  remote_id TEXT NOT NULL,
+  role_name TEXT,
+  role_code TEXT,
+  first_name TEXT,
+  last_name TEXT,
+  full_name TEXT,
+  email TEXT,
+  phone_number TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  raw_payload_json TEXT,
+  last_synced_at TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  UNIQUE(tenant_id, remote_id),
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS pos_role (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  role_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  raw_payload_json TEXT,
+  last_synced_at TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  UNIQUE(tenant_id, role_id),
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
 
 CREATE TABLE IF NOT EXISTS category (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

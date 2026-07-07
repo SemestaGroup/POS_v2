@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../../../../core/services/local/product_image_cache_service.dart';
+import '../../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../../../../l10n/app_localizations.dart';
 import '../../../../../../../core/services/sync/pos_v2_customer_service.dart';
@@ -16,12 +18,12 @@ import '../../../../../../core/services/sync/pos_v2_options_service.dart';
 import 'dart:convert';
 
 import '../../../../orders/views/tablet_landscape/view.dart';
+import '../../checkout/tablet_landscape/payment_flow_page.dart';
 
 enum _PosQuickAction {
   discount,
   clearOrder,
   cancelOrder,
-  cashFlow,
   syncData,
   closeOutlet,
   settings,
@@ -70,6 +72,7 @@ class _PosCartItem {
     bool? isDiscountEnabled,
     String? orderType,
     String? note,
+    bool clearNote = false,
   }) {
     return _PosCartItem(
       id: id ?? this.id,
@@ -82,7 +85,7 @@ class _PosCartItem {
       promoLabel: promoLabel ?? this.promoLabel,
       isDiscountEnabled: isDiscountEnabled ?? this.isDiscountEnabled,
       orderType: orderType ?? this.orderType,
-      note: note ?? this.note,
+      note: clearNote ? null : (note ?? this.note),
     );
   }
 }
@@ -92,10 +95,14 @@ class PosWorkspaceView extends StatefulWidget {
     super.key,
     this.embedded = false,
     this.onSectionSelected,
+    this.isReadOnly = false,
   });
 
   final bool embedded;
   final ValueChanged<int>? onSectionSelected;
+
+  /// When true, disables all order-writing actions (cashier bypass for non-cashier roles).
+  final bool isReadOnly;
 
   @override
   State<PosWorkspaceView> createState() => _PosWorkspaceViewState();
@@ -115,9 +122,9 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   String? _editingOrderToken;
   DateTime? _editingOrderCreatedAt;
 
-  bool _showProductName = true;
-  bool _showProductStock = true;
-  bool _showProductPrice = true;
+  bool _showProductName = false;
+  bool _showProductStock = false;
+  bool _showProductPrice = false;
 
   bool _isPlaceholderImage(String url) {
     if (url.isEmpty) return true;
@@ -131,6 +138,8 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   String? _selectedBrandName;
   String? _selectedCategoryName;
   PosCustomerRecord? _selectedCustomer;
+  bool _isCommitting = false;
+  bool _isSyncingQuickData = false;
 
   void _handlePendingResumeOrder() {
     final pendingOrder = SalesOrderStore.instance.resumeOrderNotifier.value;
@@ -233,10 +242,14 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
 
   Future<void> _loadDisplaySettings() async {
     final options = await PosV2OptionsService.instance.getLocalOptions();
-    final raw = options['pos_app_settings']?.toString() ?? '{}';
+    final raw = options['pos_app_settings'];
     Map<String, dynamic> appSettings = {};
     try {
-      appSettings = jsonDecode(raw) as Map<String, dynamic>;
+      if (raw is Map) {
+        appSettings = Map<String, dynamic>.from(raw);
+      } else if (raw is String && raw.isNotEmpty) {
+        appSettings = jsonDecode(raw) as Map<String, dynamic>;
+      }
     } catch (_) {}
 
     final display = appSettings['display'] is Map<String, dynamic>
@@ -609,6 +622,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         quantity: remainingQuantity,
         orderType: orderType,
         note: note,
+        clearNote: note == null || note.isEmpty,
         isDiscountEnabled: isDiscountEnabled,
       );
       _cartItems.insert(
@@ -618,6 +632,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           quantity: safeSplitQuantity,
           orderType: orderType,
           note: note,
+          clearNote: note == null || note.isEmpty,
           isDiscountEnabled: isDiscountEnabled,
         ),
       );
@@ -1267,8 +1282,50 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         .toList();
   }
 
+  List<PaymentReviewItemData> _buildPaymentReviewItems() {
+    return _cartItems
+        .map((item) {
+          final itemDiscount =
+              item.isDiscountEnabled && item.discountedUnitPrice != null
+              ? ((item.regularUnitPrice - item.activeUnitPrice).clamp(
+                      0,
+                      1 << 31,
+                    ) *
+                    item.quantity)
+              : 0;
+          return PaymentReviewItemData(
+            name: item.name,
+            imageUrl: item.imageUrl,
+            quantity: item.quantity,
+            formattedLineTotal: _formatCurrency(
+              item.activeUnitPrice * item.quantity,
+            ),
+            detailLine:
+                '${_formatCurrency(item.activeUnitPrice)} x ${item.quantity}',
+            orderTypeLabel: _orderTypeLabel(context, item.orderType),
+            discountLabel: itemDiscount > 0
+                ? '${AppLocalizations.of(context)!.discount} - ${_formatCurrency(itemDiscount)}'
+                : item.promoLabel,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  List<String> _collectPaymentOrderTypes() {
+    final orderTypes = _cartItems
+        .map((item) => (item.orderType ?? _selectedOrderType).trim())
+        .where((value) => value.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (orderTypes.isNotEmpty) {
+      return orderTypes;
+    }
+    return <String>[_selectedOrderType];
+  }
+
   void _resetCurrentOrder() {
     setState(() {
+      _isCommitting = false;
       _cartItems.clear();
       _orderNote = '';
       _selectedOrderType = 'dine_in';
@@ -1289,71 +1346,251 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     );
   }
 
+  Future<void> _openPaymentFlowPage({
+    required AppLocalizations l10n,
+    required PosCustomerRecord customer,
+    required SalesPaymentModeSnapshot paymentSnapshot,
+  }) async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        fullscreenDialog: true,
+        builder: (context) {
+          return PosPaymentFlowPage(
+            snapshot: paymentSnapshot,
+            orderTypeLabel: _orderTypeLabel(this.context),
+            customerName: customer.isDefaultWalkIn
+                ? PosV2CustomerService.defaultWalkInName
+                : customer.name,
+            totalPayAmount: _totalPay,
+            subtotalAmount: _subtotalAmount,
+            discountAmount: _orderLevelDiscountAmount,
+            totalQuantity: _cartItems.fold<int>(
+              0,
+              (sum, item) => sum + item.quantity,
+            ),
+            reviewItems: _buildPaymentReviewItems(),
+            onConfirm:
+                (SalesPaymentModeOption paymentMode, int tenderAmount) async {
+                  try {
+                    await SalesOrderStore.instance.createOrder(
+                      statusCode: 2,
+                      items: _buildOrderLines(),
+                      customerName: customer.isDefaultWalkIn
+                          ? PosV2CustomerService.defaultWalkInName
+                          : customer.name,
+                      customerRemoteId: customer.remoteId,
+                      customerLocalId: customer.localId,
+                      customerPhone: customer.phone,
+                      customerAddress: customer.address,
+                      appliedPromotionRemoteId: _selectedPromotion?.remoteId,
+                      appliedPromotionName: _selectedPromotion?.name,
+                      appliedPromotionType: _selectedPromotion?.promoType,
+                      appliedPromotionSummary: _selectedPromotion?.summary,
+                      existingOrderId: _editingOrderId,
+                      existingOrderToken: _editingOrderToken,
+                      existingCreatedAt: _editingOrderCreatedAt,
+                      orderType: _selectedOrderType,
+                      note: _orderNote,
+                      orderLevelDiscountAmount: _orderLevelDiscountAmount,
+                      paymentModeRemoteId: paymentMode.remoteId,
+                      paymentModeName: paymentMode.name,
+                      processQueueNow: true,
+                    );
+                  } catch (_) {
+                    return l10n.paymentProcessingFailedMessage;
+                  }
+
+                  if (!mounted) {
+                    return l10n.paymentProcessingFailedMessage;
+                  }
+
+                  _resetCurrentOrder();
+                  return null;
+                },
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _commitOrder(int statusCode) async {
+    if (_isCommitting) return;
     final l10n = AppLocalizations.of(context)!;
-    if (statusCode == 2) {
-      _showOrderActionFeedback(l10n.featureNotWiredMessage(l10n.payNow));
-      return;
-    }
 
     if (_cartItems.isEmpty) {
       _showOrderActionFeedback(l10n.addProductFirstMessage);
       return;
     }
 
-    await ActiveShiftStore.instance.refresh();
-    final activeShift = ActiveShiftStore.instance.activeShiftNotifier.value;
-    if (PosV2RuntimeSessionStore.instance.currentSession?.staffId?.isNotEmpty ==
-            true &&
-        activeShift == null) {
-      _showOrderActionFeedback(l10n.shiftRequiredBeforeOrderMessage);
+    setState(() => _isCommitting = true);
+    try {
+      await ActiveShiftStore.instance.refresh().timeout(
+        const Duration(seconds: 10),
+      );
+      final activeShift = ActiveShiftStore.instance.activeShiftNotifier.value;
+      if (PosV2RuntimeSessionStore
+                  .instance
+                  .currentSession
+                  ?.staffId
+                  ?.isNotEmpty ==
+              true &&
+          activeShift == null) {
+        _showOrderActionFeedback(l10n.shiftRequiredBeforeOrderMessage);
+        if (mounted) setState(() => _isCommitting = false);
+        return;
+      }
+
+      await _ensureDefaultCustomerSelected().timeout(
+        const Duration(seconds: 10),
+      );
+      final customer = _selectedCustomer;
+      if (customer == null || customer.remoteId.trim().isEmpty) {
+        _showOrderActionFeedback(l10n.customerSelectionRequiredMessage);
+        if (mounted) setState(() => _isCommitting = false);
+        return;
+      }
+
+      if (statusCode == 2) {
+        final paymentSnapshot = await SalesOrderStore.instance
+            .loadPaymentModeSnapshot(orderTypes: _collectPaymentOrderTypes())
+            .timeout(const Duration(seconds: 10));
+        if (!mounted) {
+          return;
+        }
+        if (paymentSnapshot.options.isEmpty) {
+          _showOrderActionFeedback(l10n.paymentModeUnavailableMessage);
+          setState(() => _isCommitting = false);
+          return;
+        }
+
+        setState(() => _isCommitting = false);
+        await _openPaymentFlowPage(
+          l10n: l10n,
+          customer: customer,
+          paymentSnapshot: paymentSnapshot,
+        );
+        return;
+      }
+
+      await SalesOrderStore.instance
+          .createOrder(
+            statusCode: statusCode,
+            items: _buildOrderLines(),
+            customerName: customer.isDefaultWalkIn
+                ? PosV2CustomerService.defaultWalkInName
+                : customer.name,
+            customerRemoteId: customer.remoteId,
+            customerLocalId: customer.localId,
+            customerPhone: customer.phone,
+            customerAddress: customer.address,
+            appliedPromotionRemoteId: _selectedPromotion?.remoteId,
+            appliedPromotionName: _selectedPromotion?.name,
+            appliedPromotionType: _selectedPromotion?.promoType,
+            appliedPromotionSummary: _selectedPromotion?.summary,
+            existingOrderId: _editingOrderId,
+            existingOrderToken: _editingOrderToken,
+            existingCreatedAt: _editingOrderCreatedAt,
+            orderType: _selectedOrderType,
+            note: _orderNote,
+            orderLevelDiscountAmount: _orderLevelDiscountAmount,
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (!mounted) {
+        return;
+      }
+
+      _resetCurrentOrder();
+
+      switch (statusCode) {
+        case 1:
+          _showOrderActionFeedback(l10n.activeOrderCreatedMessage);
+          break;
+        case 5:
+          _showOrderActionFeedback(l10n.voidOrderCreatedMessage);
+          break;
+        case 6:
+          _showOrderActionFeedback(l10n.parkedOrderCreatedMessage);
+          break;
+      }
+    } catch (_) {
+      if (mounted) _showOrderActionFeedback(l10n.orderProcessingFailedMessage);
+    } finally {
+      if (mounted) {
+        setState(() => _isCommitting = false);
+      }
+    }
+  }
+
+  Future<void> _syncQuickMasterData() async {
+    final l10n = AppLocalizations.of(context)!;
+    if (_isSyncingQuickData) {
       return;
     }
 
-    await _ensureDefaultCustomerSelected();
-    final customer = _selectedCustomer;
-    if (customer == null || customer.remoteId.trim().isEmpty) {
-      _showOrderActionFeedback(l10n.customerSelectionRequiredMessage);
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session == null) {
+      if (mounted) {
+        _showOrderActionFeedback(l10n.loginRequiredMessage);
+      }
       return;
     }
 
-    SalesOrderStore.instance.createOrder(
-      statusCode: statusCode,
-      items: _buildOrderLines(),
-      customerName: customer.isDefaultWalkIn
-          ? PosV2CustomerService.defaultWalkInName
-          : customer.name,
-      customerRemoteId: customer.remoteId,
-      customerLocalId: customer.localId,
-      customerPhone: customer.phone,
-      customerAddress: customer.address,
-      appliedPromotionRemoteId: _selectedPromotion?.remoteId,
-      appliedPromotionName: _selectedPromotion?.name,
-      appliedPromotionType: _selectedPromotion?.promoType,
-      appliedPromotionSummary: _selectedPromotion?.summary,
-      existingOrderId: _editingOrderId,
-      existingOrderToken: _editingOrderToken,
-      existingCreatedAt: _editingOrderCreatedAt,
-      orderType: _selectedOrderType,
-      note: _orderNote,
-      orderLevelDiscountAmount: _orderLevelDiscountAmount,
-    );
+    setState(() {
+      _isSyncingQuickData = true;
+    });
+    _showOrderActionFeedback(l10n.syncDataStartedMessage);
 
-    _resetCurrentOrder();
+    final orchestrator = PosV2SyncOrchestrator();
+    final contextSync = session.toSyncContext();
+    try {
+      await orchestrator.syncCategories(contextSync);
+      await orchestrator.syncBrands(contextSync);
+      await orchestrator.syncItemsPaged(
+        contextSync,
+        baseQuery: <String, dynamic>{'status': 'active'},
+        itemPerPage: 500,
+        startPage: 1,
+        maxPages: 25,
+      );
+      await orchestrator.syncPromotions(
+        contextSync,
+        query: <String, dynamic>{
+          'status': '1',
+          if (session.locationId.isNotEmpty) 'id_location': session.locationId,
+        },
+        allowNotFoundEmpty: true,
+      );
+      await orchestrator.syncCustomers(contextSync);
 
-    switch (statusCode) {
-      case 1:
-        _showOrderActionFeedback(l10n.activeOrderCreatedMessage);
-        return;
-      case 2:
-        _showOrderActionFeedback(l10n.closedOrderCreatedMessage);
-        return;
-      case 5:
-        _showOrderActionFeedback(l10n.voidOrderCreatedMessage);
-        return;
-      case 6:
-        _showOrderActionFeedback(l10n.parkedOrderCreatedMessage);
-        return;
+      await PosCatalogStore.instance.refresh();
+      await SalesOrderStore.instance.refreshFromPersistence();
+      final refreshedSnapshot = PosCatalogStore.instance.snapshotNotifier.value;
+      ProductImageCacheService.instance.prefetchInBackground(
+        refreshedSnapshot.products
+            .map((product) => product['image']?.toString() ?? '')
+            .where((url) => url.isNotEmpty),
+      );
+
+      if (mounted) {
+        _showOrderActionFeedback(l10n.syncDataSuccessMessage);
+      }
+    } catch (error) {
+      if (mounted) {
+        _showOrderActionFeedback(
+          l10n.syncDataFailedMessage(
+            error.toString().replaceFirst('Exception: ', ''),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncingQuickData = false;
+        });
+      }
     }
   }
 
@@ -1370,17 +1607,15 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       case _PosQuickAction.cancelOrder:
         _commitOrder(5);
         return;
+      case _PosQuickAction.syncData:
+        unawaited(_syncQuickMasterData());
+        return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
             content: Text(switch (action) {
-              _PosQuickAction.cashFlow => l10n.featureNotWiredMessage(
-                l10n.cashFlowMenu,
-              ),
-              _PosQuickAction.syncData => l10n.featureNotWiredMessage(
-                l10n.syncDataAction,
-              ),
+              _PosQuickAction.syncData => '',
               _PosQuickAction.closeOutlet => l10n.featureNotWiredMessage(
                 l10n.closeOutletAction,
               ),
@@ -2265,6 +2500,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                 note: noteController.text.trim().isEmpty
                                     ? null
                                     : noteController.text.trim(),
+                                clearNote: noteController.text.trim().isEmpty,
                                 isDiscountEnabled: discountEnabled,
                               ),
                             );
@@ -2481,7 +2717,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                         Expanded(
                                           child: Text(
                                             brand,
-                                            // 💡 Di sini letak FONT SIZE untuk nama Brand
                                             style: TextStyle(
                                               color: isExpanded
                                                   ? primaryColor
@@ -2489,8 +2724,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                               fontWeight: isExpanded
                                                   ? FontWeight.w800
                                                   : FontWeight.w600,
-                                              fontSize:
-                                                  10, // <-- Ubah angka 12 ini untuk mengatur ukuran
+                                              fontSize: 10,
                                             ),
                                           ),
                                         ),
@@ -2762,8 +2996,30 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     }
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (context) => const OrdersShellView(),
+                      PageRouteBuilder(
+                        pageBuilder: (context, animation, secondaryAnimation) =>
+                            const OrdersShellView(),
+                        transitionsBuilder:
+                            (context, animation, secondaryAnimation, child) {
+                              final curvedAnimation = CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
+                              );
+                              return FadeTransition(
+                                opacity: curvedAnimation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.95,
+                                    end: 1.0,
+                                  ).animate(curvedAnimation),
+                                  child: child,
+                                ),
+                              );
+                            },
+                        transitionDuration: const Duration(milliseconds: 300),
+                        reverseTransitionDuration: const Duration(
+                          milliseconds: 250,
+                        ),
                       ),
                     );
                   },
@@ -3036,7 +3292,10 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                   if (_showProductStock)
                     Text(
                       '${l10n.stock} : ${product['stock']}',
-                      style: TextStyle(color: Colors.grey.shade500, fontSize: 9),
+                      style: TextStyle(
+                        color: Colors.grey.shade500,
+                        fontSize: 9,
+                      ),
                     ),
                 ],
               ),
@@ -3059,6 +3318,41 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         color: Colors.white,
         child: Column(
           children: [
+            // Read-only banner
+            if (widget.isReadOnly)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                color: const Color(0xFFFFF3E0),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.visibility_outlined,
+                      size: 14,
+                      color: Color(0xFFE65100),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ActiveShiftStore.instance.activeShiftNotifier.value !=
+                                null
+                            ? AppLocalizations.of(
+                                context,
+                              )!.readOnlyWarningActiveShift
+                            : AppLocalizations.of(context)!.readOnlyWarning,
+                        style: const TextStyle(
+                          color: Color(0xFFE65100),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 4.0),
               child: Container(
@@ -3070,7 +3364,9 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                   children: [
                     Expanded(
                       child: InkWell(
-                        onTap: () => _showCustomerSearchDialog(context),
+                        onTap: widget.isReadOnly
+                            ? null
+                            : () => _showCustomerSearchDialog(context),
                         borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(12),
                           bottomLeft: Radius.circular(12),
@@ -3173,13 +3469,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                   context,
                                 )!.cancelOrderAction,
                                 isDanger: true,
-                              ),
-                              _buildQuickActionItem(
-                                value: _PosQuickAction.cashFlow,
-                                icon: Icons.account_balance_wallet_outlined,
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.cashFlowMenu,
                               ),
                               _buildQuickActionItem(
                                 value: _PosQuickAction.syncData,
@@ -3383,7 +3672,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.local_offer_rounded, size: 12, color: Colors.red.shade600),
+                        Icon(
+                          Icons.local_offer_rounded,
+                          size: 12,
+                          color: Colors.red.shade600,
+                        ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -3410,7 +3703,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                               color: Colors.red.shade50,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(Icons.close_rounded, size: 12, color: Colors.red.shade700),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 12,
+                              color: Colors.red.shade700,
+                            ),
                           ),
                         ),
                       ],
@@ -3502,39 +3799,87 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _commitOrder(1),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFA5D6A7),
-                      foregroundColor: const Color(0xFF2E7D32),
-                      elevation: 0,
-                      minimumSize: const Size(double.infinity, 32),
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                  // In read-only mode: show Print to Kitchen button (no data saved)
+                  if (widget.isReadOnly)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // TODO: trigger print-only job here (no SQLite/server write)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              AppLocalizations.of(context)!.printToKitchen,
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFF8E1),
+                        foregroundColor: const Color(0xFFF57F17),
+                        elevation: 0,
+                        minimumSize: const Size(double.infinity, 32),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 8,
+                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: const Icon(Icons.print_rounded, size: 14),
+                      label: Text(
+                        AppLocalizations.of(context)!.printToKitchen,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  else
+                    ElevatedButton.icon(
+                      onPressed: () => _commitOrder(1),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFA5D6A7),
+                        foregroundColor: const Color(0xFF2E7D32),
+                        elevation: 0,
+                        minimumSize: const Size(double.infinity, 32),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 12,
+                          horizontal: 8,
+                        ),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      icon: const Icon(Icons.send_rounded, size: 14),
+                      label: Text(
+                        l10n.sendToKitchen,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                    icon: const Icon(Icons.send_rounded, size: 14),
-                    label: Text(
-                      l10n.sendToKitchen,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => _commitOrder(6),
+                          onPressed: widget.isReadOnly
+                              ? null
+                              : () => _commitOrder(6),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.black87,
+                            foregroundColor: widget.isReadOnly
+                                ? Colors.grey
+                                : Colors.black87,
                             side: BorderSide(color: Colors.grey.shade300),
                             minimumSize: const Size(0, 32),
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 8,
+                            ),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),
@@ -3552,13 +3897,22 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                       const SizedBox(width: 6),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _commitOrder(2),
+                          onPressed: widget.isReadOnly
+                              ? null
+                              : () => _commitOrder(2),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF536DFE),
-                            foregroundColor: Colors.white,
+                            backgroundColor: widget.isReadOnly
+                                ? Colors.grey.shade300
+                                : const Color(0xFF536DFE),
+                            foregroundColor: widget.isReadOnly
+                                ? Colors.grey.shade600
+                                : Colors.white,
                             elevation: 0,
                             minimumSize: const Size(0, 28),
-                            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 8,
+                            ),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),

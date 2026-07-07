@@ -43,9 +43,49 @@ class PosV2SyncQueueProcessor {
     }
   }
 
+  /// Flush only the queue items belonging to a specific [idPos].
+  /// Used by the payment flow so that a single checkout only sends its own
+  /// order + payment, not leftover queue items from other sessions.
+  Future<void> flushForOrder(String idPos) async {
+    if (_isRunning) {
+      return;
+    }
+
+    _isRunning = true;
+    try {
+      // Find queue rows whose request_body_json contains the target id_pos.
+      // We rely on a JSON text-search since SQLite has no native JSON query.
+      final rows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT *
+        FROM sync_queue
+        WHERE (status = 'pending' OR status = 'failed')
+          AND (
+            request_body_json LIKE ?
+            OR entity_remote_id = ?
+          )
+        ORDER BY priority ASC, created_at ASC
+        LIMIT 10
+        ''',
+        <Object?>['%"id_pos":"$idPos"%', idPos],
+      );
+
+      for (final row in rows) {
+        await _processQueueRow(row);
+      }
+    } finally {
+      _isRunning = false;
+    }
+  }
+
   Future<void> _processQueueRow(Map<String, Object?> row) async {
+    row = await _prepareQueueRowForDispatch(row) ?? row;
     final queueId = _asInt(row['id']);
     if (queueId == null) {
+      return;
+    }
+
+    if (row['status']?.toString() == 'deferred') {
       return;
     }
 
@@ -126,6 +166,65 @@ class PosV2SyncQueueProcessor {
     }
   }
 
+  Future<Map<String, Object?>?> _prepareQueueRowForDispatch(
+    Map<String, Object?> row,
+  ) async {
+    final entityType = row['entity_type']?.toString();
+    final method = row['method']?.toString().toUpperCase();
+    if (entityType != 'pos_transaction' || method != 'POST') {
+      return row;
+    }
+
+    final tenantId = _asInt(row['tenant_id']);
+    final queueId = _asInt(row['id']);
+    if (tenantId == null || queueId == null) {
+      return row;
+    }
+
+    final requestBody = _decodeBody(row['request_body_json']);
+    final invoiceId = requestBody['invoiceid']?.toString().trim() ?? '';
+    if (_isPositiveInt(invoiceId)) {
+      return row;
+    }
+
+    final resolvedInvoiceId = await _resolveRemoteInvoiceId(
+      tenantId: tenantId,
+      entityLocalId: _asInt(row['entity_local_id']),
+      idPos: requestBody['id_pos']?.toString(),
+    );
+    if (resolvedInvoiceId == null) {
+      return <String, Object?>{...row, 'status': 'deferred'};
+    }
+
+    requestBody['invoiceid'] = resolvedInvoiceId;
+    final now = _now();
+    await DatabaseService.instance.transaction((txn) async {
+      await txn.update(
+        'sync_queue',
+        <String, Object?>{
+          'request_body_json': jsonEncode(requestBody),
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[queueId],
+      );
+      await txn.update(
+        'pos_order_payment',
+        <String, Object?>{
+          'invoice_remote_id': resolvedInvoiceId,
+          'updated_at': now,
+        },
+        where: 'tenant_id = ? AND id_pos = ?',
+        whereArgs: <Object?>[tenantId, requestBody['id_pos']?.toString()],
+      );
+    });
+
+    return <String, Object?>{
+      ...row,
+      'request_body_json': jsonEncode(requestBody),
+    };
+  }
+
   void _validateSuccessfulResponse(
     Map<String, Object?> row, {
     required Map<String, dynamic> responseData,
@@ -168,8 +267,13 @@ class PosV2SyncQueueProcessor {
     final authToken = headers['authtoken']?.toString() ?? '';
     final client = V2ApiClient(baseUrl: baseUrl, authToken: authToken);
 
-    if (method == 'POST' && endpoint.endsWith('api/v2/pos-order')) {
-      requestBody.remove('status');
+    if ((method == 'POST' || method == 'PUT') &&
+        endpoint.contains('api/v2/pos-order')) {
+      requestBody.remove('number');
+      requestBody.remove('formatted_number');
+      if (method == 'POST') {
+        requestBody.remove('status');
+      }
       if (!requestBody.containsKey('duedate') &&
           requestBody.containsKey('date')) {
         requestBody['duedate'] = requestBody['date'];
@@ -204,18 +308,45 @@ class PosV2SyncQueueProcessor {
             responseData['id_pos']?.toString() ??
             entityRemoteId ??
             requestBody['id_pos']?.toString();
+        final remoteInvoiceId = responseData['id']?.toString();
         if (idPos == null || idPos.isEmpty) {
           return;
         }
+        final existingOrderRows = await txn.query(
+          'pos_order',
+          columns: const <String>[
+            'status_code',
+            'amount_received',
+            'total_amount',
+          ],
+          where: 'tenant_id = ? AND id_pos = ?',
+          whereArgs: <Object?>[tenantId, idPos],
+          limit: 1,
+        );
+        final existingStatusCode = existingOrderRows.isEmpty
+            ? null
+            : existingOrderRows.first['status_code']?.toString();
+        final existingAmountReceived = existingOrderRows.isEmpty
+            ? 0
+            : _money(existingOrderRows.first['amount_received']);
+        final existingTotalAmount = existingOrderRows.isEmpty
+            ? 0
+            : _money(existingOrderRows.first['total_amount']);
+        final isAlreadyFullyPaid =
+            existingTotalAmount > 0 &&
+            existingAmountReceived >= existingTotalAmount;
+        final nextStatusCode = existingStatusCode == '2' || isAlreadyFullyPaid
+            ? '2'
+            : (responseData['status']?.toString() ??
+                  requestBody['status']?.toString());
         await txn.update(
           'pos_order',
           <String, Object?>{
             'remote_id': responseData['id']?.toString(),
             'invoice_number': responseData['number']?.toString(),
             'formatted_number': _formattedNumber(responseData) ?? idPos,
-            'status_code':
-                responseData['status']?.toString() ??
-                requestBody['status']?.toString(),
+            'status_code': nextStatusCode,
+            'status_text': nextStatusCode,
             'subtotal_amount': _money(
               responseData['subtotal'] ?? requestBody['subtotal'],
             ),
@@ -249,6 +380,51 @@ class PosV2SyncQueueProcessor {
             whereArgs: <Object?>[tenantId, orderLocalId],
           );
         }
+        if (remoteInvoiceId != null && remoteInvoiceId.isNotEmpty) {
+          await txn.update(
+            'pos_order_payment',
+            <String, Object?>{
+              'invoice_remote_id': remoteInvoiceId,
+              'updated_at': now,
+            },
+            where: 'tenant_id = ? AND id_pos = ?',
+            whereArgs: <Object?>[tenantId, idPos],
+          );
+
+          final dependentQueueRows = await txn.query(
+            'sync_queue',
+            columns: const <String>['id', 'request_body_json'],
+            where:
+                'tenant_id = ? AND entity_type = ? AND status IN (?, ?, ?) AND request_body_json LIKE ?',
+            whereArgs: <Object?>[
+              tenantId,
+              'pos_transaction',
+              'pending',
+              'failed',
+              'syncing',
+              '%"id_pos":"$idPos"%',
+            ],
+          );
+          for (final dependentRow in dependentQueueRows) {
+            final dependentQueueId = _asInt(dependentRow['id']);
+            if (dependentQueueId == null) {
+              continue;
+            }
+            final dependentBody = _decodeBody(
+              dependentRow['request_body_json'],
+            );
+            dependentBody['invoiceid'] = remoteInvoiceId;
+            await txn.update(
+              'sync_queue',
+              <String, Object?>{
+                'request_body_json': jsonEncode(dependentBody),
+                'updated_at': now,
+              },
+              where: 'id = ?',
+              whereArgs: <Object?>[dependentQueueId],
+            );
+          }
+        }
         return;
       case 'pos_transaction':
         final idPos =
@@ -274,6 +450,11 @@ class PosV2SyncQueueProcessor {
           where: 'tenant_id = ? AND id_pos = ?',
           whereArgs: <Object?>[tenantId, idPos],
         );
+        await _refreshLocalOrderPaymentState(
+          txn,
+          tenantId: tenantId,
+          idPos: idPos,
+        );
         return;
       default:
         return;
@@ -293,6 +474,113 @@ class PosV2SyncQueueProcessor {
       return decoded.map((key, value) => MapEntry(key.toString(), value));
     }
     return <String, dynamic>{};
+  }
+
+  Future<String?> _resolveRemoteInvoiceId({
+    required int tenantId,
+    required int? entityLocalId,
+    required String? idPos,
+  }) async {
+    if (entityLocalId != null) {
+      final orderRows = await DatabaseService.instance.query(
+        'pos_order',
+        columns: const <String>['remote_id'],
+        where: 'tenant_id = ? AND id = ?',
+        whereArgs: <Object?>[tenantId, entityLocalId],
+        limit: 1,
+      );
+      final remoteId = orderRows.isEmpty
+          ? null
+          : orderRows.first['remote_id']?.toString().trim();
+      if (_isPositiveInt(remoteId)) {
+        return remoteId;
+      }
+    }
+
+    final normalizedIdPos = idPos?.trim();
+    if (normalizedIdPos == null || normalizedIdPos.isEmpty) {
+      return null;
+    }
+
+    final orderRows = await DatabaseService.instance.query(
+      'pos_order',
+      columns: const <String>['remote_id'],
+      where: 'tenant_id = ? AND id_pos = ?',
+      whereArgs: <Object?>[tenantId, normalizedIdPos],
+      limit: 1,
+    );
+    final remoteId = orderRows.isEmpty
+        ? null
+        : orderRows.first['remote_id']?.toString().trim();
+    if (_isPositiveInt(remoteId)) {
+      return remoteId;
+    }
+    return null;
+  }
+
+  bool _isPositiveInt(String? value) {
+    if (value == null || value.isEmpty) {
+      return false;
+    }
+    final parsed = int.tryParse(value);
+    return parsed != null && parsed > 0;
+  }
+
+  Future<void> _refreshLocalOrderPaymentState(
+    dynamic txn, {
+    required int tenantId,
+    required String idPos,
+  }) async {
+    final orderRows = await txn.query(
+      'pos_order',
+      columns: const <String>['id', 'total_amount', 'status_code'],
+      where: 'tenant_id = ? AND id_pos = ?',
+      whereArgs: <Object?>[tenantId, idPos],
+      limit: 1,
+    );
+    if (orderRows.isEmpty) {
+      return;
+    }
+
+    final orderLocalId = _asInt(orderRows.first['id']);
+    final totalAmount = _money(orderRows.first['total_amount']);
+    if (orderLocalId == null) {
+      return;
+    }
+
+    final paymentRows = await txn.query(
+      'pos_order_payment',
+      columns: const <String>['SUM(amount) AS total_paid'],
+      where: 'tenant_id = ? AND id_pos = ? AND deleted_at IS NULL',
+      whereArgs: <Object?>[tenantId, idPos],
+      limit: 1,
+    );
+    final totalPaid = paymentRows.isEmpty
+        ? 0
+        : _money(paymentRows.first['total_paid']);
+    final totalLeftToPay = totalAmount > totalPaid
+        ? totalAmount - totalPaid
+        : 0;
+    final changeAmount = totalPaid > totalAmount ? totalPaid - totalAmount : 0;
+    final isFullyPaid = totalAmount > 0 && totalPaid >= totalAmount;
+    final statusCode = isFullyPaid
+        ? '2'
+        : (orderRows.first['status_code']?.toString() ?? '1');
+    final now = _now();
+
+    await txn.update(
+      'pos_order',
+      <String, Object?>{
+        'amount_received': totalPaid,
+        'change_amount': changeAmount,
+        'total_left_to_pay_amount': totalLeftToPay,
+        'status_code': statusCode,
+        'status_text': statusCode,
+        'updated_at': now,
+      },
+      where: 'tenant_id = ? AND id = ?',
+      whereArgs: <Object?>[tenantId, orderLocalId],
+    );
   }
 
   int? _asInt(Object? value) {

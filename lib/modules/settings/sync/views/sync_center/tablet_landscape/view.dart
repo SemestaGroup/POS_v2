@@ -1,3 +1,4 @@
+import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../controllers/sync_settings_controller.dart';
@@ -31,9 +32,9 @@ class _SyncCenterViewState extends State<SyncCenterView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Sync Center', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(AppLocalizations.of(context)!.syncCenterTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               const SizedBox(height: 3),
-              const Text('Observe queue health and trigger lightweight recovery actions.', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+              Text(AppLocalizations.of(context)!.syncCenterDesc, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
               const SizedBox(height: 14),
               Row(
                 children: [
@@ -60,11 +61,11 @@ class _SyncCenterViewState extends State<SyncCenterView> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Current Sync Status', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                          Text(AppLocalizations.of(context)!.syncCurrentStatus, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 4),
-                          Text('Stage: ${state.status.stage}', style: const TextStyle(fontSize: 11)),
-                          Text('Blocking: ${state.status.isBlocking ? 'Yes' : 'No'}', style: const TextStyle(fontSize: 11)),
-                          Text('Progress: ${state.status.progress != null ? (state.status.progress! * 100).toInt() : 0}%', style: const TextStyle(fontSize: 11)),
+                          Text(AppLocalizations.of(context)!.syncStage(state.status.stage), style: const TextStyle(fontSize: 11)),
+                          Text(AppLocalizations.of(context)!.syncBlocking(state.status.isBlocking ? AppLocalizations.of(context)!.yes : AppLocalizations.of(context)!.no), style: const TextStyle(fontSize: 11)),
+                          Text(AppLocalizations.of(context)!.syncProgress(state.status.progress != null ? (state.status.progress! * 100).toInt() : 0), style: const TextStyle(fontSize: 11)),
                           if (state.status.errorMessage != null)
                             Text(state.status.errorMessage!, style: TextStyle(fontSize: 11, color: Colors.red.shade600)),
                         ],
@@ -77,15 +78,15 @@ class _SyncCenterViewState extends State<SyncCenterView> {
                       children: [
                         OutlinedButton(
                           onPressed: state.isLoading ? null : _controller.refresh,
-                          child: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                          child: Text(AppLocalizations.of(context)!.refresh, style: const TextStyle(fontSize: 11)),
                         ),
                         FilledButton.tonal(
                           onPressed: state.isLoading ? null : _controller.flushQueue,
-                          child: const Text('Flush Queue', style: TextStyle(fontSize: 11)),
+                          child: Text(AppLocalizations.of(context)!.syncFlushQueue, style: const TextStyle(fontSize: 11)),
                         ),
                         FilledButton(
                           onPressed: state.isLoading ? null : _controller.refreshBootstrap,
-                          child: const Text('Refresh Bootstrap', style: TextStyle(fontSize: 11)),
+                          child: Text(AppLocalizations.of(context)!.syncRefreshBootstrap, style: const TextStyle(fontSize: 11)),
                         ),
                       ],
                     ),

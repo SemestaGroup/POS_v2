@@ -105,6 +105,84 @@ class AppLocalizationsId extends AppLocalizations {
   String get payNow => 'Bayar';
 
   @override
+  String get paymentScreenTitle => 'Pembayaran';
+
+  @override
+  String get selectPaymentMethod =>
+      'Pilih metode pembayaran sebelum melanjutkan.';
+
+  @override
+  String get paymentMethodLabel => 'Metode Pembayaran';
+
+  @override
+  String get orderTypeLabel => 'Tipe Pesanan';
+
+  @override
+  String get itemsLabel => 'Item';
+
+  @override
+  String get reviewOrderTitle => 'Ringkasan Pesanan';
+
+  @override
+  String get changeLabel => 'Kembalian';
+
+  @override
+  String get totalAmountLabel => 'Total Pembayaran';
+
+  @override
+  String get exactPaymentHint =>
+      'Metode ini akan dicatat sebagai pembayaran pas sesuai total saat ini.';
+
+  @override
+  String get insertManually => 'Input Manual';
+
+  @override
+  String get confirmPayment => 'Konfirmasi Pembayaran';
+
+  @override
+  String get paymentConfirmationTitle => 'Konfirmasi Pembayaran';
+
+  @override
+  String get paymentConfirmationSubtitle =>
+      'Pastikan tipe pesanan, metode pembayaran, dan total sudah benar.';
+
+  @override
+  String get paymentSuccessTitle => 'Pembayaran Berhasil';
+
+  @override
+  String paymentSuccessMessage(String paymentModeName) {
+    return 'Pembayaran sudah disimpan dengan $paymentModeName dan pesanan sekarang ditandai selesai.';
+  }
+
+  @override
+  String get paymentModeUnavailableMessage =>
+      'Belum ada metode pembayaran yang tersedia untuk tipe pesanan ini.';
+
+  @override
+  String get paymentProcessingFailedMessage =>
+      'Pembayaran belum bisa diproses. Coba lagi.';
+
+  @override
+  String get orderProcessingFailedMessage =>
+      'Pesanan belum bisa diproses. Coba lagi.';
+
+  @override
+  String get paymentSummaryTitle => 'Ringkasan Pembayaran';
+
+  @override
+  String get paymentAutoMatchedHint =>
+      'Metode pembayaran ini dipilih otomatis agar sesuai dengan tipe pesanan saat ini.';
+
+  @override
+  String get continueAction => 'Lanjut';
+
+  @override
+  String get backAction => 'Kembali';
+
+  @override
+  String get done => 'Selesai';
+
+  @override
   String get searchProduct => 'Cari Produk...';
 
   @override
@@ -339,6 +417,18 @@ class AppLocalizationsId extends AppLocalizations {
   String get syncDataAction => 'Sinkronkan Data';
 
   @override
+  String get syncDataStartedMessage => 'Sinkronisasi data dimulai.';
+
+  @override
+  String get syncDataSuccessMessage =>
+      'Katalog, promo, dan pelanggan berhasil diperbarui.';
+
+  @override
+  String syncDataFailedMessage(String message) {
+    return 'Sinkronisasi data gagal: $message';
+  }
+
+  @override
   String get closeOutletAction => 'Tutup Outlet';
 
   @override
@@ -544,7 +634,7 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get loginFormIncomplete =>
-      'Lengkapi email, password, dan ID perangkat terlebih dahulu.';
+      'Lengkapi email dan password terlebih dahulu.';
 
   @override
   String get loginRequiredMessage => 'Login diperlukan sebelum ganti akun.';
@@ -573,6 +663,82 @@ class AppLocalizationsId extends AppLocalizations {
       'Pilih pengguna dan isi PIN terlebih dahulu.';
 
   @override
+  String get switchStaffTitle => 'Ganti Staf';
+
+  @override
+  String get switchStaffSubtitle =>
+      'Silakan pilih akun Anda lalu masukkan PIN untuk melanjutkan.';
+
+  @override
+  String get switchStaffLockAppAction => 'Kunci Aplikasi';
+
+  @override
+  String get switchStaffLockedMessage => 'Aplikasi dikunci.';
+
+  @override
+  String get switchStaffSyncAction => 'Sinkronkan Staf';
+
+  @override
+  String get switchStaffSyncedMessage => 'Staf berhasil disinkronkan.';
+
+  @override
+  String get switchStaffLogoutLocationAction => 'Keluar Lokasi';
+
+  @override
+  String get switchStaffLoggedOutLocationMessage =>
+      'Berhasil keluar dari lokasi.';
+
+  @override
+  String get switchStaffNoCurrentSession => 'Belum ada staf dipilih';
+
+  @override
+  String get switchStaffCurrentSessionTitle => 'Sesi Saat Ini';
+
+  @override
+  String get switchStaffSelectAccountPrompt => 'Pilih akun untuk melanjutkan';
+
+  @override
+  String get switchStaffSecureTitle => 'Perpindahan Aman';
+
+  @override
+  String get switchStaffSecureSubtitle =>
+      'Sesi Anda terlindungi\ndengan verifikasi PIN';
+
+  @override
+  String get switchStaffRoleAccessTitle => 'Akses Berbasis Peran';
+
+  @override
+  String get switchStaffRoleAccessSubtitle =>
+      'Akses dibatasi sesuai\nperan pengguna';
+
+  @override
+  String get switchStaffAuditTitle => 'Audit Tercatat';
+
+  @override
+  String get switchStaffAuditSubtitle =>
+      'Semua perpindahan staf\ntercatat untuk audit';
+
+  @override
+  String get switchStaffPoweredBy => 'DIDUKUNG OLEH FLINK POS';
+
+  @override
+  String get switchStaffAddStaffAction => 'Tambah Staf';
+
+  @override
+  String get switchStaffAddStaffSoon => 'Fitur tambah staf segera hadir!';
+
+  @override
+  String get switchStaffOwnerOnly => 'KHUSUS OWNER';
+
+  @override
+  String get switchStaffPinRequired => 'PIN wajib diisi';
+
+  @override
+  String switchStaffEnterPinFor(String name) {
+    return 'Masukkan PIN untuk $name';
+  }
+
+  @override
   String get shiftGateTitle => 'Buka Shift Dulu';
 
   @override
@@ -594,6 +760,23 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get openShiftAction => 'Buka Shift Dan Lanjutkan';
+
+  @override
+  String get shiftCloseAddPaymentMethodAction => 'Tambah Payment Method';
+
+  @override
+  String get shiftCloseAddPaymentMethodTitle => 'Pilih Payment Method';
+
+  @override
+  String get shiftCloseNoAdditionalPaymentModes =>
+      'Tidak ada payment method tambahan yang bisa ditambahkan.';
+
+  @override
+  String get shiftCloseNoPaymentMethodRecap =>
+      'Belum ada rekap pembayaran non-tunai yang ditambahkan.';
+
+  @override
+  String get shiftCloseNonCashSummaryLabel => 'Total Non Tunai';
 
   @override
   String get chooseBrandTitle => 'Pilih Brand';
@@ -1301,4 +1484,168 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get settingsNever => 'Tidak Pernah';
+
+  @override
+  String get enterWithoutShift => 'Masuk Tanpa Membuka Shift';
+
+  @override
+  String get enterWithoutShiftHint =>
+      'Anda akan masuk dalam mode hanya-lihat. Transaksi tidak dapat dilakukan.';
+
+  @override
+  String get readOnlyWarning =>
+      'Mode Hanya-Lihat: Anda tidak dapat memproses transaksi.';
+
+  @override
+  String get readOnlyWarningActiveShift =>
+      'Ada shift aktif, namun Anda tidak dapat menambah, menghapus, atau mengubah pesanan dalam mode hanya-lihat.';
+
+  @override
+  String get printToKitchen => 'Print ke Dapur';
+
+  @override
+  String get delete => 'Hapus';
+
+  @override
+  String get printerPairedBluetoothDevices =>
+      'Perangkat Bluetooth yang Dipasangkan';
+
+  @override
+  String get printerAddProfile => 'Tambah Profil';
+
+  @override
+  String get printerDeleteTitle => 'Hapus Profil';
+
+  @override
+  String get printerTypeSystem => 'Sistem';
+
+  @override
+  String get printerTypeNetwork => 'Jaringan';
+
+  @override
+  String get printerTypeBluetooth => 'Bluetooth';
+
+  @override
+  String get printerTypeUsb => 'USB';
+
+  @override
+  String get printerSupportsAutoCut => 'Mendukung Potong Otomatis';
+
+  @override
+  String get printerActive => 'Aktif';
+
+  @override
+  String get printerMappingTitle => 'Pemetaan Printer';
+
+  @override
+  String get printerTestTitle => 'Tes Printer';
+
+  @override
+  String get printerTestNoActiveProfile =>
+      'Tidak ada profil printer aktif. Tambahkan terlebih dahulu.';
+
+  @override
+  String get printerTestPreviewPrint => 'Pratinjau / Cetak';
+
+  @override
+  String get storeProfileTitle => 'Profil Toko';
+
+  @override
+  String get storeProfileDesc =>
+      'Identitas penyewa saat ini dan tautan toko/POS publik';
+
+  @override
+  String get refresh => 'Segarkan';
+
+  @override
+  String get storeProfileInventorySettings => 'Pengaturan Inventaris';
+
+  @override
+  String get syncCenterTitle => 'Pusat Sinkronisasi';
+
+  @override
+  String get syncCenterDesc =>
+      'Kelola antrean data dan lihat status sinkronisasi ke server.';
+
+  @override
+  String get syncCurrentStatus => 'Status Sinkronisasi Saat Ini';
+
+  @override
+  String get yes => 'Ya';
+
+  @override
+  String get no => 'Tidak';
+
+  @override
+  String get syncFlushQueue => 'Bersihkan Antrean';
+
+  @override
+  String get syncRefreshBootstrap => 'Muat Ulang Data Awal';
+
+  @override
+  String get syncHistoryTitle => 'Riwayat Sinkronisasi';
+
+  @override
+  String get syncHistoryDesc => 'Daftar riwayat sinkronisasi data.';
+
+  @override
+  String get syncHistoryNoQueue => 'Tidak ada entri antrean baru.';
+
+  @override
+  String get syncHistoryNoErrors => 'Tidak ada log kesalahan baru.';
+
+  @override
+  String get logoutConfirmTitle => 'Konfirmasi Keluar';
+
+  @override
+  String get logoutConfirmMessage =>
+      'Apakah Anda yakin ingin keluar dari akun ini?';
+
+  @override
+  String get logoutSession => 'Keluar Sesi';
+
+  @override
+  String get profileInfoTitle => 'Informasi Profil';
+
+  @override
+  String get profileInfoEmail => 'Email Terdaftar';
+
+  @override
+  String get profileInfoActiveDevice => 'Perangkat Aktif';
+
+  @override
+  String get profileInfoDeviceId => 'Device ID';
+
+  @override
+  String get profileInfoRegisterId => 'Register ID';
+
+  @override
+  String get syncStart => 'Mulai Sinkronisasi';
+
+  @override
+  String get syncDownloadLog => 'Unduh Log';
+
+  @override
+  String get printerDeleteConfirmMessage =>
+      'Apakah Anda yakin ingin menghapus profil printer ini?';
+
+  @override
+  String printerBrandFilter(String role) {
+    return 'Filter Merek $role';
+  }
+
+  @override
+  String syncStage(String stage) {
+    return 'Tahap: $stage';
+  }
+
+  @override
+  String syncBlocking(String status) {
+    return 'Memblokir: $status';
+  }
+
+  @override
+  String syncProgress(int progress) {
+    return 'Progres: $progress%';
+  }
 }

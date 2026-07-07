@@ -28,6 +28,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         'register_id': registerId ?? context.registerId,
       },
     );
+
     final row =
         V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
     if (row.isEmpty) {

@@ -2,12 +2,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../../../l10n/app_localizations.dart';
-import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
-import '../../../core/services/sync/pos_v2_sync_orchestrator.dart';
-import '../../../core/services/sync/pos_v2_sync_status_store.dart';
-import '../../../modules/sales/shared/models/pos_catalog_store.dart';
-import '../../../modules/sales/shared/models/sales_order_store.dart';
+import '../../../../../l10n/app_localizations.dart';
+import '../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
+import '../../../../../core/services/sync/pos_v2_sync_status_store.dart';
+import '../../../../sales/shared/models/pos_catalog_store.dart';
+import '../../../../sales/shared/models/sales_order_store.dart';
 
 class SyncBootstrapScreen extends StatefulWidget {
   const SyncBootstrapScreen({super.key});

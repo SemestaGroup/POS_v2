@@ -42,7 +42,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
         txn,
         context,
         tenantName: V2SyncUtils.asString(tenant['tenant_name']),
-        roleCode: V2SyncUtils.asString(staffProfile?['role']),
+        roleCode: V2SyncUtils.asString(staffProfile?['role_code'] ?? staffProfile?['role']),
       );
 
       await txn.update(
@@ -80,8 +80,8 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
           insertValues: <String, Object?>{
             'tenant_id': tenantId,
             'remote_id': staffRemoteId,
-            'role_code': V2SyncUtils.asString(staffProfile['role']),
-            'role_name': V2SyncUtils.asString(staffProfile['role']),
+            'role_code': V2SyncUtils.asString(staffProfile['role_code'] ?? staffProfile['role']),
+            'role_name': V2SyncUtils.asString(staffProfile['role_name'] ?? staffProfile['role']),
             'first_name': V2SyncUtils.asString(staffProfile['firstname']),
             'last_name': V2SyncUtils.asString(staffProfile['lastname']),
             'full_name': fullName.isEmpty ? context.staffFullName : fullName,
@@ -98,8 +98,8 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'updated_at': now,
           },
           updateValues: <String, Object?>{
-            'role_code': V2SyncUtils.asString(staffProfile['role']),
-            'role_name': V2SyncUtils.asString(staffProfile['role']),
+            'role_code': V2SyncUtils.asString(staffProfile['role_code'] ?? staffProfile['role']),
+            'role_name': V2SyncUtils.asString(staffProfile['role_name'] ?? staffProfile['role']),
             'first_name': V2SyncUtils.asString(staffProfile['firstname']),
             'last_name': V2SyncUtils.asString(staffProfile['lastname']),
             'full_name': fullName.isEmpty ? context.staffFullName : fullName,
@@ -238,7 +238,10 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'staff_remote_id': context.staffId,
             'staff_email': context.staffEmail,
             'staff_full_name': context.staffFullName,
-            'staff_role_code': V2SyncUtils.asString(staffProfile?['role']),
+            'staff_role_code': V2SyncUtils.asString(
+                  staffProfile?['role_code'] ?? staffProfile?['role'],
+                ) ??
+                V2SyncUtils.asString(activeDeviceSession?['staff_role_code']),
             'base_url': context.normalizedBaseUrl,
             'auth_token': context.authToken,
             'device_id': context.deviceId,
@@ -256,7 +259,10 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'staff_remote_id': context.staffId,
             'staff_email': context.staffEmail,
             'staff_full_name': context.staffFullName,
-            'staff_role_code': V2SyncUtils.asString(staffProfile?['role']),
+            'staff_role_code': V2SyncUtils.asString(
+                  staffProfile?['role_code'] ?? staffProfile?['role'],
+                ) ??
+                V2SyncUtils.asString(activeDeviceSession?['staff_role_code']),
             'base_url': context.normalizedBaseUrl,
             'auth_token': context.authToken,
             'device_id': context.deviceId,

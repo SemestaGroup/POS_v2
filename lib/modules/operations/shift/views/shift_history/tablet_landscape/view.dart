@@ -123,15 +123,19 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
         );
       }).toList();
 
-      setState(() {
-        _rows = rows;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _rows = rows;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.toString().replaceFirst('Exception: ', '');
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+        });
+      }
     }
   }
 
@@ -253,23 +257,26 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
             ? Colors.orange.shade600
             : Colors.green.shade600);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return GestureDetector(
+      onTap: () => _showShiftDetail(shift, context, currencyFmt, dateFmt),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             children: [
               Container(
@@ -369,6 +376,196 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
           ),
         ],
       ),
+    ));
+  }
+
+  Future<void> _showShiftDetail(
+      _ShiftRow shift, BuildContext context, NumberFormat currencyFmt, DateFormat dateFmt) async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session == null) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(child: CircularProgressIndicator()),
+    );
+
+    String formatSqlDate(DateTime? dt) {
+      if (dt == null) return '9999-12-31 23:59:59';
+      return dt.toIso8601String().replaceFirst('T', ' ');
+    }
+
+    final paymentRows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya') as name,
+             COUNT(DISTINCT COALESCE(NULLIF(p.id_pos, ''), CAST(p.order_id AS TEXT))) as qty,
+             SUM(p.amount) as amount
+      FROM pos_order_payment p
+      LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
+      INNER JOIN pos_order o ON o.id = p.order_id
+      WHERE p.tenant_id = ?
+        AND p.deleted_at IS NULL
+        AND o.deleted_at IS NULL
+        AND p.is_refund = 0
+        AND p.sync_state IN ('clean', 'dirty_create', 'dirty_update', 'syncing')
+        AND REPLACE(p.created_at, 'T', ' ') >= ?
+        AND REPLACE(p.created_at, 'T', ' ') <= ?
+      GROUP BY COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya')
+      ''',
+      <Object?>[
+        session.tenantId,
+        formatSqlDate(shift.openedAt),
+        formatSqlDate(shift.closedAt),
+      ],
+    );
+
+    final modeRows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT name FROM payment_mode WHERE tenant_id = ? AND deleted_at IS NULL AND is_active = 1
+      ''',
+      <Object?>[session.tenantId],
+    );
+    final allModeNames = modeRows.map((r) => r['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
+
+    int totalRevenue = 0;
+    int totalTransactions = 0;
+    final payments = <Map<String, dynamic>>[];
+    
+    for (final mode in allModeNames) {
+      payments.add({'name': mode, 'qty': 0, 'amount': 0});
+    }
+
+    for (final row in paymentRows) {
+      final name = row['name']?.toString() ?? 'Lainnya';
+      final amount = int.tryParse(row['amount']?.toString() ?? '0') ?? 0;
+      final qty = (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round();
+      
+      totalRevenue += amount;
+      totalTransactions += qty;
+      
+      final existingIdx = payments.indexWhere((p) => p['name'] == name);
+      if (existingIdx != -1) {
+        payments[existingIdx]['amount'] = (payments[existingIdx]['amount'] as int) + amount;
+        payments[existingIdx]['qty'] = (payments[existingIdx]['qty'] as int) + qty;
+      } else {
+        payments.add({
+          'name': name,
+          'qty': qty,
+          'amount': amount,
+        });
+      }
+    }
+
+    payments.removeWhere((p) => p['qty'] == 0 && p['amount'] == 0);
+
+    final itemRows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT i.product_name_snapshot as name,
+             SUM(i.qty) as qty
+      FROM pos_order_item i
+      INNER JOIN pos_order o ON o.id = i.order_id
+      WHERE i.tenant_id = ?
+        AND i.deleted_at IS NULL
+        AND o.deleted_at IS NULL
+        AND REPLACE(o.created_at, 'T', ' ') >= ?
+        AND REPLACE(o.created_at, 'T', ' ') <= ?
+      GROUP BY i.product_name_snapshot
+      ''',
+      <Object?>[
+        session.tenantId,
+        formatSqlDate(shift.openedAt),
+        formatSqlDate(shift.closedAt),
+      ],
+    );
+
+    final items = itemRows.map((row) => {
+      'name': row['name']?.toString() ?? 'Produk',
+      'qty': (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round(),
+    }).toList();
+
+    if (!context.mounted) return;
+    Navigator.of(context).pop(); // close loading
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.receipt_long_rounded, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 8),
+              const Expanded(child: Text('Detail Rekap Shift', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.of(context).pop(),
+                splashRadius: 24,
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Shift: ${shift.shiftName}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  Text('Kasir: ${shift.staffName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Pendapatan', style: TextStyle(fontSize: 13)),
+                      Text('Rp ${currencyFmt.format(totalRevenue)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Transaksi', style: TextStyle(fontSize: 13)),
+                      Text('$totalTransactions', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  const Divider(height: 32),
+                  const Text('Metode Pembayaran', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  if (payments.isEmpty)
+                    const Text('Belum ada pembayaran', style: TextStyle(fontSize: 12, color: Colors.grey))
+                  else
+                    ...payments.map((p) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('${p['name']} (${p['qty']}x)', style: const TextStyle(fontSize: 12)),
+                          Text('Rp ${currencyFmt.format(p['amount'])}', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    )),
+                  const Divider(height: 32),
+                  const Text('Produk Terjual', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  if (items.isEmpty)
+                    const Text('Belum ada produk terjual', style: TextStyle(fontSize: 12, color: Colors.grey))
+                  else
+                    ...items.map((i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: Text('${i['name']}', style: const TextStyle(fontSize: 12))),
+                          Text('${i['qty']}', style: const TextStyle(fontSize: 12)),
+                        ],
+                      ),
+                    )),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 

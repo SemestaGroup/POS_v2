@@ -1,3 +1,6 @@
+import 'dart:math';
+
+import '../../../app/role_access/role_manager.dart';
 import '../../network/v2_api_client.dart';
 import '../../network/v2_api_fixed_auth.dart';
 import 'base_v2_sync_adapter.dart';
@@ -23,12 +26,166 @@ class PosV2AuthService extends BaseV2SyncAdapter {
 
   final BootstrapSyncAdapter _bootstrapSync = BootstrapSyncAdapter();
 
+  Future<void> logoutLocationAndClearLocalData({
+    String reason = 'Logout location and clear local data',
+  }) async {
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+
+    if (session != null) {
+      try {
+        final sessionCode = await _resolveActiveDeviceSessionCode(session);
+        await V2ApiClient(
+          baseUrl: session.baseUrl,
+          authToken: session.authToken,
+        ).postEnvelope(
+          'api/v2/pos-auth/logout',
+          body: <String, dynamic>{
+            'session_code': sessionCode,
+            'staff_id': int.tryParse(session.staffId ?? ''),
+            'device_id': session.deviceId,
+            'reason': reason,
+          },
+        );
+      } catch (_) {
+        // Keep logout resilient even if remote endpoint is unavailable.
+      }
+    }
+
+    await databaseService.resetDatabase();
+    PosV2RuntimeSessionStore.instance.setSession(null);
+    RoleManager.changeRole(AppRole.cashier);
+  }
+
+  Future<String?> _resolveActiveDeviceSessionCode(
+    PosV2RuntimeSession session,
+  ) async {
+    if (session.deviceId == null || session.deviceId!.trim().isEmpty) {
+      return null;
+    }
+
+    final rows = await databaseService.query(
+      'device_session',
+      columns: const <String>['session_code'],
+      where: 'tenant_id = ? AND device_id = ? AND status = ?',
+      whereArgs: <Object?>[
+        session.tenantId,
+        session.deviceId!.trim(),
+        'active',
+      ],
+      orderBy: 'updated_at DESC, id DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return V2SyncUtils.asString(rows.first['session_code']);
+  }
+
+  String resolveRoleCode(
+    Map<String, dynamic>? staff, {
+    String? fallbackRoleCode,
+  }) {
+    final direct = V2SyncUtils.asString(staff?['role_code']);
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+
+    final roleName = V2SyncUtils.asString(
+      staff?['role_name'] ?? staff?['role'],
+    );
+    final normalizedRoleName = roleName?.trim().toLowerCase();
+    if (normalizedRoleName != null && normalizedRoleName.isNotEmpty) {
+      switch (normalizedRoleName) {
+        case 'owner':
+        case 'admin':
+          return 'owner';
+        case 'supervisor':
+        case 'spv':
+          return 'supervisor';
+        case 'kitchen':
+          return 'kitchen';
+        case 'programmer':
+        case 'developer':
+          return 'programmer';
+        case 'cashier':
+          return 'cashier';
+      }
+    }
+
+    final roleId = V2SyncUtils.asString(staff?['role_id'] ?? staff?['roleid']);
+    switch (roleId) {
+      case '1':
+        return 'owner';
+      case '2':
+        return 'supervisor';
+      case '3':
+        return 'cashier';
+      case '4':
+        return 'kitchen';
+      case '5':
+        return 'programmer';
+    }
+
+    return fallbackRoleCode?.trim().isNotEmpty == true
+        ? fallbackRoleCode!.trim()
+        : 'cashier';
+  }
+
+  Future<PosV2RuntimeSession> discoverAndLoginOnly({
+    required String centralBaseUrl,
+    required String email,
+    required String password,
+    String? deviceId,
+    String? registerId,
+  }) async {
+    final resolvedDeviceId = await _resolveOrCreateDeviceId(deviceId);
+    final discoverClient = V2ApiClient(
+      baseUrl: centralBaseUrl,
+      authToken: kFlinkV2FixedAuthToken,
+    );
+    final discoverEnvelope = await discoverClient.postEnvelope(
+      'api/v2/pos-auth/discover',
+      body: <String, dynamic>{'email': email.trim()},
+    );
+    final discoverData =
+        V2SyncUtils.asMap(discoverEnvelope['data']) ??
+        const <String, dynamic>{};
+    final tenantRows = V2SyncUtils.asMapList(discoverData['tenants']);
+    if (tenantRows.isEmpty) {
+      throw Exception('No tenant was discovered for this account.');
+    }
+
+    await _persistDiscoveredTenants(email: email, tenantRows: tenantRows);
+    final selectedTenant = _pickDiscoveredTenant(tenantRows);
+    if (selectedTenant == null) {
+      throw Exception('No POS-enabled tenant was available for this account.');
+    }
+
+    final tenantBaseUrl =
+        V2SyncUtils.asString(selectedTenant['base_url'])?.trim() ?? '';
+    if (tenantBaseUrl.isEmpty) {
+      throw Exception('Discovered tenant did not return a valid base_url.');
+    }
+
+    return loginOnly(
+      loginBaseUrl: tenantBaseUrl,
+      email: email,
+      password: password,
+      deviceId: resolvedDeviceId,
+      registerId: registerId,
+      discoveredTenant: selectedTenant,
+    );
+  }
+
   Future<PosV2RuntimeSession> loginOnly({
     required String loginBaseUrl,
     required String email,
     required String password,
     required String deviceId,
     String? registerId,
+    Map<String, dynamic>? discoveredTenant,
   }) async {
     final loginClient = V2ApiClient(
       baseUrl: loginBaseUrl,
@@ -52,11 +209,16 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         const <String, dynamic>{};
     final policies =
         V2SyncUtils.asMap(loginData['policies']) ?? const <String, dynamic>{};
-    final effectiveBaseUrl =
-        V2SyncUtils.asString(loginData['base_url']) ?? loginBaseUrl.trim();
+    final resolvedRoleCode = resolveRoleCode(
+      staff,
+      fallbackRoleCode: V2SyncUtils.asString(discoveredTenant?['role_code']),
+    );
+    final effectiveBaseUrl = _resolveTenantBaseUrl(
+      requestBaseUrl: loginBaseUrl,
+      responseBaseUrl: V2SyncUtils.asString(loginData['base_url']),
+    );
     final effectiveToken =
-        V2SyncUtils.asString(loginData['auth_token']) ??
-        kFlinkV2FixedAuthToken;
+        V2SyncUtils.asString(loginData['auth_token']) ?? kFlinkV2FixedAuthToken;
     final locationId = V2SyncUtils.asString(loginData['location_id']) ?? '';
     final effectiveRegisterId = _resolveRegisterId(
       explicitRegisterId: registerId,
@@ -85,8 +247,46 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       final tenantId = await ensureTenantId(
         txn,
         syncContext,
-        tenantName: V2SyncUtils.asString(loginData['tenant_name']),
-        roleCode: V2SyncUtils.asString(staff['role_code']),
+        tenantCode: V2SyncUtils.asString(discoveredTenant?['tenant_code']),
+        tenantName:
+            V2SyncUtils.asString(loginData['tenant_name']) ??
+            V2SyncUtils.asString(discoveredTenant?['tenant_name']),
+        roleCode: resolvedRoleCode,
+      );
+
+      await txn.update(
+        'app_tenant',
+        <String, Object?>{
+          'tenant_remote_id': V2SyncUtils.asString(
+            discoveredTenant?['tenant_id'],
+          ),
+          'tenant_code': V2SyncUtils.asString(discoveredTenant?['tenant_code']),
+          'tenant_name':
+              V2SyncUtils.asString(loginData['tenant_name']) ??
+              V2SyncUtils.asString(discoveredTenant?['tenant_name']),
+          // Keep the tenant-login location as the canonical runtime location.
+          // Discover location_id can point to a central mapping record and may
+          // differ from the tenant-local location_id returned by login.
+          'location_id': locationId,
+          'base_url': effectiveBaseUrl,
+          'user_type': V2SyncUtils.asString(discoveredTenant?['user_type']),
+          'role_code': resolvedRoleCode,
+          'can_pos_login':
+              V2SyncUtils.intToBoolFlag(
+                discoveredTenant?['can_pos_login'],
+                defaultValue: true,
+              )
+              ? 1
+              : 0,
+          'is_default':
+              V2SyncUtils.intToBoolFlag(discoveredTenant?['is_default'])
+              ? 1
+              : 0,
+          'is_active': 1,
+          'updated_at': now,
+        },
+        where: 'id = ?',
+        whereArgs: <Object?>[tenantId],
       );
 
       await txn.update(
@@ -118,8 +318,10 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'tenant_id': tenantId,
           'remote_id': staffRemoteId,
           'role_remote_id': V2SyncUtils.asString(staff['role_id']),
-          'role_code': V2SyncUtils.asString(staff['role_code']),
-          'role_name': V2SyncUtils.asString(staff['role_code']),
+          'role_code': resolvedRoleCode,
+          'role_name':
+              V2SyncUtils.asString(staff['role_name'] ?? staff['role']) ??
+              resolvedRoleCode,
           'full_name': V2SyncUtils.asString(staff['full_name']),
           'email': staffEmail,
           'is_active':
@@ -135,8 +337,10 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         updateValues: <String, Object?>{
           'remote_id': staffRemoteId,
           'role_remote_id': V2SyncUtils.asString(staff['role_id']),
-          'role_code': V2SyncUtils.asString(staff['role_code']),
-          'role_name': V2SyncUtils.asString(staff['role_code']),
+          'role_code': resolvedRoleCode,
+          'role_name':
+              V2SyncUtils.asString(staff['role_name'] ?? staff['role']) ??
+              resolvedRoleCode,
           'full_name': V2SyncUtils.asString(staff['full_name']),
           'email': staffEmail,
           'is_active':
@@ -187,7 +391,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'staff_remote_id': staffRemoteId,
           'staff_email': staffEmail,
           'staff_full_name': V2SyncUtils.asString(staff['full_name']),
-          'staff_role_code': V2SyncUtils.asString(staff['role_code']),
+          'staff_role_code': resolvedRoleCode,
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
@@ -203,7 +407,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'location_id': locationId,
           'staff_remote_id': staffRemoteId,
           'staff_full_name': V2SyncUtils.asString(staff['full_name']),
-          'staff_role_code': V2SyncUtils.asString(staff['role_code']),
+          'staff_role_code': resolvedRoleCode,
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
@@ -277,12 +481,17 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     final deviceSession =
         V2SyncUtils.asMap(loginData['device_session']) ??
         const <String, dynamic>{};
-    final effectiveBaseUrl =
-        V2SyncUtils.asString(loginData['base_url']) ?? tenantBaseUrl.trim();
-    final effectiveToken =
-        V2SyncUtils.asString(loginData['auth_token']) ??
-        kFlinkV2FixedAuthToken;
+    final effectiveBaseUrl = _resolveTenantBaseUrl(
+      requestBaseUrl: tenantBaseUrl,
+      responseBaseUrl: V2SyncUtils.asString(loginData['base_url']),
+    );
     final runtimeSession = PosV2RuntimeSessionStore.instance.currentSession;
+    final resolvedRoleCode = resolveRoleCode(
+      staff,
+      fallbackRoleCode: runtimeSession?.staffRoleCode,
+    );
+    final effectiveToken =
+        V2SyncUtils.asString(loginData['auth_token']) ?? kFlinkV2FixedAuthToken;
     final locationId =
         V2SyncUtils.asString(loginData['location_id']) ??
         runtimeSession?.locationId ??
@@ -316,7 +525,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         txn,
         syncContext,
         tenantName: runtimeSession?.tenantName,
-        roleCode: V2SyncUtils.asString(staff['role_code']),
+        roleCode: resolvedRoleCode,
       );
 
       await txn.update(
@@ -347,8 +556,10 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'tenant_id': tenantId,
           'remote_id': staffRemoteId,
           'role_remote_id': V2SyncUtils.asString(staff['role_id']),
-          'role_code': V2SyncUtils.asString(staff['role_code']),
-          'role_name': V2SyncUtils.asString(staff['role_code']),
+          'role_code': resolvedRoleCode,
+          'role_name':
+              V2SyncUtils.asString(staff['role_name'] ?? staff['role']) ??
+              resolvedRoleCode,
           'full_name': V2SyncUtils.asString(staff['full_name']),
           'email': staffEmail,
           'is_active': 1,
@@ -361,8 +572,10 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         updateValues: <String, Object?>{
           'remote_id': staffRemoteId,
           'role_remote_id': V2SyncUtils.asString(staff['role_id']),
-          'role_code': V2SyncUtils.asString(staff['role_code']),
-          'role_name': V2SyncUtils.asString(staff['role_code']),
+          'role_code': resolvedRoleCode,
+          'role_name':
+              V2SyncUtils.asString(staff['role_name'] ?? staff['role']) ??
+              resolvedRoleCode,
           'full_name': V2SyncUtils.asString(staff['full_name']),
           'email': staffEmail,
           'is_active': 1,
@@ -386,7 +599,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'staff_remote_id': staffRemoteId,
           'staff_email': staffEmail,
           'staff_full_name': V2SyncUtils.asString(staff['full_name']),
-          'staff_role_code': V2SyncUtils.asString(staff['role_code']),
+          'staff_role_code': resolvedRoleCode,
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
@@ -402,7 +615,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
           'location_id': locationId,
           'staff_remote_id': staffRemoteId,
           'staff_full_name': V2SyncUtils.asString(staff['full_name']),
-          'staff_role_code': V2SyncUtils.asString(staff['role_code']),
+          'staff_role_code': resolvedRoleCode,
           'base_url': syncContext.normalizedBaseUrl,
           'auth_token': effectiveToken,
           'device_id': deviceId.trim(),
@@ -460,5 +673,171 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     }
 
     return deviceId.trim();
+  }
+
+  Future<void> _persistDiscoveredTenants({
+    required String email,
+    required List<Map<String, dynamic>> tenantRows,
+  }) async {
+    await databaseService.transaction((txn) async {
+      final now = V2SyncUtils.nowIso();
+      for (final tenant in tenantRows) {
+        final baseUrl = V2SyncUtils.asString(tenant['base_url'])?.trim() ?? '';
+        if (baseUrl.isEmpty) {
+          continue;
+        }
+        final locationId = V2SyncUtils.asString(tenant['location_id']) ?? '';
+        final tenantKey =
+            '${baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'}::$locationId';
+        await databaseService.upsertByUnique(
+          txn,
+          'app_tenant',
+          where: 'tenant_key = ?',
+          whereArgs: <Object?>[tenantKey],
+          insertValues: <String, Object?>{
+            'tenant_key': tenantKey,
+            'tenant_remote_id': V2SyncUtils.asString(tenant['tenant_id']),
+            'tenant_code': V2SyncUtils.asString(tenant['tenant_code']),
+            'tenant_name': V2SyncUtils.asString(tenant['tenant_name']),
+            'location_id': locationId,
+            'base_url': baseUrl.endsWith('/') ? baseUrl : '$baseUrl/',
+            'user_type': V2SyncUtils.asString(tenant['user_type']),
+            'role_code': V2SyncUtils.asString(tenant['role_code']),
+            'can_pos_login':
+                V2SyncUtils.intToBoolFlag(
+                  tenant['can_pos_login'],
+                  defaultValue: true,
+                )
+                ? 1
+                : 0,
+            'is_default': V2SyncUtils.intToBoolFlag(tenant['is_default'])
+                ? 1
+                : 0,
+            'is_active': 1,
+            'catalog_owner': email.trim(),
+            'created_at': now,
+            'updated_at': now,
+          },
+          updateValues: <String, Object?>{
+            'tenant_remote_id': V2SyncUtils.asString(tenant['tenant_id']),
+            'tenant_code': V2SyncUtils.asString(tenant['tenant_code']),
+            'tenant_name': V2SyncUtils.asString(tenant['tenant_name']),
+            'location_id': locationId,
+            'base_url': baseUrl.endsWith('/') ? baseUrl : '$baseUrl/',
+            'user_type': V2SyncUtils.asString(tenant['user_type']),
+            'role_code': V2SyncUtils.asString(tenant['role_code']),
+            'can_pos_login':
+                V2SyncUtils.intToBoolFlag(
+                  tenant['can_pos_login'],
+                  defaultValue: true,
+                )
+                ? 1
+                : 0,
+            'is_default': V2SyncUtils.intToBoolFlag(tenant['is_default'])
+                ? 1
+                : 0,
+            'is_active': 1,
+            'catalog_owner': email.trim(),
+            'updated_at': now,
+          },
+        );
+      }
+    });
+  }
+
+  Map<String, dynamic>? _pickDiscoveredTenant(
+    List<Map<String, dynamic>> tenantRows,
+  ) {
+    final posEnabled = tenantRows
+        .where((tenant) {
+          return V2SyncUtils.intToBoolFlag(
+            tenant['can_pos_login'],
+            defaultValue: true,
+          );
+        })
+        .toList(growable: false);
+    if (posEnabled.isEmpty) {
+      return null;
+    }
+
+    for (final tenant in posEnabled) {
+      if (V2SyncUtils.intToBoolFlag(tenant['is_default'])) {
+        return tenant;
+      }
+    }
+
+    return posEnabled.first;
+  }
+
+  String _resolveTenantBaseUrl({
+    required String requestBaseUrl,
+    String? responseBaseUrl,
+  }) {
+    final normalizedRequest = requestBaseUrl.trim();
+    final normalizedResponse = responseBaseUrl?.trim();
+    if (normalizedResponse == null || normalizedResponse.isEmpty) {
+      return normalizedRequest;
+    }
+
+    final requestUri = Uri.tryParse(normalizedRequest);
+    final responseUri = Uri.tryParse(normalizedResponse);
+    if (requestUri == null || responseUri == null) {
+      return normalizedRequest;
+    }
+
+    if (requestUri.host.toLowerCase() == responseUri.host.toLowerCase()) {
+      return normalizedResponse;
+    }
+
+    return normalizedRequest;
+  }
+
+  Future<String> _resolveOrCreateDeviceId(String? preferredDeviceId) async {
+    final normalizedPreferred = preferredDeviceId?.trim();
+    if (normalizedPreferred != null && normalizedPreferred.isNotEmpty) {
+      return normalizedPreferred;
+    }
+
+    final sessionRows = await databaseService.rawQuery('''
+      SELECT device_id
+      FROM app_session
+      WHERE device_id IS NOT NULL AND TRIM(device_id) != ''
+      ORDER BY COALESCE(updated_at, logged_in_at, created_at) DESC
+      LIMIT 1
+      ''');
+    final existingSessionDeviceId = sessionRows.isEmpty
+        ? null
+        : V2SyncUtils.asString(sessionRows.first['device_id']);
+    if (existingSessionDeviceId != null) {
+      return existingSessionDeviceId;
+    }
+
+    final deviceRows = await databaseService.rawQuery('''
+      SELECT device_id
+      FROM device_session
+      WHERE device_id IS NOT NULL AND TRIM(device_id) != ''
+      ORDER BY COALESCE(updated_at, created_at) DESC
+      LIMIT 1
+      ''');
+    final existingDeviceId = deviceRows.isEmpty
+        ? null
+        : V2SyncUtils.asString(deviceRows.first['device_id']);
+    if (existingDeviceId != null) {
+      return existingDeviceId;
+    }
+
+    return _generateDeviceId();
+  }
+
+  String _generateDeviceId() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random.secure();
+    final suffix = List<String>.generate(
+      12,
+      (_) => chars[random.nextInt(chars.length)],
+      growable: false,
+    ).join();
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+    return 'flinkposv2-$timestamp-$suffix';
   }
 }

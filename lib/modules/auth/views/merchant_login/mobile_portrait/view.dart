@@ -18,8 +18,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
     with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _deviceIdController =
-      TextEditingController(text: 'FLINKPOS-V2-DEVICE');
+  final _deviceIdController = TextEditingController();
   final _registerIdController = TextEditingController();
   final MerchantLoginController _loginAction = MerchantLoginController();
 
@@ -54,14 +53,25 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
         curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
       ),
     );
-    _slideAnim =
-        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
-      ),
-    );
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
+        .animate(
+          CurvedAnimation(
+            parent: _animController,
+            curve: const Interval(0.2, 1.0, curve: Curves.easeOutCubic),
+          ),
+        );
     _animController.forward();
+
+    // Auto-generate a unique human-readable Device ID: FLINKPOS{YYYYMMDDHHmmssSSS}
+    final now = DateTime.now();
+    final y = now.year.toString().padLeft(4, '0');
+    final mo = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    final h = now.hour.toString().padLeft(2, '0');
+    final mi = now.minute.toString().padLeft(2, '0');
+    final s = now.second.toString().padLeft(2, '0');
+    final ms = now.millisecond.toString().padLeft(3, '0');
+    _deviceIdController.text = 'FLINKPOS$y$mo$d$h$mi$s$ms';
   }
 
   @override
@@ -79,8 +89,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
     if (_isLoading) return;
 
     if (_emailController.text.trim().isEmpty ||
-        _passwordController.text.isEmpty ||
-        _deviceIdController.text.trim().isEmpty) {
+        _passwordController.text.isEmpty) {
       setState(() => _errorMessage = l10n.loginFormIncomplete);
       return;
     }
@@ -218,8 +227,10 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
             // ─── BOTTOM: Login Form ──────────────────────────
             Expanded(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: FadeTransition(
                   opacity: _fadeAnim,
                   child: SlideTransition(
@@ -331,8 +342,11 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
             ),
             child: Row(
               children: [
-                const Icon(Icons.error_outline_rounded,
-                    color: Color(0xFFEF4444), size: 16),
+                const Icon(
+                  Icons.error_outline_rounded,
+                  color: Color(0xFFEF4444),
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -355,7 +369,8 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
           height: 48,
           child: _isLoading
               ? const Center(
-                  child: CircularProgressIndicator(color: _primaryColor))
+                  child: CircularProgressIndicator(color: _primaryColor),
+                )
               : ElevatedButton(
                   onPressed: () {
                     FocusScope.of(context).unfocus();
@@ -438,14 +453,15 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                   color: _isObscured ? Colors.grey[400] : _primaryColor,
                   size: 18,
                 ),
-                onPressed: () =>
-                    setState(() => _isObscured = !_isObscured),
+                onPressed: () => setState(() => _isObscured = !_isObscured),
               )
             : null,
         filled: true,
         fillColor: _scaffoldBg,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade200),
@@ -476,8 +492,11 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
             child: DropdownButton<String>(
               value: locale.languageCode,
               isDense: true,
-              icon: const Icon(Icons.expand_more,
-                  size: 16, color: Colors.white),
+              icon: const Icon(
+                Icons.expand_more,
+                size: 16,
+                color: Colors.white,
+              ),
               dropdownColor: Colors.white,
               style: TextStyle(
                 fontFamily: _fontMedium,
@@ -513,29 +532,31 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('🇮🇩',
-                          style: TextStyle(fontSize: 14)),
+                      const Text('🇮🇩', style: TextStyle(fontSize: 14)),
                       const SizedBox(width: 4),
-                      Text('ID',
-                          style: TextStyle(
-                            fontFamily: _fontMedium,
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.95),
-                          )),
+                      Text(
+                        'ID',
+                        style: TextStyle(
+                          fontFamily: _fontMedium,
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.95),
+                        ),
+                      ),
                     ],
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('🇬🇧',
-                          style: TextStyle(fontSize: 14)),
+                      const Text('🇬🇧', style: TextStyle(fontSize: 14)),
                       const SizedBox(width: 4),
-                      Text('EN',
-                          style: TextStyle(
-                            fontFamily: _fontMedium,
-                            fontSize: 11,
-                            color: Colors.white.withValues(alpha: 0.95),
-                          )),
+                      Text(
+                        'EN',
+                        style: TextStyle(
+                          fontFamily: _fontMedium,
+                          fontSize: 11,
+                          color: Colors.white.withValues(alpha: 0.95),
+                        ),
+                      ),
                     ],
                   ),
                 ];
@@ -561,11 +582,7 @@ class _MerchantLoginMobileViewState extends State<MerchantLoginMobileView>
         onTap: widget.onToggleLayout,
         child: Container(
           padding: const EdgeInsets.all(6),
-          child: const Icon(
-            Icons.tablet_mac,
-            size: 16,
-            color: Colors.white,
-          ),
+          child: const Icon(Icons.tablet_mac, size: 16, color: Colors.white),
         ),
       ),
     );

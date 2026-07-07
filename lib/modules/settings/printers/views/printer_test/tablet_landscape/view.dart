@@ -1,3 +1,4 @@
+import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../../../core/printing/models/printer_render_models.dart';
@@ -48,7 +49,7 @@ class _PrinterTestViewState extends State<PrinterTestView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Printer Test', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(AppLocalizations.of(context)!.printerTestTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
               const SizedBox(height: 3),
               const Text(
                 'Preview a sample receipt with the selected paper profile. This is where 50mm vs 80mm should visibly differ.',
@@ -56,7 +57,7 @@ class _PrinterTestViewState extends State<PrinterTestView> {
               ),
               const SizedBox(height: 14),
               if (printers.isEmpty)
-                const Text('No active printer profile available. Add one first.', style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)))
+                Text(AppLocalizations.of(context)!.printerTestNoActiveProfile, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))
               else ...[
                 DropdownButtonFormField<String>(
                   initialValue: _selectedPrinterKey,
@@ -159,7 +160,7 @@ class _PrinterTestViewState extends State<PrinterTestView> {
               FilledButton.icon(
                 onPressed: () => _controller.printTest(printer, type: _selectedType),
                 icon: const Icon(Icons.print_rounded, size: 16),
-                label: const Text('Preview / Print', style: TextStyle(fontSize: 11)),
+                label: Text(AppLocalizations.of(context)!.printerTestPreviewPrint, style: const TextStyle(fontSize: 11)),
               ),
             ],
           ),

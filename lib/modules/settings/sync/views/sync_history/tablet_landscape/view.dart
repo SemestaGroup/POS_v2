@@ -1,3 +1,4 @@
+import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
 import '../../../controllers/sync_settings_controller.dart';
@@ -37,20 +38,20 @@ class _SyncHistoryViewState extends State<SyncHistoryView> {
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Sync History', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                        SizedBox(height: 3),
-                        Text('Recent queue activity and local error logs.', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+                        Text(AppLocalizations.of(context)!.syncHistoryTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 3),
+                        Text(AppLocalizations.of(context)!.syncHistoryDesc, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
                       ],
                     ),
                   ),
                   TextButton.icon(
                     onPressed: _controller.refresh,
                     icon: const Icon(Icons.refresh_rounded, size: 14),
-                    label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                    label: Text(AppLocalizations.of(context)!.refresh, style: const TextStyle(fontSize: 11)),
                   ),
                 ],
               ),
@@ -58,7 +59,7 @@ class _SyncHistoryViewState extends State<SyncHistoryView> {
               _panel(
                 title: 'Recent Queue Entries',
                 child: state.queueEntries.isEmpty
-                    ? const Text('No recent queue entries.', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)))
+                    ? Text(AppLocalizations.of(context)!.syncHistoryNoQueue, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)))
                     : Column(
                         children: state.queueEntries.map((entry) {
                           return Padding(
@@ -90,7 +91,7 @@ class _SyncHistoryViewState extends State<SyncHistoryView> {
               _panel(
                 title: 'Recent Error Logs',
                 child: state.errorEntries.isEmpty
-                    ? const Text('No recent error logs.', style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)))
+                    ? Text(AppLocalizations.of(context)!.syncHistoryNoErrors, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)))
                     : Column(
                         children: state.errorEntries.map((entry) {
                           return Padding(

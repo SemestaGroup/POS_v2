@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/motion/smooth_reveal.dart';
 import '../../../l10n/app_localizations.dart';
-import '../../../modules/auth/widgets/pin_account_switch_dialog.dart';
-
-
+import '../../../modules/auth/views/staff_selector/tablet_landscape/switch_staff_screen.dart';
 
 class SidebarItem {
   SidebarItem({
@@ -77,7 +75,9 @@ class SidebarWidget extends StatelessWidget {
               ),
             ),
             InkWell(
-              onTap: () => showPinAccountSwitchDialog(context),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SwitchStaffScreen()),
+              ),
               child: _SidebarFooterActionLabel(
                 isCollapsed: isCollapsed,
                 icon: Icons.switch_account_rounded,

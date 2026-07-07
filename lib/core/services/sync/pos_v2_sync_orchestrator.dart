@@ -7,6 +7,8 @@ import 'customers_sync_adapter.dart';
 import 'items_sync_adapter.dart';
 import 'orders_sync_adapter.dart';
 import 'payments_sync_adapter.dart';
+import 'pos_v2_options_service.dart';
+import 'pos_roles_sync_adapter.dart';
 import 'promotions_sync_adapter.dart';
 import 'self_order_sync_adapter.dart';
 import 'service_tables_sync_adapter.dart';
@@ -27,6 +29,7 @@ class PosV2SyncOrchestrator {
       _payments = PaymentsSyncAdapter(databaseService: databaseService),
       _shift = ShiftSyncAdapter(databaseService: databaseService),
       _staff = StaffSyncAdapter(databaseService: databaseService),
+      _roles = PosRolesSyncAdapter(databaseService: databaseService),
       _selfOrder = SelfOrderSyncAdapter(databaseService: databaseService),
       _promotions = PromotionsSyncAdapter(databaseService: databaseService),
       _serviceTables = ServiceTablesSyncAdapter(
@@ -46,13 +49,18 @@ class PosV2SyncOrchestrator {
   final PaymentsSyncAdapter _payments;
   final ShiftSyncAdapter _shift;
   final StaffSyncAdapter _staff;
+  final PosRolesSyncAdapter _roles;
   final SelfOrderSyncAdapter _selfOrder;
   final PromotionsSyncAdapter _promotions;
   final ServiceTablesSyncAdapter _serviceTables;
   final ApprovalRequestsSyncAdapter _approvals;
 
-  Future<V2SyncResult> syncBootstrap(V2SyncContext context) {
-    return _bootstrap.sync(context);
+  Future<V2SyncResult> syncBootstrap(V2SyncContext context) async {
+    final result = await _bootstrap.sync(context);
+    try {
+      await PosV2OptionsService.instance.fetchAndSaveOptions();
+    } catch (_) {}
+    return result;
   }
 
   Future<V2SyncResult> syncItems(
@@ -170,6 +178,10 @@ class PosV2SyncOrchestrator {
 
   Future<V2SyncResult> syncActiveShift(V2SyncContext context) {
     return _shift.sync(context, path: 'api/v2/pos-shift-sessions/active');
+  }
+
+  Future<V2SyncResult> syncRoles(V2SyncContext context) {
+    return _roles.sync(context);
   }
 
   Future<V2SyncResult> syncShiftHistory(V2SyncContext context) {
@@ -332,6 +344,7 @@ class PosV2SyncOrchestrator {
       await syncItems(context),
       await syncPromotions(context),
       await syncStaff(context),
+      await syncRoles(context),
       await syncCustomers(context),
       await syncOrders(context, pullDetails: pullOrderDetails),
       await syncPayments(context),
@@ -348,11 +361,13 @@ class PosV2SyncOrchestrator {
     final results = <V2SyncResult>[];
     results.add(await syncBootstrap(context));
 
-    // Partial startup: Options, Active Shift, Categories, Promotions, Active Orders, and Products.
+    // Partial startup: Options, Active Shift, Categories, Promotions, Active Orders, Staff and Products.
     results.addAll(
       await Future.wait<V2SyncResult>([
         syncActiveShiftForContext(context),
         syncCategories(context),
+        syncStaff(context),
+        syncRoles(context),
       ]),
     );
 

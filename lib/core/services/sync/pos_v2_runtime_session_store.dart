@@ -121,7 +121,7 @@ class PosV2RuntimeSessionStore {
         );
 
         if (isCompletingInitialBootstrap) {
-          // If this is the FIRST time bootstrap completes, we MUST notify listeners 
+          // If this is the FIRST time bootstrap completes, we MUST notify listeners
           // so AuthGate can navigate away from the SyncBootstrapScreen.
           _sessionNotifier.value = newSession;
         } else {
@@ -147,22 +147,23 @@ class PosV2RuntimeSessionStore {
       final rows = await DatabaseService.instance.rawQuery('''
         SELECT
           app_session.tenant_id,
-          app_session.base_url,
+          COALESCE(app_tenant.base_url, app_session.base_url) AS resolved_base_url,
           app_session.auth_token,
           app_session.location_id,
           app_session.device_id,
           app_session.register_id,
           app_session.device_name,
-          app_session.staff_remote_id,
-          app_session.staff_email,
-          app_session.staff_full_name,
-          app_session.staff_role_code,
+          COALESCE(app_session.staff_remote_id, staff.remote_id) AS resolved_staff_remote_id,
+          COALESCE(app_session.staff_email, staff.email) AS resolved_staff_email,
+          COALESCE(app_session.staff_full_name, staff.full_name) AS resolved_staff_full_name,
+          COALESCE(app_session.staff_role_code, staff.role_code, app_tenant.role_code) AS resolved_staff_role_code,
           app_tenant.tenant_key,
           app_tenant.tenant_code,
           app_tenant.tenant_name,
           app_tenant.last_bootstrap_at
         FROM app_session
         INNER JOIN app_tenant ON app_tenant.id = app_session.tenant_id
+        LEFT JOIN staff ON staff.id = app_session.staff_id
         WHERE app_session.status = 'active'
         ORDER BY COALESCE(app_session.updated_at, app_session.logged_in_at) DESC
         LIMIT 1
@@ -185,7 +186,7 @@ class PosV2RuntimeSessionStore {
       final session = PosV2RuntimeSession(
         tenantId: tenantId,
         tenantKey: row['tenant_key']?.toString() ?? '',
-        baseUrl: row['base_url']?.toString() ?? '',
+        baseUrl: row['resolved_base_url']?.toString() ?? '',
         authToken: row['auth_token']?.toString() ?? '',
         locationId: row['location_id']?.toString() ?? '',
         tenantCode: row['tenant_code']?.toString(),
@@ -193,10 +194,10 @@ class PosV2RuntimeSessionStore {
         deviceId: row['device_id']?.toString(),
         registerId: row['register_id']?.toString(),
         deviceName: row['device_name']?.toString(),
-        staffId: row['staff_remote_id']?.toString(),
-        staffEmail: row['staff_email']?.toString(),
-        staffFullName: row['staff_full_name']?.toString(),
-        staffRoleCode: row['staff_role_code']?.toString(),
+        staffId: row['resolved_staff_remote_id']?.toString(),
+        staffEmail: row['resolved_staff_email']?.toString(),
+        staffFullName: row['resolved_staff_full_name']?.toString(),
+        staffRoleCode: row['resolved_staff_role_code']?.toString(),
         lastBootstrapAt: row['last_bootstrap_at']?.toString(),
       );
 
