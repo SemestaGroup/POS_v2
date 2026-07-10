@@ -12,13 +12,46 @@ class CashFlowView extends StatefulWidget {
 
 class _CashFlowViewState extends State<CashFlowView> {
   final CashFlowStore _store = CashFlowStore.instance;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _store.refresh();
+      _store.refresh(startDate: _startDate, endDate: _endDate);
     });
+  }
+
+  Future<void> _selectDateRange() async {
+    final DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: Theme.of(context).colorScheme.primary,
+                  onPrimary: Colors.white,
+                  surface: Colors.white,
+                  onSurface: Colors.black,
+                ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+      _store.refresh(startDate: _startDate, endDate: _endDate);
+    }
   }
 
   @override
@@ -59,8 +92,98 @@ class _CashFlowViewState extends State<CashFlowView> {
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                   ),
                   const Spacer(),
+                  if (_startDate != null && _endDate != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8.0),
+                      child: Chip(
+                        label: Text(
+                          '${DateFormat('dd MMM yyyy', 'id_ID').format(_startDate!)} - ${DateFormat('dd MMM yyyy', 'id_ID').format(_endDate!)}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        onDeleted: () {
+                          setState(() {
+                            _startDate = null;
+                            _endDate = null;
+                          });
+                          _store.refresh(startDate: null, endDate: null);
+                        },
+                        deleteIcon: const Icon(Icons.close, size: 14),
+                        backgroundColor: Colors.grey.shade100,
+                        side: BorderSide.none,
+                        padding: EdgeInsets.zero,
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                    ),
+                  PopupMenuButton<String>(
+                    onSelected: (value) async {
+                      if (value == 'today') {
+                        final now = DateTime.now();
+                        setState(() {
+                          _startDate = DateTime(now.year, now.month, now.day);
+                          _endDate = DateTime(now.year, now.month, now.day);
+                        });
+                        _store.refresh(startDate: _startDate, endDate: _endDate);
+                      } else if (value == 'last7days') {
+                        final now = DateTime.now();
+                        setState(() {
+                          _startDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+                          _endDate = DateTime(now.year, now.month, now.day);
+                        });
+                        _store.refresh(startDate: _startDate, endDate: _endDate);
+                      } else if (value == 'thisMonth') {
+                        final now = DateTime.now();
+                        setState(() {
+                          _startDate = DateTime(now.year, now.month, 1);
+                          // last day of current month
+                          _endDate = DateTime(now.year, now.month + 1, 0); 
+                        });
+                        _store.refresh(startDate: _startDate, endDate: _endDate);
+                      } else if (value == 'custom') {
+                        await _selectDateRange();
+                      }
+                    },
+                    color: Colors.white,
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    offset: const Offset(0, 40),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'today',
+                        child: Text('Hari Ini', style: TextStyle(fontSize: 13)),
+                      ),
+                      const PopupMenuItem(
+                        value: 'last7days',
+                        child: Text('7 Hari Terakhir', style: TextStyle(fontSize: 13)),
+                      ),
+                      const PopupMenuItem(
+                        value: 'thisMonth',
+                        child: Text('Bulan Ini', style: TextStyle(fontSize: 13)),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'custom',
+                        child: Text('Kustom Tanggal...', style: TextStyle(fontSize: 13)),
+                      ),
+                    ],
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_month_rounded, size: 14, color: Colors.black87),
+                          SizedBox(width: 6),
+                          Text('Filter Tanggal', style: TextStyle(fontSize: 11, color: Colors.black87)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   TextButton.icon(
-                    onPressed: _store.refresh,
+                    onPressed: () => _store.refresh(startDate: _startDate, endDate: _endDate),
                     icon: const Icon(Icons.refresh_rounded, size: 14),
                     label: const Text('Refresh', style: TextStyle(fontSize: 11)),
                     style: TextButton.styleFrom(foregroundColor: primaryColor),

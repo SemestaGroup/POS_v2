@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../../../app/role_access/role_manager.dart';
+import '../../constants/app_constants.dart';
 import '../../network/v2_api_client.dart';
 import '../../network/v2_api_fixed_auth.dart';
 import 'base_v2_sync_adapter.dart';
@@ -35,7 +36,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
 
     if (session != null) {
       try {
-        final sessionCode = await _resolveActiveDeviceSessionCode(session);
+        final sessionCode = await resolveActiveDeviceSessionCode(session);
         await V2ApiClient(
           baseUrl: session.baseUrl,
           authToken: session.authToken,
@@ -58,7 +59,30 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     RoleManager.changeRole(AppRole.cashier);
   }
 
-  Future<String?> _resolveActiveDeviceSessionCode(
+  Future<void> forceLogoutLocally() async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session != null) {
+      final now = V2SyncUtils.nowIso();
+      await databaseService.transaction((txn) async {
+        await txn.update(
+          'app_session',
+          <String, Object?>{
+            'status': 'forced_out',
+            'logged_out_at': now,
+            'updated_at': now,
+          },
+          where: 'tenant_id = ? AND status = ?',
+          whereArgs: <Object?>[session.tenantId, 'active'],
+        );
+      });
+    }
+    
+    PosV2RuntimeSessionStore.instance.wasForcedOut = true;
+    PosV2RuntimeSessionStore.instance.setSession(null);
+    RoleManager.changeRole(AppRole.cashier);
+  }
+
+  Future<String?> resolveActiveDeviceSessionCode(
     PosV2RuntimeSession session,
   ) async {
     if (session.deviceId == null || session.deviceId!.trim().isEmpty) {
@@ -139,6 +163,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String password,
     String? deviceId,
     String? registerId,
+    bool forceLogoutOtherSession = false,
   }) async {
     final resolvedDeviceId = await _resolveOrCreateDeviceId(deviceId);
     final discoverClient = V2ApiClient(
@@ -176,6 +201,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       deviceId: resolvedDeviceId,
       registerId: registerId,
       discoveredTenant: selectedTenant,
+      forceLogoutOtherSession: forceLogoutOtherSession,
     );
   }
 
@@ -186,6 +212,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String deviceId,
     String? registerId,
     Map<String, dynamic>? discoveredTenant,
+    bool forceLogoutOtherSession = false,
   }) async {
     final loginClient = V2ApiClient(
       baseUrl: loginBaseUrl,
@@ -197,6 +224,8 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         'email': email.trim(),
         'password': password,
         'device_id': deviceId.trim(),
+        'app_version': AppConstants.appVersion,
+        'force_logout_other_session': forceLogoutOtherSession,
       },
     );
 
@@ -438,6 +467,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String password,
     required String deviceId,
     String? registerId,
+    bool forceLogoutOtherSession = false,
   }) async {
     final session = await loginOnly(
       loginBaseUrl: loginBaseUrl,
@@ -445,6 +475,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       password: password,
       deviceId: deviceId,
       registerId: registerId,
+      forceLogoutOtherSession: forceLogoutOtherSession,
     );
     await runBootstrapSync(session);
     return PosV2LoginResult(
@@ -460,6 +491,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String pin,
     required String deviceId,
     String? registerId,
+    bool forceLogoutOtherSession = false,
   }) async {
     final client = V2ApiClient(
       baseUrl: tenantBaseUrl,
@@ -471,6 +503,8 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         'email': email.trim(),
         'pin': pin.trim(),
         'device_id': deviceId.trim(),
+        'app_version': AppConstants.appVersion,
+        'force_logout_other_session': forceLogoutOtherSession,
       },
     );
 
@@ -641,6 +675,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String pin,
     required String deviceId,
     String? registerId,
+    bool forceLogoutOtherSession = false,
   }) async {
     final session = await pinLoginOnly(
       tenantBaseUrl: tenantBaseUrl,
@@ -648,6 +683,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       pin: pin,
       deviceId: deviceId,
       registerId: registerId,
+      forceLogoutOtherSession: forceLogoutOtherSession,
     );
     await runBootstrapSync(session);
     return PosV2LoginResult(

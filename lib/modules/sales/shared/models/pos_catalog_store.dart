@@ -114,6 +114,8 @@ class PosCatalogStore {
           product.discount_type,
           product.stock_quantity,
           product.sort_order,
+          product.parent_remote_id,
+          product.children_json,
           category.name AS category_name,
           brand.name AS brand_name
         FROM product
@@ -199,6 +201,7 @@ class PosCatalogStore {
               'categoryRemoteId': row['category_remote_id']?.toString(),
               'brandRemoteId': row['primary_brand_remote_id']?.toString(),
               'name': row['name']?.toString() ?? '',
+              'description': row['description']?.toString(),
               'price': _formatCurrency(discountedPrice ?? basePrice),
               'regularPrice': basePrice,
               'discountedPrice': discountedPrice,
@@ -208,6 +211,8 @@ class PosCatalogStore {
               'categoryName': row['category_name']?.toString(),
               'brandName': row['brand_name']?.toString(),
               'orderTypePrices': orderTypePrices,
+              'parentRemoteId': row['parent_remote_id']?.toString(),
+              'childrenJson': row['children_json']?.toString(),
             };
           })
           .toList(growable: false);

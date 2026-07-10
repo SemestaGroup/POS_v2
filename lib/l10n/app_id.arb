@@ -14,6 +14,13 @@
   "settings": "Pengaturan",
   "comingSoon": "{title} Segera Hadir",
   "all": "Semua",
+  "authForcedOutTitle": "Sesi Berakhir",
+  "authForcedOutMessage": "Akun Anda telah dikeluarkan secara paksa oleh pengguna lain. Silakan login kembali.",
+  "authForcedOutUnderstand": "Mengerti",
+  "activeSessionTitle": "Sesi Masih Aktif",
+  "activeSessionMessage": "Akun Anda masih aktif di perangkat lain. Apakah Anda ingin keluar paksa dari perangkat tersebut dan login di sini?",
+  "activeSessionForceLogout": "Force Log Out",
+  "appName": "FlinkPOS V2",
   "promo": "Promo",
   "chooseTable": "Pilih Meja",
   "ordersWithCount": "Pesanan {count}",
@@ -665,5 +672,10 @@
         "type": "int"
       }
     }
-  }
+  },
+  "cashOut": "Kas Keluar",
+  "addCashOut": "Tambah Kas Keluar",
+  "amount": "Jumlah",
+  "startDate": "Dari Tanggal",
+  "endDate": "Sampai Tanggal"
 }

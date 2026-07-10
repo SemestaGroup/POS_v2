@@ -9,6 +9,29 @@ class AppLocalizationsId extends AppLocalizations {
   AppLocalizationsId([String locale = 'id']) : super(locale);
 
   @override
+  String get authForcedOutTitle => 'Sesi Berakhir';
+
+  @override
+  String get authForcedOutMessage =>
+      'Akun Anda telah dikeluarkan secara paksa oleh pengguna lain. Silakan login kembali.';
+
+  @override
+  String get authForcedOutUnderstand => 'Mengerti';
+
+  @override
+  String get activeSessionTitle => 'Sesi Masih Aktif';
+
+  @override
+  String get activeSessionMessage =>
+      'Akun Anda masih aktif di perangkat lain. Apakah Anda ingin keluar paksa dari perangkat tersebut dan login di sini?';
+
+  @override
+  String get activeSessionForceLogout => 'Force Log Out';
+
+  @override
+  String get appName => 'FlinkPOS V2';
+
+  @override
   String get posTitle => 'Kasir';
 
   @override
@@ -1648,4 +1671,19 @@ class AppLocalizationsId extends AppLocalizations {
   String syncProgress(int progress) {
     return 'Progres: $progress%';
   }
+
+  @override
+  String get cashOut => 'Kas Keluar';
+
+  @override
+  String get addCashOut => 'Tambah Kas Keluar';
+
+  @override
+  String get amount => 'Jumlah';
+
+  @override
+  String get startDate => 'Dari Tanggal';
+
+  @override
+  String get endDate => 'Sampai Tanggal';
 }

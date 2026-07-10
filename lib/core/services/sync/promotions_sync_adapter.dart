@@ -1,3 +1,5 @@
+import '../../constants/app_constants.dart';
+import '../../network/v2_api_client.dart';
 import 'base_v2_sync_adapter.dart';
 import 'v2_sync_context.dart';
 import 'v2_sync_result.dart';
@@ -13,9 +15,14 @@ class PromotionsSyncAdapter extends BaseV2SyncAdapter {
   }) async {
     List<Map<String, dynamic>> rows;
     try {
-      final envelope = await buildClient(
-        context,
-      ).getEnvelope('api/v2/pos-promotions', query: query);
+      final client = V2ApiClient(
+        baseUrl: AppConstants.centralBaseUrl,
+        authToken: context.authToken,
+      );
+      final envelope = await client.getEnvelope(
+        'api/v2/pos-promotions',
+        query: query,
+      );
       rows = V2SyncUtils.asMapList(envelope['data']);
     } catch (error) {
       if (allowNotFoundEmpty &&

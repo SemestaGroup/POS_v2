@@ -9,6 +9,29 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get authForcedOutTitle => 'Session Ended';
+
+  @override
+  String get authForcedOutMessage =>
+      'Your account has been forcefully logged out by another user. Please log in again.';
+
+  @override
+  String get authForcedOutUnderstand => 'Understood';
+
+  @override
+  String get activeSessionTitle => 'Active Session Detected';
+
+  @override
+  String get activeSessionMessage =>
+      'Your account is still active on another device. Do you want to force log out from that device and log in here?';
+
+  @override
+  String get activeSessionForceLogout => 'Force Log Out';
+
+  @override
+  String get appName => 'FlinkPOS V2';
+
+  @override
   String get posTitle => 'POS';
 
   @override
@@ -1646,4 +1669,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String syncProgress(int progress) {
     return 'Progress: $progress%';
   }
+
+  @override
+  String get cashOut => 'Cash Out';
+
+  @override
+  String get addCashOut => 'Add Cash Out';
+
+  @override
+  String get amount => 'Amount';
+
+  @override
+  String get startDate => 'Start Date';
+
+  @override
+  String get endDate => 'End Date';
 }

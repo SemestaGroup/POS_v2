@@ -12,6 +12,7 @@ class MerchantLoginController {
     required String password,
     String? deviceId,
     String? registerId,
+    bool forceLogoutOtherSession = false,
   }) {
     return _authService.discoverAndLoginOnly(
       centralBaseUrl: AppConstants.centralLoginBaseUrl,
@@ -21,6 +22,7 @@ class MerchantLoginController {
       registerId: registerId?.trim().isEmpty == true
           ? null
           : registerId?.trim(),
+      forceLogoutOtherSession: forceLogoutOtherSession,
     );
   }
 }

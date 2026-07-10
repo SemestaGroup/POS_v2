@@ -90,6 +90,8 @@ class PosV2RuntimeSessionStore {
   ValueListenable<PosV2RuntimeSession?> get sessionNotifier => _sessionNotifier;
 
   PosV2RuntimeSession? get currentSession => _sessionNotifier.value;
+  
+  bool wasForcedOut = false;
 
   /// Set a new session. If the session identity (tenant/staff/device) is the
   /// same as the current one, only lastBootstrapAt is updated silently so

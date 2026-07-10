@@ -70,6 +70,9 @@ class DatabaseService {
       await _addColumnIfMissing(db, 'shift_session', 'eod_group_id', 'TEXT');
       // shift_eod_archive will be created by schema application
     }
+    if (oldVersion < 6) {
+      // pos_cash_flow table will be created by schema application
+    }
   }
 
   Future<void> _addColumnIfMissing(
@@ -213,6 +216,14 @@ class DatabaseService {
     return rows
         .map((row) => row.map((key, value) => MapEntry(key, value)))
         .toList(growable: false);
+  }
+
+  Future<int> rawInsert(
+    String sql, [
+    List<Object?>? arguments,
+  ]) async {
+    final db = await database;
+    return db.rawInsert(sql, arguments);
   }
 
   Future<List<Map<String, Object?>>> query(

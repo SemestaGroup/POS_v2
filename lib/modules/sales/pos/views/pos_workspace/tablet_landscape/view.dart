@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../../../core/services/local/product_image_cache_service.dart';
+import '../../../../../../core/services/local/database_service.dart';
 import '../../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../../../../l10n/app_localizations.dart';
@@ -27,12 +28,14 @@ enum _PosQuickAction {
   syncData,
   closeOutlet,
   settings,
+  cashOut,
 }
 
 class _PosCartItem {
   const _PosCartItem({
     required this.id,
     required this.name,
+    required this.displayName,
     required this.imageUrl,
     required this.regularUnitPrice,
     required this.quantity,
@@ -46,6 +49,7 @@ class _PosCartItem {
 
   final String id;
   final String name;
+  final String displayName;
   final String imageUrl;
   final int regularUnitPrice;
   final int quantity;
@@ -63,6 +67,7 @@ class _PosCartItem {
   _PosCartItem copyWith({
     String? id,
     String? name,
+    String? displayName,
     String? imageUrl,
     int? regularUnitPrice,
     int? quantity,
@@ -77,6 +82,7 @@ class _PosCartItem {
     return _PosCartItem(
       id: id ?? this.id,
       name: name ?? this.name,
+      displayName: displayName ?? this.displayName,
       imageUrl: imageUrl ?? this.imageUrl,
       regularUnitPrice: regularUnitPrice ?? this.regularUnitPrice,
       quantity: quantity ?? this.quantity,
@@ -126,6 +132,23 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   bool _showProductStock = false;
   bool _showProductPrice = false;
 
+  String? _activeMenuId;
+  String? _activeMenuName;
+
+  bool _isMenuFolder(Map<String, dynamic> product) {
+    String? childrenStr = product['childrenJson']?.toString();
+    if (childrenStr == null || childrenStr.trim().isEmpty) return false;
+
+    childrenStr = childrenStr.trim();
+    if (childrenStr.startsWith('"') && childrenStr.endsWith('"')) {
+      childrenStr = childrenStr.substring(1, childrenStr.length - 1).trim();
+    }
+
+    return childrenStr != '[]' &&
+        childrenStr != 'null' &&
+        childrenStr.isNotEmpty;
+  }
+
   bool _isPlaceholderImage(String url) {
     if (url.isEmpty) return true;
     final lower = url.toLowerCase();
@@ -141,14 +164,14 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   bool _isCommitting = false;
   bool _isSyncingQuickData = false;
 
-  void _handlePendingResumeOrder() {
+  void _handlePendingResumeOrder() async {
     final pendingOrder = SalesOrderStore.instance.resumeOrderNotifier.value;
     if (pendingOrder == null) {
       return;
     }
 
     if (_cartItems.isNotEmpty) {
-      _commitOrder(1); // Auto-save current workspace as active order
+      await _commitOrder(1); // Auto-save current workspace as active order
     }
 
     setState(() {
@@ -159,6 +182,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             (item) => _PosCartItem(
               id: item.id,
               name: item.name,
+              displayName: item.name,
               imageUrl: item.imageUrl,
               regularUnitPrice: item.regularUnitPrice,
               quantity: item.quantity,
@@ -559,7 +583,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         _PosCartItem(
           id: _newLineId(),
           name: name,
-          imageUrl: product['image'] as String,
+          displayName:
+              product['description']?.toString().trim().isNotEmpty == true
+              ? product['description'].toString().trim()
+              : name,
+          imageUrl: product['image'] as String? ?? '',
           regularUnitPrice: regularUnitPrice,
           quantity: 1,
           productRemoteId: product['remoteId'] as String?,
@@ -1294,7 +1322,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     item.quantity)
               : 0;
           return PaymentReviewItemData(
-            name: item.name,
+            name: item.displayName,
             imageUrl: item.imageUrl,
             quantity: item.quantity,
             formattedLineTotal: _formatCurrency(
@@ -1610,6 +1638,20 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       case _PosQuickAction.syncData:
         unawaited(_syncQuickMasterData());
         return;
+      case _PosQuickAction.cashOut:
+        if (ActiveShiftStore.instance.activeShiftNotifier.value == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                'Silakan buka shift terlebih dahulu untuk menambah kas keluar.',
+              ),
+            ),
+          );
+          return;
+        }
+        _showCashOutDialog();
+        return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1625,10 +1667,192 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
               _PosQuickAction.discount => '',
               _PosQuickAction.clearOrder => '',
               _PosQuickAction.cancelOrder => '',
+              _PosQuickAction.cashOut => '',
             }),
           ),
         );
     }
+  }
+
+  void _showCashOutDialog() {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final amountController = TextEditingController();
+    final noteController = TextEditingController();
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Container(
+                width: 400,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.arrow_upward_rounded,
+                            color: Colors.red,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          l10n.cashOut,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: amountController,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: l10n.amount,
+                        prefixText: 'Rp ',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: noteController,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: l10n.note,
+                        alignLabelWithHint: true,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () => Navigator.pop(context),
+                          child: Text(
+                            l10n.cancel,
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton(
+                          onPressed: isSubmitting
+                              ? null
+                              : () async {
+                                  final amountStr = amountController.text
+                                      .replaceAll(RegExp(r'[^0-9]'), '');
+                                  final amount = int.tryParse(amountStr) ?? 0;
+                                  if (amount <= 0) return;
+
+                                  setDialogState(() => isSubmitting = true);
+                                  try {
+                                    final tenantId = PosV2RuntimeSessionStore
+                                        .instance
+                                        .currentSession
+                                        ?.tenantId;
+                                    final locationId = PosV2RuntimeSessionStore
+                                        .instance
+                                        .currentSession
+                                        ?.locationId;
+                                    final staffId = PosV2RuntimeSessionStore
+                                        .instance
+                                        .currentSession
+                                        ?.staffId;
+                                    if (tenantId != null) {
+                                      await DatabaseService.instance.rawInsert(
+                                        '''
+                                        INSERT INTO pos_cash_flow (
+                                          tenant_id, location_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
+                                        ) VALUES (?, ?, 'out', ?, ?, ?, 'dirty_create', ?, ?)
+                                        ''',
+                                        [
+                                          tenantId,
+                                          locationId,
+                                          amount,
+                                          noteController.text,
+                                          staffId,
+                                          DateTime.now().toIso8601String(),
+                                          DateTime.now().toIso8601String(),
+                                        ],
+                                      );
+                                    }
+                                    if (context.mounted) {
+                                      Navigator.pop(context);
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(content: Text('Error: $e')),
+                                      );
+                                    }
+                                  } finally {
+                                    if (context.mounted) {
+                                      setDialogState(
+                                        () => isSubmitting = false,
+                                      );
+                                    }
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: theme.colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                          ),
+                          child: isSubmitting
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(l10n.save),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showOrderTypeMenu(BuildContext context) {
@@ -1948,7 +2172,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                         children: [
                           Expanded(
                             child: Text(
-                              cartItem.name,
+                              cartItem.displayName,
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w900,
@@ -2855,18 +3079,35 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
 
     final query = _searchController.text.trim().toLowerCase();
     final visibleProducts = products.where((product) {
-      if (selectedBrandName != null &&
-          product['brandName']?.toString() != selectedBrandName) {
-        return false;
+      final parentId = product['parentRemoteId']?.toString();
+
+      if (_activeMenuId == null) {
+        // Root list: Hide items that are children of a menu
+        if (parentId != null && parentId.isNotEmpty && parentId != 'null') {
+          return false;
+        }
+        if (selectedBrandName != null &&
+            product['brandName']?.toString() != selectedBrandName) {
+          return false;
+        }
+        if (selectedCategoryName != null &&
+            product['categoryName']?.toString() != selectedCategoryName) {
+          return false;
+        }
+      } else {
+        // Inside Menu: Show only children of the active menu, ignore category/brand filters
+        if (parentId != _activeMenuId) {
+          return false;
+        }
       }
-      if (selectedCategoryName != null &&
-          product['categoryName']?.toString() != selectedCategoryName) {
-        return false;
+
+      if (query.isNotEmpty) {
+        final name = (product['name'] as String?) ?? '';
+        final description = product['description']?.toString() ?? '';
+        final displayName = description.trim().isNotEmpty ? description : name;
+        return displayName.toLowerCase().contains(query);
       }
-      if (query.isEmpty) {
-        return true;
-      }
-      return (product['name'] as String).toLowerCase().contains(query);
+      return true;
     }).toList();
 
     return Padding(
@@ -2967,6 +3208,8 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
                 ),
+                /* 
+                // Disembunyikan sementara sesuai request
                 const SizedBox(width: 6),
                 OutlinedButton.icon(
                   onPressed: () {},
@@ -2987,6 +3230,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     padding: const EdgeInsets.symmetric(horizontal: 10),
                   ),
                 ),
+                */
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
                   onPressed: () {
@@ -3103,7 +3347,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                       ],
                     ),
                   )
-                : visibleProducts.isEmpty
+                : (visibleProducts.isEmpty && _activeMenuId == null)
                 ? Center(
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 320),
@@ -3152,9 +3396,17 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                           crossAxisSpacing: 7,
                           mainAxisSpacing: 7,
                         ),
-                    itemCount: visibleProducts.length,
+                    itemCount:
+                        visibleProducts.length +
+                        (_activeMenuId != null ? 1 : 0),
                     itemBuilder: (context, index) {
-                      final product = visibleProducts[index];
+                      if (_activeMenuId != null && index == 0) {
+                        return _buildBackCard();
+                      }
+                      final productIndex = _activeMenuId != null
+                          ? index - 1
+                          : index;
+                      final product = visibleProducts[productIndex];
                       return _buildProductCard(primaryColor, product);
                     },
                   ),
@@ -3164,19 +3416,86 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     );
   }
 
+  Widget _buildBackCard() {
+    return Material(
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.orange.shade300, width: 1.5),
+      ),
+      child: InkWell(
+        onTap: () {
+          setState(() {
+            _activeMenuId = null;
+            _activeMenuName = null;
+          });
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.arrow_back_rounded,
+                size: 32,
+                color: Colors.orange.shade800,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _activeMenuName ?? '',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Colors.orange.shade900,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildProductCard(Color primaryColor, Map<String, dynamic> product) {
     final l10n = AppLocalizations.of(context)!;
     final name = product['name'] as String;
-    final matchedItem = _cartItems
-        .where((item) => item.name == name)
-        .firstOrNull;
-    final isSelected = matchedItem != null;
+    final description = product['description']?.toString();
+    final displayName = (description != null && description.trim().isNotEmpty)
+        ? description
+        : name;
+
+    final remoteId = product['remoteId']?.toString();
+
+    // We shouldn't show selection border for Menu folders
+    final isSelected =
+        !_isMenuFolder(product) &&
+        _cartItems.any((item) => item.productRemoteId == remoteId);
+
     const selectedBorderColor = Color(0xFFA5D6A7);
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => _addProductToCart(product),
+        onTap: () {
+          if (_isMenuFolder(product)) {
+            setState(() {
+              _activeMenuId = product['remoteId']?.toString();
+              _activeMenuName = displayName;
+            });
+          } else {
+            _addProductToCart(product);
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
@@ -3208,7 +3527,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                         children: [
                           if (_showProductName)
                             Text(
-                              name,
+                              displayName,
                               maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -3235,6 +3554,38 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                   fontSize: 9,
                                   fontWeight: FontWeight.bold,
                                 ),
+                              ),
+                            ),
+                          ],
+                          if (_isMenuFolder(product)) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.folder_open_rounded,
+                                    size: 10,
+                                    color: Colors.blue.shade700,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Menu',
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -3469,6 +3820,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                   context,
                                 )!.cancelOrderAction,
                                 isDanger: true,
+                              ),
+                              _buildQuickActionItem(
+                                value: _PosQuickAction.cashOut,
+                                icon: Icons.arrow_circle_up_outlined,
+                                label: AppLocalizations.of(context)!.cashOut,
                               ),
                               _buildQuickActionItem(
                                 value: _PosQuickAction.syncData,
@@ -4025,7 +4381,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                         children: [
                           Expanded(
                             child: Text(
-                              item.name,
+                              item.displayName,
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,

@@ -98,6 +98,48 @@ abstract class AppLocalizations {
     Locale('id'),
   ];
 
+  /// No description provided for @authForcedOutTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Session Ended'**
+  String get authForcedOutTitle;
+
+  /// No description provided for @authForcedOutMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account has been forcefully logged out by another user. Please log in again.'**
+  String get authForcedOutMessage;
+
+  /// No description provided for @authForcedOutUnderstand.
+  ///
+  /// In en, this message translates to:
+  /// **'Understood'**
+  String get authForcedOutUnderstand;
+
+  /// No description provided for @activeSessionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Active Session Detected'**
+  String get activeSessionTitle;
+
+  /// No description provided for @activeSessionMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account is still active on another device. Do you want to force log out from that device and log in here?'**
+  String get activeSessionMessage;
+
+  /// No description provided for @activeSessionForceLogout.
+  ///
+  /// In en, this message translates to:
+  /// **'Force Log Out'**
+  String get activeSessionForceLogout;
+
+  /// No description provided for @appName.
+  ///
+  /// In en, this message translates to:
+  /// **'FlinkPOS V2'**
+  String get appName;
+
   /// No description provided for @posTitle.
   ///
   /// In en, this message translates to:
@@ -3095,6 +3137,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Progress: {progress}%'**
   String syncProgress(int progress);
+
+  /// No description provided for @cashOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash Out'**
+  String get cashOut;
+
+  /// No description provided for @addCashOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Cash Out'**
+  String get addCashOut;
+
+  /// No description provided for @amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get amount;
+
+  /// No description provided for @startDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Date'**
+  String get startDate;
+
+  /// No description provided for @endDate.
+  ///
+  /// In en, this message translates to:
+  /// **'End Date'**
+  String get endDate;
 }
 
 class _AppLocalizationsDelegate

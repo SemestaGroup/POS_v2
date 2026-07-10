@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 5;
+  static const int version = 6;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -997,6 +997,30 @@ CREATE TABLE IF NOT EXISTS pos_order_payment (
 
 CREATE INDEX IF NOT EXISTS idx_pos_order_payment_invoice
   ON pos_order_payment(tenant_id, invoice_remote_id);
+
+CREATE INDEX IF NOT EXISTS idx_pos_order_payment_order
+  ON pos_order_payment(tenant_id, order_id);
+
+CREATE TABLE IF NOT EXISTS pos_cash_flow (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  location_id INTEGER,
+  type TEXT NOT NULL, 
+  amount INTEGER NOT NULL DEFAULT 0,
+  note TEXT,
+  staff_id_snapshot INTEGER,
+  sync_state TEXT NOT NULL DEFAULT 'clean',
+  dirty_fields_json TEXT,
+  last_synced_at TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_pos_cash_flow_tenant
+  ON pos_cash_flow(tenant_id, type, created_at);
+
 
 CREATE INDEX IF NOT EXISTS idx_pos_order_payment_id_pos
   ON pos_order_payment(tenant_id, id_pos);

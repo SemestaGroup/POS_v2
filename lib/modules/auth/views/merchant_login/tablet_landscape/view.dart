@@ -104,7 +104,7 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({bool forceLogoutOtherSession = false}) async {
     final l10n = AppLocalizations.of(context)!;
     if (_isLoading) return;
 
@@ -127,11 +127,17 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
         password: _passwordController.text,
         deviceId: _deviceIdController.text.trim(),
         registerId: _registerIdController.text.trim(),
+        forceLogoutOtherSession: forceLogoutOtherSession,
       );
     } catch (error) {
-      setState(() {
-        _errorMessage = error.toString().replaceFirst('Exception: ', '');
-      });
+      final errorMsg = error.toString().replaceFirst('Exception: ', '');
+      if (errorMsg.toLowerCase().contains('already has an active session on another device')) {
+        _showForceLogoutDialog();
+      } else {
+        setState(() {
+          _errorMessage = errorMsg;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -139,6 +145,80 @@ class _MerchantLoginTabletViewState extends State<MerchantLoginTabletView>
         });
       }
     }
+  }
+
+  void _showForceLogoutDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        final loc = AppLocalizations.of(context)!;
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          loc.activeSessionTitle,
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc.activeSessionMessage,
+                    style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      SizedBox(
+                        height: 38,
+                        child: TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text(loc.cancel),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 38,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.orange,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _submit(forceLogoutOtherSession: true);
+                          },
+                          child: Text(
+                            loc.activeSessionForceLogout,
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override

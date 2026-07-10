@@ -537,7 +537,7 @@ class CashFlowStore {
         ),
       );
 
-  Future<void> refresh() async {
+  Future<void> refresh({DateTime? startDate, DateTime? endDate}) async {
     snapshotNotifier.value = snapshotNotifier.value.copyWith(
       isLoading: true,
       clearError: true,
@@ -545,6 +545,18 @@ class CashFlowStore {
 
     try {
       final session = await _requireSession();
+      
+      String dateFilter = '';
+      List<Object?> dateArgs = [];
+      if (startDate != null && endDate != null) {
+        // format to ISO8601 string for sqlite comparison
+        dateFilter = ' AND p.created_at >= ? AND p.created_at <= ?';
+        dateArgs = [
+          startDate.toIso8601String(),
+          endDate.add(const Duration(days: 1)).toIso8601String(),
+        ];
+      }
+
       final paymentRows = await DatabaseService.instance.rawQuery(
         '''
         SELECT p.amount, p.payment_mode_name_snapshot, p.created_at,
@@ -555,29 +567,66 @@ class CashFlowStore {
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
           AND p.sync_state IN ('clean', 'dirty_create', 'dirty_update', 'syncing')
+          $dateFilter
         ORDER BY p.created_at DESC
-        LIMIT 50
+        LIMIT 200
         ''',
-        <Object?>[session.tenantId],
+        <Object?>[session.tenantId, ...dateArgs],
       );
 
-      final entries = paymentRows
-          .map(
-            (row) => CashFlowEntryRecord(
-              type: 'in',
-              description:
-                  '${row['payment_mode_name_snapshot'] ?? 'Pembayaran'} — ${row['order_ref'] ?? '-'}',
-              amount: _asInt(row['amount']) ?? 0,
-              createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
-            ),
-          )
-          .toList(growable: false);
+      String cashFlowDateFilter = '';
+      if (startDate != null && endDate != null) {
+        cashFlowDateFilter = ' AND created_at >= ? AND created_at <= ?';
+      }
+
+      final cashFlowRows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT amount, note, created_at, type
+        FROM pos_cash_flow
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          $cashFlowDateFilter
+        ORDER BY created_at DESC
+        LIMIT 200
+        ''',
+        <Object?>[session.tenantId, ...dateArgs],
+      );
+
+      final List<CashFlowEntryRecord> entries = [];
+      
+      entries.addAll(
+        paymentRows.map(
+          (row) => CashFlowEntryRecord(
+            type: 'in',
+            description:
+                '${row['payment_mode_name_snapshot'] ?? 'Pembayaran'} — ${row['order_ref'] ?? '-'}',
+            amount: _asInt(row['amount']) ?? 0,
+            createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
+          ),
+        ),
+      );
+
+      entries.addAll(
+        cashFlowRows.map(
+          (row) => CashFlowEntryRecord(
+            type: row['type'] as String? ?? 'out',
+            description: row['note'] as String? ?? 'Kas Keluar',
+            amount: _asInt(row['amount']) ?? 0,
+            createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
+          ),
+        ),
+      );
+
+      entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+      final totalIn = entries.where((e) => e.type == 'in').fold<int>(0, (sum, e) => sum + e.amount);
+      final totalOut = entries.where((e) => e.type == 'out').fold<int>(0, (sum, e) => sum + e.amount);
 
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
         isLoading: false,
         entries: entries,
-        totalIn: entries.fold<int>(0, (sum, entry) => sum + entry.amount),
-        totalOut: 0,
+        totalIn: totalIn,
+        totalOut: totalOut,
       );
     } catch (error) {
       snapshotNotifier.value = snapshotNotifier.value.copyWith(

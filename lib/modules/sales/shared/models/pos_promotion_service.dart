@@ -60,8 +60,8 @@ class PosPromotionService {
 
     final rows = await DatabaseService.instance.query(
       'promotion',
-      where: 'tenant_id = ? AND deleted_at IS NULL AND status = ?',
-      whereArgs: <Object?>[session.tenantId, '1'],
+      where: 'tenant_id = ? AND deleted_at IS NULL AND status IN (?, ?)',
+      whereArgs: <Object?>[session.tenantId, '1', 'active'],
       orderBy: 'created_at DESC',
     );
 

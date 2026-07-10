@@ -98,6 +98,16 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
 
   void _onTenderAmountSelected(int amount) {
     setState(() {
+      final isCash = _selectedOption.name.toLowerCase().contains('cash') ||
+                     _selectedOption.name.toLowerCase().contains('tunai');
+      if (!isCash) {
+        final cashOption = widget.snapshot.options.firstWhere(
+          (opt) => opt.name.toLowerCase().contains('cash') || opt.name.toLowerCase().contains('tunai'),
+          orElse: () => widget.snapshot.options.first,
+        );
+        _selectedOption = cashOption;
+        _errorMessage = null;
+      }
       _tenderAmount = amount;
       _manualTenderController.text = amount.toString();
     });
@@ -1007,40 +1017,65 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
 
         // Selected Method Content
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
+          child: Builder(
+            builder: (context) {
+              final isCash = _selectedOption.name.toLowerCase().contains('cash') || 
+                             _selectedOption.name.toLowerCase().contains('tunai');
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isCash ? const Color(0xFF10B981) : const Color(0xFFE5E7EB),
+                    width: isCash ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.payments_rounded,
-                        color: Color(0xFF10B981),
-                        size: 24,
-                      ),
+                    InkWell(
+                  onTap: () {
+                    final cashOption = widget.snapshot.options.firstWhere(
+                      (opt) => opt.name.toLowerCase().contains('cash') || opt.name.toLowerCase().contains('tunai'),
+                      orElse: () => widget.snapshot.options.first,
+                    );
+                    _onMethodSelected(cashOption);
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.payments_rounded,
+                            color: Color(0xFF10B981),
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Cash',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A1D2E),
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_selectedOption.name.toLowerCase().contains('cash') || _selectedOption.name.toLowerCase().contains('tunai'))
+                          const Icon(Icons.radio_button_checked_rounded, color: Color(0xFF10B981))
+                        else
+                          Icon(Icons.radio_button_unchecked_rounded, color: Colors.grey.shade300),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Cash',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1D2E),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -1097,9 +1132,11 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                 ),
               ],
             ),
-          ),
+          );
+         },
         ),
-      ],
+      ),
+    ],
     );
   }
 
