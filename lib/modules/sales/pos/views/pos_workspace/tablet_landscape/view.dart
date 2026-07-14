@@ -45,6 +45,9 @@ class _PosCartItem {
     this.isDiscountEnabled = false,
     this.orderType,
     this.note,
+    this.appliedPromoId,
+    this.appliedPromoName,
+    this.overriddenUnitPrice,
   });
 
   final String id;
@@ -59,10 +62,18 @@ class _PosCartItem {
   final bool isDiscountEnabled;
   final String? orderType;
   final String? note;
+  final String? appliedPromoId;
+  final String? appliedPromoName;
+  final int? overriddenUnitPrice;
 
-  int get activeUnitPrice => isDiscountEnabled && discountedUnitPrice != null
-      ? discountedUnitPrice!
-      : regularUnitPrice;
+  int get activeUnitPrice {
+    if (overriddenUnitPrice != null) {
+      return overriddenUnitPrice!;
+    }
+    return isDiscountEnabled && discountedUnitPrice != null
+        ? discountedUnitPrice!
+        : regularUnitPrice;
+  }
 
   _PosCartItem copyWith({
     String? id,
@@ -78,6 +89,13 @@ class _PosCartItem {
     String? orderType,
     String? note,
     bool clearNote = false,
+    String? appliedPromoId,
+    bool clearAppliedPromoId = false,
+    String? appliedPromoName,
+    bool clearAppliedPromoName = false,
+    int? overriddenUnitPrice,
+    bool clearOverriddenUnitPrice = false,
+    bool clearDiscountedUnitPrice = false,
   }) {
     return _PosCartItem(
       id: id ?? this.id,
@@ -87,11 +105,22 @@ class _PosCartItem {
       regularUnitPrice: regularUnitPrice ?? this.regularUnitPrice,
       quantity: quantity ?? this.quantity,
       productRemoteId: productRemoteId ?? this.productRemoteId,
-      discountedUnitPrice: discountedUnitPrice ?? this.discountedUnitPrice,
       promoLabel: promoLabel ?? this.promoLabel,
       isDiscountEnabled: isDiscountEnabled ?? this.isDiscountEnabled,
       orderType: orderType ?? this.orderType,
       note: clearNote ? null : (note ?? this.note),
+      appliedPromoId: clearAppliedPromoId
+          ? null
+          : (appliedPromoId ?? this.appliedPromoId),
+      appliedPromoName: clearAppliedPromoName
+          ? null
+          : (appliedPromoName ?? this.appliedPromoName),
+      overriddenUnitPrice: clearOverriddenUnitPrice
+          ? null
+          : (overriddenUnitPrice ?? this.overriddenUnitPrice),
+      discountedUnitPrice: clearDiscountedUnitPrice
+          ? null
+          : (discountedUnitPrice ?? this.discountedUnitPrice),
     );
   }
 }
@@ -117,13 +146,13 @@ class PosWorkspaceView extends StatefulWidget {
 class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   final TextEditingController _searchController = TextEditingController();
   bool _isPromoFilterActive = false;
-  final List<_PosCartItem> _cartItems = [];
+  List<_PosCartItem> _cartItems = [];
   String _selectedOrderType = 'dine_in';
   String _orderNote = '';
   int _lineSequence = 1;
   String? _appliedOrderPromoLabel;
   int _orderLevelDiscountAmount = 0;
-  PosPromotionResult? _selectedPromotion;
+  List<PosPromotionResult> _selectedPromotions = [];
   String? _editingOrderId;
   String? _editingOrderToken;
   DateTime? _editingOrderCreatedAt;
@@ -202,20 +231,23 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       _editingOrderCreatedAt = pendingOrder.createdAt;
       _appliedOrderPromoLabel = pendingOrder.appliedPromotionName;
       _orderLevelDiscountAmount = pendingOrder.orderLevelDiscountAmount;
-      _selectedPromotion = pendingOrder.appliedPromotionName == null
-          ? null
-          : PosPromotionResult(
-              remoteId: pendingOrder.appliedPromotionRemoteId ?? '',
-              name: pendingOrder.appliedPromotionName!,
-              promoType: pendingOrder.appliedPromotionType ?? 'discount',
-              discountAmount: pendingOrder.orderLevelDiscountAmount,
-              displayAmount: pendingOrder.orderLevelDiscountAmount.toString(),
-              matchedTotal: pendingOrder.subtotalAmount,
-              summary:
-                  pendingOrder.appliedPromotionSummary == 'PROMO_NOT_APPLICABLE'
-                  ? AppLocalizations.of(context)!.promoNotApplicable
-                  : (pendingOrder.appliedPromotionSummary ?? ''),
-            );
+      _selectedPromotions = pendingOrder.appliedPromotionName == null
+          ? []
+          : [
+              PosPromotionResult(
+                remoteId: pendingOrder.appliedPromotionRemoteId ?? '',
+                name: pendingOrder.appliedPromotionName!,
+                promoType: pendingOrder.appliedPromotionType ?? 'discount',
+                discountAmount: pendingOrder.orderLevelDiscountAmount,
+                displayAmount: pendingOrder.orderLevelDiscountAmount.toString(),
+                matchedTotal: pendingOrder.subtotalAmount,
+                summary:
+                    pendingOrder.appliedPromotionSummary ==
+                        'PROMO_NOT_APPLICABLE'
+                    ? AppLocalizations.of(context)!.promoNotApplicable
+                    : (pendingOrder.appliedPromotionSummary ?? ''),
+              ),
+            ];
       if (pendingOrder.customerRemoteId.isNotEmpty) {
         _selectedCustomer = PosCustomerRecord(
           localId: pendingOrder.customerLocalId,
@@ -466,6 +498,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           final metadata =
               productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
           return PosPromotionMatchItem(
+            refId: item.id,
             productRemoteId: item.productRemoteId!,
             productName: item.name,
             categoryRemoteId: metadata['categoryRemoteId']?.toString(),
@@ -565,19 +598,19 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         (product['regularPrice'] as int?) ?? parsedDisplayPrice;
     final discountedUnitPrice = product['discountedPrice'] as int?;
     final currentIndex = _cartItems.indexWhere(
-      (item) => item.name == name && item.orderType == _selectedOrderType,
+      (item) =>
+          item.name == name &&
+          item.orderType == _selectedOrderType &&
+          item.appliedPromoId == null,
     );
 
-    setState(() {
-      if (currentIndex >= 0) {
-        final currentItem = _cartItems[currentIndex];
-        _cartItems[currentIndex] = currentItem.copyWith(
-          quantity: currentItem.quantity + 1,
-          orderType: _selectedOrderType,
-        );
-        return;
-      }
-
+    if (currentIndex >= 0) {
+      final currentItem = _cartItems[currentIndex];
+      _cartItems[currentIndex] = currentItem.copyWith(
+        quantity: currentItem.quantity + 1,
+        orderType: _selectedOrderType,
+      );
+    } else {
       _cartItems.insert(
         0,
         _PosCartItem(
@@ -598,17 +631,156 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           note: null,
         ),
       );
+    }
+    _recalculateCartPromotions();
+  }
+
+  void _recalculateCartPromotions() {
+    setState(() {
+      final productIndex = <String, Map<String, dynamic>>{};
+      for (final product in _catalogSnapshot.products) {
+        final remoteId = product['remoteId']?.toString();
+        if (remoteId != null && remoteId.isNotEmpty) {
+          productIndex[remoteId] = product;
+        }
+      }
+
+      final rawItems = <_PosCartItem>[];
+      for (final item in _cartItems) {
+        final catalogProduct = item.productRemoteId != null
+            ? productIndex[item.productRemoteId!]
+            : null;
+        final originalDiscountedPrice =
+            catalogProduct?['discountedPrice'] as int?;
+
+        final cleanItem = item.copyWith(
+          clearAppliedPromoId: true,
+          clearAppliedPromoName: true,
+          clearOverriddenUnitPrice: true,
+          clearDiscountedUnitPrice: originalDiscountedPrice == null,
+          discountedUnitPrice: originalDiscountedPrice,
+          isDiscountEnabled: originalDiscountedPrice != null,
+        );
+        final index = rawItems.indexWhere(
+          (r) =>
+              r.name == cleanItem.name &&
+              r.productRemoteId == cleanItem.productRemoteId &&
+              r.orderType == cleanItem.orderType &&
+              r.note == cleanItem.note &&
+              r.isDiscountEnabled == cleanItem.isDiscountEnabled,
+        );
+        if (index >= 0) {
+          rawItems[index] = rawItems[index].copyWith(
+            quantity: rawItems[index].quantity + cleanItem.quantity,
+          );
+        } else {
+          rawItems.add(cleanItem);
+        }
+      }
+
+      // Don't return early here, because we want to clear the label if _selectedPromotions becomes empty during validation!
+
+      final matchItems = rawItems
+          .where(
+            (item) =>
+                item.productRemoteId != null &&
+                item.productRemoteId!.isNotEmpty,
+          )
+          .map((item) {
+            final metadata =
+                productIndex[item.productRemoteId!] ??
+                const <String, dynamic>{};
+            return PosPromotionMatchItem(
+              refId: item.id,
+              productRemoteId: item.productRemoteId!,
+              productName: item.name,
+              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
+              brandRemoteId: metadata['brandRemoteId']?.toString(),
+              activeUnitPrice: item.activeUnitPrice,
+              quantity: item.quantity,
+            );
+          })
+          .toList();
+
+      // Promos stay selected until user explicitly clears them.
+      // Items matching the promo formula will show promo labels.
+      // Price changes only apply when conditions are met (bundling: all slots filled; discount: item in target list).
+
+      final allocation = PosPromotionService.instance.allocatePromotions(
+        items: matchItems,
+        selectedPromotions: _selectedPromotions,
+      );
+
+      final nextCartItems = <_PosCartItem>[];
+      for (final allocated in allocation.allocatedItems) {
+        final rawItem = rawItems.firstWhere((r) => r.id == allocated.refId);
+        nextCartItems.add(
+          rawItem.copyWith(
+            id: _newLineId(),
+            quantity: allocated.quantity,
+            appliedPromoId: allocated.appliedPromoId,
+            appliedPromoName: allocated.appliedPromoName,
+            overriddenUnitPrice: allocated.overriddenUnitPrice,
+          ),
+        );
+      }
+
+      for (final item in rawItems.where(
+        (i) => i.productRemoteId == null || i.productRemoteId!.isEmpty,
+      )) {
+        nextCartItems.add(item.copyWith(id: _newLineId()));
+      }
+
+      final withPromo = nextCartItems
+          .where((i) => i.appliedPromoId != null)
+          .toList();
+      final withoutPromo = nextCartItems
+          .where((i) => i.appliedPromoId == null)
+          .toList();
+      _cartItems = [...withPromo, ...withoutPromo];
+      _orderLevelDiscountAmount = allocation.totalDiscountAmount;
+      if (_selectedPromotions.isEmpty) {
+        _appliedOrderPromoLabel = null;
+      } else {
+        _appliedOrderPromoLabel = _selectedPromotions
+            .map((p) => p.name)
+            .join('|');
+      }
     });
   }
 
   void _removeCartItem(String itemId) {
-    setState(() {
-      _cartItems.removeWhere((item) => item.id == itemId);
-    });
+    _cartItems.removeWhere((item) => item.id == itemId);
+    _recalculateCartPromotions();
   }
 
   int _findCartItemIndex(String itemId) =>
       _cartItems.indexWhere((item) => item.id == itemId);
+
+  void _onChangeQuantity(String itemId, int qty) {
+    if (qty <= 0) {
+      _removeCartItem(itemId);
+      return;
+    }
+    final index = _findCartItemIndex(itemId);
+    if (index < 0) {
+      return;
+    }
+    _cartItems[index] = _cartItems[index].copyWith(quantity: qty);
+    _recalculateCartPromotions();
+  }
+
+  void _onUpdateNote(String itemId, String? note) {
+    final index = _findCartItemIndex(itemId);
+    if (index < 0) {
+      return;
+    }
+    _cartItems[index] = _cartItems[index].copyWith(
+      note: note,
+      clearNote: note == null || note.isEmpty,
+    );
+    _recalculateCartPromotions();
+  }
 
   void _replaceCartItem(String itemId, _PosCartItem item) {
     final index = _findCartItemIndex(itemId);
@@ -616,9 +788,8 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       return;
     }
 
-    setState(() {
-      _cartItems[index] = item;
-    });
+    _cartItems[index] = item;
+    _recalculateCartPromotions();
   }
 
   void _splitCartItem(
@@ -645,26 +816,18 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     final safeSplitQuantity = splitQuantity.clamp(1, totalQuantity - 1);
     final remainingQuantity = totalQuantity - safeSplitQuantity;
 
-    setState(() {
-      _cartItems[index] = currentItem.copyWith(
-        quantity: remainingQuantity,
-        orderType: orderType,
-        note: note,
-        clearNote: note == null || note.isEmpty,
-        isDiscountEnabled: isDiscountEnabled,
-      );
-      _cartItems.insert(
-        index + 1,
-        currentItem.copyWith(
-          id: _newLineId(),
-          quantity: safeSplitQuantity,
-          orderType: orderType,
-          note: note,
-          clearNote: note == null || note.isEmpty,
-          isDiscountEnabled: isDiscountEnabled,
-        ),
-      );
-    });
+    _cartItems[index] = currentItem.copyWith(
+      quantity: remainingQuantity,
+      orderType: orderType,
+      note: note,
+      clearNote: note == null || note.isEmpty,
+      isDiscountEnabled: isDiscountEnabled,
+    );
+    _cartItems.insert(
+      index + 1,
+      currentItem.copyWith(id: _newLineId(), quantity: safeSplitQuantity),
+    );
+    _recalculateCartPromotions();
   }
 
   Future<void> _showDiscountDialog() async {
@@ -677,6 +840,9 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       return;
     }
 
+    final tempSelectedPromos = List<PosPromotionResult>.from(
+      _selectedPromotions,
+    );
     showDialog(
       context: context,
       builder: (context) {
@@ -805,14 +971,26 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                             ),
                                             child: InkWell(
                                               onTap: () {
-                                                setState(() {
-                                                  _appliedOrderPromoLabel =
-                                                      promo.name;
-                                                  _orderLevelDiscountAmount =
-                                                      promo.discountAmount;
-                                                  _selectedPromotion = promo;
+                                                dialogSetState(() {
+                                                  final isSelected =
+                                                      tempSelectedPromos.any(
+                                                        (p) =>
+                                                            p.remoteId ==
+                                                            promo.remoteId,
+                                                      );
+                                                  if (isSelected) {
+                                                    tempSelectedPromos
+                                                        .removeWhere(
+                                                          (p) =>
+                                                              p.remoteId ==
+                                                              promo.remoteId,
+                                                        );
+                                                  } else {
+                                                    tempSelectedPromos.add(
+                                                      promo,
+                                                    );
+                                                  }
                                                 });
-                                                Navigator.pop(context);
                                               },
                                               borderRadius:
                                                   BorderRadius.circular(16),
@@ -824,8 +1002,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                     ),
                                                 decoration: BoxDecoration(
                                                   color:
-                                                      _appliedOrderPromoLabel ==
-                                                          promo.name
+                                                      tempSelectedPromos.any(
+                                                        (p) =>
+                                                            p.remoteId ==
+                                                            promo.remoteId,
+                                                      )
                                                       ? primaryColor.withValues(
                                                           alpha: 0.08,
                                                         )
@@ -834,14 +1015,20 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                       BorderRadius.circular(16),
                                                   border: Border.all(
                                                     color:
-                                                        _appliedOrderPromoLabel ==
-                                                            promo.name
+                                                        tempSelectedPromos.any(
+                                                          (p) =>
+                                                              p.remoteId ==
+                                                              promo.remoteId,
+                                                        )
                                                         ? primaryColor
                                                         : Colors.grey.shade200,
                                                   ),
                                                   boxShadow: [
-                                                    if (_appliedOrderPromoLabel !=
-                                                        promo.name)
+                                                    if (!tempSelectedPromos.any(
+                                                      (p) =>
+                                                          p.remoteId ==
+                                                          promo.remoteId,
+                                                    ))
                                                       BoxShadow(
                                                         color: Colors.black
                                                             .withValues(
@@ -866,8 +1053,12 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                               .local_offer_outlined,
                                                           size: 20,
                                                           color:
-                                                              _appliedOrderPromoLabel ==
-                                                                  promo.name
+                                                              tempSelectedPromos.any(
+                                                                (p) =>
+                                                                    p.remoteId ==
+                                                                    promo
+                                                                        .remoteId,
+                                                              )
                                                               ? primaryColor
                                                               : Colors
                                                                     .grey
@@ -882,15 +1073,23 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                             style: TextStyle(
                                                               fontSize: 14,
                                                               fontWeight:
-                                                                  _appliedOrderPromoLabel ==
-                                                                      promo.name
+                                                                  tempSelectedPromos.any(
+                                                                    (p) =>
+                                                                        p.remoteId ==
+                                                                        promo
+                                                                            .remoteId,
+                                                                  )
                                                                   ? FontWeight
                                                                         .bold
                                                                   : FontWeight
                                                                         .w600,
                                                               color:
-                                                                  _appliedOrderPromoLabel ==
-                                                                      promo.name
+                                                                  tempSelectedPromos.any(
+                                                                    (p) =>
+                                                                        p.remoteId ==
+                                                                        promo
+                                                                            .remoteId,
+                                                                  )
                                                                   ? primaryColor
                                                                   : Colors
                                                                         .black87,
@@ -898,77 +1097,156 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                           ),
                                                         ),
                                                         Text(
-                                                          '- ${_formatCurrency(promo.discountAmount)}',
-                                                          style:
-                                                              const TextStyle(
-                                                                fontSize: 14,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w800,
-                                                                color:
-                                                                    Colors.red,
-                                                              ),
+                                                          promo.promoType ==
+                                                                  'bundling'
+                                                              ? _formatCurrency(
+                                                                  promo.totalBundlePrice ??
+                                                                      int.tryParse(
+                                                                        promo
+                                                                            .displayAmount,
+                                                                      ) ??
+                                                                      0,
+                                                                )
+                                                              : '- ${_formatCurrency(promo.discountAmount)}',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                            color:
+                                                                promo.promoType ==
+                                                                    'bundling'
+                                                                ? Colors
+                                                                      .green
+                                                                      .shade700
+                                                                : Colors.red,
+                                                          ),
                                                         ),
                                                       ],
                                                     ),
-                                                    const SizedBox(height: 8),
-                                                    Text(
-                                                      promo.summary ==
-                                                              'PROMO_NOT_APPLICABLE'
-                                                          ? AppLocalizations.of(
-                                                              context,
-                                                            )!.promoNotApplicable
-                                                          : promo.summary,
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        color: Colors
-                                                            .grey
-                                                            .shade600,
-                                                        height: 1.35,
-                                                      ),
-                                                    ),
-                                                    const SizedBox(height: 8),
-                                                    Container(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 8,
-                                                            vertical: 4,
-                                                          ),
-                                                      decoration: BoxDecoration(
-                                                        color:
-                                                            promo.promoType ==
-                                                                'bundling'
-                                                            ? Colors
-                                                                  .blue
-                                                                  .shade50
-                                                            : Colors
-                                                                  .orange
-                                                                  .shade50,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              999,
-                                                            ),
-                                                      ),
-                                                      child: Text(
-                                                        promo.promoType ==
-                                                                'bundling'
-                                                            ? 'Bundling'
-                                                            : 'Discount',
+                                                    if (promo
+                                                        .summary
+                                                        .isNotEmpty) ...[
+                                                      const SizedBox(height: 8),
+                                                      Text(
+                                                        promo.summary,
                                                         style: TextStyle(
-                                                          fontSize: 10,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color:
-                                                              promo.promoType ==
-                                                                  'bundling'
-                                                              ? Colors
-                                                                    .blue
-                                                                    .shade800
-                                                              : Colors
-                                                                    .orange
-                                                                    .shade800,
+                                                          fontSize: 11,
+                                                          color: Colors
+                                                              .grey
+                                                              .shade600,
+                                                          height: 1.35,
                                                         ),
                                                       ),
+                                                    ],
+                                                    const SizedBox(height: 8),
+                                                    Wrap(
+                                                      spacing: 6,
+                                                      runSpacing: 6,
+                                                      children: [
+                                                        Container(
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 8,
+                                                                vertical: 4,
+                                                              ),
+                                                          decoration: BoxDecoration(
+                                                            color:
+                                                                promo.promoType ==
+                                                                    'bundling'
+                                                                ? Colors
+                                                                      .blue
+                                                                      .shade50
+                                                                : Colors
+                                                                      .orange
+                                                                      .shade50,
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  999,
+                                                                ),
+                                                          ),
+                                                          child: Text(
+                                                            promo.promoType ==
+                                                                    'bundling'
+                                                                ? 'Bundling'
+                                                                : 'Discount',
+                                                            style: TextStyle(
+                                                              fontSize: 10,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              color:
+                                                                  promo.promoType ==
+                                                                      'bundling'
+                                                                  ? Colors
+                                                                        .blue
+                                                                        .shade800
+                                                                  : Colors
+                                                                        .orange
+                                                                        .shade800,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                        if (promo.isMultiplied)
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 4,
+                                                                ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .green
+                                                                      .shade50,
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        999,
+                                                                      ),
+                                                                ),
+                                                            child: Text(
+                                                              'Kelipatan',
+                                                              style: TextStyle(
+                                                                fontSize: 10,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Colors
+                                                                    .green
+                                                                    .shade800,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        if (promo.isStackable)
+                                                          Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 8,
+                                                                  vertical: 4,
+                                                                ),
+                                                            decoration:
+                                                                BoxDecoration(
+                                                                  color: Colors
+                                                                      .purple
+                                                                      .shade50,
+                                                                  borderRadius:
+                                                                      BorderRadius.circular(
+                                                                        999,
+                                                                      ),
+                                                                ),
+                                                            child: Text(
+                                                              'Bisa Ditumpuk',
+                                                              style: TextStyle(
+                                                                fontSize: 10,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Colors
+                                                                    .purple
+                                                                    .shade800,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
                                                   ],
                                                 ),
@@ -978,34 +1256,51 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                       ],
                                     ),
                             ),
-                            if (_orderLevelDiscountAmount > 0)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: TextButton.icon(
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (tempSelectedPromos.isNotEmpty)
+                                  TextButton(
+                                    onPressed: () {
+                                      dialogSetState(() {
+                                        tempSelectedPromos.clear();
+                                      });
+                                    },
+                                    child: const Text(
+                                      'Clear',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
                                   onPressed: () {
                                     setState(() {
-                                      _appliedOrderPromoLabel = null;
-                                      _orderLevelDiscountAmount = 0;
-                                      _selectedPromotion = null;
+                                      _selectedPromotions = tempSelectedPromos;
+                                      _recalculateCartPromotions();
                                     });
                                     Navigator.pop(context);
                                   },
-                                  icon: const Icon(
-                                    Icons.remove_circle_outline,
-                                    size: 16,
-                                    color: Colors.red,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                      vertical: 12,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   ),
-                                  label: Text(
-                                    AppLocalizations.of(
-                                      context,
-                                    )!.removePromoAction,
-                                    style: const TextStyle(
-                                      color: Colors.red,
+                                  child: const Text(
+                                    'Apply Promo',
+                                    style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
-                              ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -1249,7 +1544,8 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                       parsedInput /
                                                       100)
                                                   .round();
-                                          _selectedPromotion = null;
+                                          _selectedPromotions.clear();
+                                          _recalculateCartPromotions();
                                         } else {
                                           _appliedOrderPromoLabel =
                                               AppLocalizations.of(
@@ -1257,7 +1553,8 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                               )!.manualDiscount;
                                           _orderLevelDiscountAmount =
                                               parsedInput;
-                                          _selectedPromotion = null;
+                                          _selectedPromotions.clear();
+                                          _recalculateCartPromotions();
                                         }
                                       });
                                       Navigator.pop(context);
@@ -1313,8 +1610,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   List<PaymentReviewItemData> _buildPaymentReviewItems() {
     return _cartItems
         .map((item) {
-          final itemDiscount =
-              item.isDiscountEnabled && item.discountedUnitPrice != null
+          final itemDiscount = item.activeUnitPrice < item.regularUnitPrice
               ? ((item.regularUnitPrice - item.activeUnitPrice).clamp(
                       0,
                       1 << 31,
@@ -1351,6 +1647,12 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     return <String>[_selectedOrderType];
   }
 
+  void _onClearCart() {
+    _cartItems.clear();
+    _selectedPromotions.clear();
+    _recalculateCartPromotions();
+  }
+
   void _resetCurrentOrder() {
     setState(() {
       _isCommitting = false;
@@ -1362,7 +1664,8 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       _editingOrderCreatedAt = null;
       _appliedOrderPromoLabel = null;
       _orderLevelDiscountAmount = 0;
-      _selectedPromotion = null;
+      _selectedPromotions.clear();
+      _recalculateCartPromotions();
       _selectedCustomer = null;
     });
     unawaited(_ensureDefaultCustomerSelected());
@@ -1410,10 +1713,20 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                       customerLocalId: customer.localId,
                       customerPhone: customer.phone,
                       customerAddress: customer.address,
-                      appliedPromotionRemoteId: _selectedPromotion?.remoteId,
-                      appliedPromotionName: _selectedPromotion?.name,
-                      appliedPromotionType: _selectedPromotion?.promoType,
-                      appliedPromotionSummary: _selectedPromotion?.summary,
+                      appliedPromotionRemoteId: _selectedPromotions.isNotEmpty
+                          ? _selectedPromotions.map((p) => p.remoteId).join(',')
+                          : null,
+                      appliedPromotionName: _selectedPromotions.isNotEmpty
+                          ? _selectedPromotions.map((p) => p.name).join(',')
+                          : null,
+                      appliedPromotionType: _selectedPromotions.isNotEmpty
+                          ? _selectedPromotions
+                                .map((p) => p.promoType)
+                                .join(',')
+                          : null,
+                      appliedPromotionSummary: _selectedPromotions.isNotEmpty
+                          ? _selectedPromotions.map((p) => p.summary).join('; ')
+                          : null,
                       existingOrderId: _editingOrderId,
                       existingOrderToken: _editingOrderToken,
                       existingCreatedAt: _editingOrderCreatedAt,
@@ -1511,10 +1824,18 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             customerLocalId: customer.localId,
             customerPhone: customer.phone,
             customerAddress: customer.address,
-            appliedPromotionRemoteId: _selectedPromotion?.remoteId,
-            appliedPromotionName: _selectedPromotion?.name,
-            appliedPromotionType: _selectedPromotion?.promoType,
-            appliedPromotionSummary: _selectedPromotion?.summary,
+            appliedPromotionRemoteId: _selectedPromotions.isNotEmpty
+                ? _selectedPromotions.map((p) => p.remoteId).join(',')
+                : null,
+            appliedPromotionName: _selectedPromotions.isNotEmpty
+                ? _selectedPromotions.map((p) => p.name).join(',')
+                : null,
+            appliedPromotionType: _selectedPromotions.isNotEmpty
+                ? _selectedPromotions.map((p) => p.promoType).join(',')
+                : null,
+            appliedPromotionSummary: _selectedPromotions.isNotEmpty
+                ? _selectedPromotions.map((p) => p.summary).join('; ')
+                : null,
             existingOrderId: _editingOrderId,
             existingOrderToken: _editingOrderToken,
             existingCreatedAt: _editingOrderCreatedAt,
@@ -3068,6 +3389,31 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         : null;
 
     products.sort((a, b) {
+      if (_selectedPromotions.isNotEmpty) {
+        final aId = a['remoteId']?.toString();
+        final bId = b['remoteId']?.toString();
+        final aCategory = a['categoryRemoteId']?.toString();
+        final bCategory = b['categoryRemoteId']?.toString();
+
+        final aInSelectedPromo =
+            _selectedPromotions
+                .expand((p) => p.eligibleProductIds)
+                .contains(aId) ||
+            _selectedPromotions
+                .expand((p) => p.eligibleCategoryIds)
+                .contains(aCategory);
+        final bInSelectedPromo =
+            _selectedPromotions
+                .expand((p) => p.eligibleProductIds)
+                .contains(bId) ||
+            _selectedPromotions
+                .expand((p) => p.eligibleCategoryIds)
+                .contains(bCategory);
+
+        if (aInSelectedPromo && !bInSelectedPromo) return -1;
+        if (!aInSelectedPromo && bInSelectedPromo) return 1;
+      }
+
       if (_isPromoFilterActive) {
         final bool aHasPromo = a['promo'] != null;
         final bool bHasPromo = b['promo'] != null;
@@ -3536,6 +3882,49 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                 height: 1.2,
                               ),
                             ),
+                          if (_selectedPromotions.isNotEmpty)
+                            ...(() {
+                              final matchingPromos = _selectedPromotions
+                                  .where(
+                                    (p) =>
+                                        p.eligibleProductIds.contains(
+                                          remoteId,
+                                        ) ||
+                                        p.eligibleCategoryIds.contains(
+                                          product['categoryRemoteId']
+                                              ?.toString(),
+                                        ),
+                                  )
+                                  .toList();
+
+                              if (matchingPromos.isEmpty) return <Widget>[];
+
+                              return [
+                                const SizedBox(height: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.purple.shade50,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    matchingPromos
+                                        .map((p) => p.name)
+                                        .join('\n'),
+                                    maxLines: matchingPromos.length,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.purple.shade700,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ];
+                            }()),
                           if (product['promo'] != null) ...[
                             const SizedBox(height: 6),
                             Container(
@@ -4024,51 +4413,117 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
               ),
               child: Column(
                 children: [
-                  if (_appliedOrderPromoLabel != null) ...[
+                  if (_selectedPromotions.isNotEmpty) ...[
+                    ..._selectedPromotions.map(
+                      (promo) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.local_offer_rounded,
+                              size: 12,
+                              color: Colors.red.shade600,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                promo.name,
+                                style: TextStyle(
+                                  color: Colors.red.shade700,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _selectedPromotions.removeWhere(
+                                    (p) => p.remoteId == promo.remoteId,
+                                  );
+                                  if (_selectedPromotions.isEmpty) {
+                                    _appliedOrderPromoLabel = null;
+                                    _orderLevelDiscountAmount = 0;
+                                  } else {
+                                    _appliedOrderPromoLabel =
+                                        _selectedPromotions
+                                            .map((p) => p.name)
+                                            .join('|');
+                                  }
+                                });
+                                _recalculateCartPromotions();
+                              },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.shade50,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.close_rounded,
+                                  size: 12,
+                                  color: Colors.red.shade700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Divider(color: Colors.grey.shade200, height: 1),
+                    const SizedBox(height: 8),
+                  ],
+                  // Manual discount label (numpad diskon, tidak ada promo yang dipilih)
+                  if (_selectedPromotions.isEmpty &&
+                      _appliedOrderPromoLabel != null) ...[
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.local_offer_rounded,
+                          Icons.percent_rounded,
                           size: 12,
-                          color: Colors.red.shade600,
+                          color: Colors.orange.shade700,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
                             _appliedOrderPromoLabel!,
                             style: TextStyle(
-                              color: Colors.red.shade700,
+                              color: Colors.orange.shade700,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 4),
                         InkWell(
-                          onTap: () {
-                            setState(() {
-                              _appliedOrderPromoLabel = null;
-                              _orderLevelDiscountAmount = 0;
-                              _selectedPromotion = null;
-                            });
-                          },
+                          onTap: () => setState(() {
+                            _appliedOrderPromoLabel = null;
+                            _orderLevelDiscountAmount = 0;
+                          }),
+                          borderRadius: BorderRadius.circular(10),
                           child: Container(
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
-                              color: Colors.red.shade50,
+                              color: Colors.orange.shade50,
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
                               Icons.close_rounded,
                               size: 12,
-                              color: Colors.red.shade700,
+                              color: Colors.orange.shade700,
                             ),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 4),
                     Divider(color: Colors.grey.shade200, height: 1),
                     const SizedBox(height: 8),
                   ],
@@ -4391,7 +4846,29 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          if (item.promoLabel != null)
+                          if (item.appliedPromoName != null)
+                            Container(
+                              margin: const EdgeInsets.only(left: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                item.appliedPromoName!.length > 15
+                                    ? '${item.appliedPromoName!.substring(0, 15)}..'
+                                    : item.appliedPromoName!,
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontSize: 7,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          else if (item.promoLabel != null)
                             Container(
                               margin: const EdgeInsets.only(left: 4),
                               padding: const EdgeInsets.symmetric(
@@ -4463,8 +4940,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              if (item.discountedUnitPrice != null &&
-                                  item.isDiscountEnabled)
+                              if (item.activeUnitPrice < item.regularUnitPrice)
                                 Text(
                                   _formatCurrency(
                                     item.regularUnitPrice * item.quantity,
