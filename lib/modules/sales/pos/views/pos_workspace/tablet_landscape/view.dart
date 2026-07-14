@@ -986,6 +986,37 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                               promo.remoteId,
                                                         );
                                                   } else {
+                                                    if (tempSelectedPromos
+                                                        .isNotEmpty) {
+                                                      if (!promo.isStackable) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Promo ini tidak bisa ditumpuk dengan promo lain.',
+                                                            ),
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+                                                      if (tempSelectedPromos
+                                                          .any(
+                                                            (p) =>
+                                                                !p.isStackable,
+                                                          )) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Sudah ada promo yang tidak bisa ditumpuk terpilih.',
+                                                            ),
+                                                          ),
+                                                        );
+                                                        return;
+                                                      }
+                                                    }
                                                     tempSelectedPromos.add(
                                                       promo,
                                                     );
