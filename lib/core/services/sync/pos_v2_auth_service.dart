@@ -76,7 +76,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         );
       });
     }
-    
+
     PosV2RuntimeSessionStore.instance.wasForcedOut = true;
     PosV2RuntimeSessionStore.instance.setSession(null);
     RoleManager.changeRole(AppRole.cashier);

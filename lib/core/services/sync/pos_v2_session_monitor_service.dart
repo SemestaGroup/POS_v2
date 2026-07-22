@@ -3,6 +3,7 @@ import 'dart:async';
 import '../../network/v2_api_client.dart';
 import 'pos_v2_auth_service.dart';
 import 'pos_v2_runtime_session_store.dart';
+import 'pos_v2_sync_queue_processor.dart';
 
 class PosV2SessionMonitorService {
   PosV2SessionMonitorService._();
@@ -30,8 +31,9 @@ class PosV2SessionMonitorService {
     if (_pollingTimer != null && _pollingTimer!.isActive) {
       return;
     }
-    _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _checkSessionStatus();
+      PosV2SyncQueueProcessor.instance.flushPending();
     });
   }
 

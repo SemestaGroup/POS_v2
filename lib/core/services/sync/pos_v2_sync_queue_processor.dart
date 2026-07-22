@@ -10,6 +10,20 @@ class PosV2SyncQueueProcessor {
 
   bool _isRunning = false;
 
+  Future<int> getPendingSyncCount() async {
+    final rows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT COUNT(*) as c
+      FROM sync_queue
+      WHERE status = 'pending' OR status = 'failed'
+      ''',
+    );
+    if (rows.isEmpty) return 0;
+    final value = rows.first['c'];
+    if (value is int) return value;
+    return int.tryParse(value.toString()) ?? 0;
+  }
+
   Future<void> flushPending({int limit = 20}) async {
     if (_isRunning) {
       return;

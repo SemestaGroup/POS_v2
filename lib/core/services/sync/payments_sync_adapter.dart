@@ -95,6 +95,20 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
       paymentModeRemoteId,
     );
 
+    String paymentModeName = V2SyncUtils.asString(row['name']) ?? '';
+    if (paymentModeName.isEmpty && paymentModeLocalId != null) {
+      final pmRows = await executor.query(
+        'payment_mode',
+        columns: const <String>['name'],
+        where: 'tenant_id = ? AND id = ?',
+        whereArgs: <Object?>[tenantId, paymentModeLocalId],
+        limit: 1,
+      );
+      if (pmRows.isNotEmpty) {
+        paymentModeName = V2SyncUtils.asString(pmRows.first['name']) ?? '';
+      }
+    }
+
     final now = V2SyncUtils.nowIso();
     final where = remoteId != null
         ? 'tenant_id = ? AND remote_id = ?'
@@ -121,7 +135,7 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
         'invoice_remote_id': invoiceRemoteId,
         'id_pos': idPos,
         'payment_mode_remote_id': paymentModeRemoteId,
-        'payment_mode_name_snapshot': V2SyncUtils.asString(row['name']),
+        'payment_mode_name_snapshot': paymentModeName,
         'amount': V2SyncUtils.moneyToMinor(row['amount']),
         'payment_method': V2SyncUtils.asString(row['paymentmethod']),
         'payment_date': V2SyncUtils.asString(row['date']),
@@ -141,7 +155,7 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
         'invoice_remote_id': invoiceRemoteId,
         'id_pos': idPos,
         'payment_mode_remote_id': paymentModeRemoteId,
-        'payment_mode_name_snapshot': V2SyncUtils.asString(row['name']),
+        'payment_mode_name_snapshot': paymentModeName,
         'amount': V2SyncUtils.moneyToMinor(row['amount']),
         'payment_method': V2SyncUtils.asString(row['paymentmethod']),
         'payment_date': V2SyncUtils.asString(row['date']),

@@ -34,10 +34,13 @@ class _DeviceStatusViewState extends State<DeviceStatusView> {
         final session = snapshot.session;
         return Container(
           color: const Color(0xFFF8FAFC),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
                 child: Row(
                   children: [
@@ -231,7 +234,11 @@ class _DeviceStatusViewState extends State<DeviceStatusView> {
                   ],
                 ),
               ),
-              Expanded(
+            ],
+          ),
+        ),
+        SliverFillRemaining(
+                hasScrollBody: true,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                   child: Container(
@@ -750,12 +757,16 @@ class _MetaPill extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: const Color(0xFF6B7280)),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF374151),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF374151),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

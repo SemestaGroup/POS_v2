@@ -55,6 +55,8 @@ class SalesOrderRecord {
     required this.items,
     this.note,
     this.orderLevelDiscountAmount = 0,
+    this.fallbackSubtotalAmount,
+    this.fallbackTotalAmount,
     this.customerLocalId,
     this.customerPhone,
     this.customerAddress,
@@ -81,10 +83,16 @@ class SalesOrderRecord {
   final String? note;
   final List<SalesOrderLineItem> items;
   final int orderLevelDiscountAmount;
+  final int? fallbackSubtotalAmount;
+  final int? fallbackTotalAmount;
 
-  int get subtotalAmount => items.fold(0, (sum, item) => sum + item.totalPrice);
-  int get totalAmount =>
-      (subtotalAmount - orderLevelDiscountAmount).clamp(0, 1 << 31);
+  int get subtotalAmount => items.isNotEmpty 
+      ? items.fold(0, (sum, item) => sum + item.totalPrice)
+      : (fallbackSubtotalAmount ?? 0);
+
+  int get totalAmount => items.isNotEmpty
+      ? (subtotalAmount - orderLevelDiscountAmount).clamp(0, 1 << 31)
+      : (fallbackTotalAmount ?? 0);
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 }
 
@@ -185,6 +193,8 @@ class SalesOrderStore {
           pos_order.order_note,
           pos_order.custom_fields_json,
           pos_order.manual_discount_value,
+          pos_order.subtotal_amount,
+          pos_order.total_amount,
           pos_order.billing_street,
           customer.display_name AS customer_name,
           customer.phone_number AS customer_phone,
@@ -193,7 +203,7 @@ class SalesOrderStore {
         LEFT JOIN customer ON customer.id = pos_order.customer_id
         WHERE pos_order.tenant_id = ?
           AND pos_order.deleted_at IS NULL
-        ORDER BY COALESCE(pos_order.updated_at, pos_order.created_at, pos_order.order_date) DESC
+        ORDER BY COALESCE(pos_order.order_date, pos_order.updated_at, pos_order.created_at) DESC
         ''',
         <Object?>[session.tenantId],
       );
@@ -293,7 +303,7 @@ class SalesOrderStore {
             id: row['id_pos']?.toString() ?? 'POS-$orderLocalId',
             token: row['formatted_number']?.toString() ?? '#$orderLocalId',
             createdAt: _parseDateTime(
-              row['created_at']?.toString() ?? row['order_date']?.toString(),
+              row['order_date']?.toString() ?? row['created_at']?.toString(),
             ),
             statusCode: int.tryParse(row['status_code']?.toString() ?? '') ?? 1,
             customerName:
@@ -323,6 +333,8 @@ class SalesOrderStore {
             orderType: row['order_type_code']?.toString() ?? 'dine_in',
             note: row['order_note']?.toString(),
             orderLevelDiscountAmount: _asInt(row['manual_discount_value']) ?? 0,
+            fallbackSubtotalAmount: _asInt(row['subtotal_amount']),
+            fallbackTotalAmount: _asInt(row['total_amount']),
             items: items,
           ),
         );

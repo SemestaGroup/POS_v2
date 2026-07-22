@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/services/local/database_service.dart';
@@ -101,6 +102,8 @@ class ProductListRecord {
     required this.stock,
     required this.status,
     required this.isAvailable,
+    this.description,
+    this.hasChildren = false,
     this.imageUrl,
   });
 
@@ -112,7 +115,11 @@ class ProductListRecord {
   final int stock;
   final String status;
   final bool isAvailable;
+  final String? description;
+  final bool hasChildren;
   final String? imageUrl;
+
+  String get displayName => (description != null && description!.trim().isNotEmpty) ? description! : name;
 }
 
 class CategoryListRecord {
@@ -255,7 +262,8 @@ class ProductListStore extends _BaseMasterDataStore<ProductListRecord> {
     String query = '''
       SELECT p.id, p.name, p.sku, p.price_amount,
              p.stock_quantity, p.status, p.image_url,
-             p.is_available, c.name as category_name
+             p.is_available, c.name as category_name,
+             p.description, p.children_json
       FROM product p
       LEFT JOIN category c ON c.id = p.category_id
       WHERE p.tenant_id = ?
@@ -285,17 +293,52 @@ class ProductListStore extends _BaseMasterDataStore<ProductListRecord> {
 
     return rows
         .map(
-          (r) => ProductListRecord(
-            id: _asInt(r['id']) ?? 0,
-            name: r['name']?.toString() ?? '-',
-            sku: r['sku']?.toString() ?? '',
-            categoryName: r['category_name']?.toString() ?? '—',
-            priceAmount: _asInt(r['price_amount']) ?? 0,
-            stock: _asDouble(r['stock_quantity']).round(),
-            status: r['status']?.toString() ?? 'active',
-            imageUrl: r['image_url']?.toString(),
-            isAvailable: _isTruthyFlag(r['is_available']),
-          ),
+          (r) {
+            final childrenStr = r['children_json']?.toString();
+            bool hasChild = false;
+            if (childrenStr != null && childrenStr.trim().isNotEmpty) {
+              try {
+                String unquoted = childrenStr.trim();
+                if (unquoted.startsWith('"') && unquoted.endsWith('"') && unquoted.length >= 2) {
+                  // Some APIs double-encode JSON strings
+                  final maybeDecoded = jsonDecode(unquoted);
+                  if (maybeDecoded is String) {
+                    unquoted = maybeDecoded.trim();
+                  }
+                }
+                
+                if (unquoted.isNotEmpty && unquoted != 'null' && unquoted != '""') {
+                  final decoded = jsonDecode(unquoted);
+                  if (decoded is List) {
+                    hasChild = decoded.isNotEmpty;
+                  } else if (decoded is Map) {
+                    hasChild = decoded.isNotEmpty;
+                  } else if (decoded != null) {
+                    hasChild = true;
+                  }
+                }
+              } catch (e) {
+                // If it fails to parse as JSON, fallback to simple string check
+                if (childrenStr.trim().length > 5) {
+                   hasChild = true;
+                }
+              }
+            }
+
+            return ProductListRecord(
+              id: _asInt(r['id']) ?? 0,
+              name: r['name']?.toString() ?? '-',
+              sku: r['sku']?.toString() ?? '',
+              categoryName: r['category_name']?.toString() ?? '—',
+              priceAmount: _asInt(r['price_amount']) ?? 0,
+              stock: _asDouble(r['stock_quantity']).round(),
+              status: r['status']?.toString() ?? 'active',
+              imageUrl: r['image_url']?.toString(),
+              description: r['description']?.toString(),
+              hasChildren: hasChild,
+              isAvailable: _isTruthyFlag(r['is_available']),
+            );
+          },
         )
         .toList(growable: false);
   }
@@ -451,7 +494,7 @@ class PromoListStore extends _BaseMasterDataStore<PromoListRecord> {
             description: r['description']?.toString(),
             startAt: _parseDateTime(r['start_at']),
             endAt: _parseDateTime(r['end_at']),
-            status: r['status']?.toString(),
+            status: _isTruthyFlag(r['status']) ? 'active' : 'inactive',
           ),
         )
         .toList(growable: false);
@@ -601,12 +644,12 @@ bool _isTruthyFlag(Object? value) {
   if (value is bool) return value;
   if (value is int) return value == 1;
   final normalized = value.toString().trim().toLowerCase();
-  return normalized == '1' || normalized == 'true' || normalized == 'yes';
+  return normalized == '1' || normalized == 'true' || normalized == 'yes' || normalized == 'active';
 }
 
 DateTime? _parseDateTime(Object? raw) {
   final text = raw?.toString();
-  if (text == null || text.isEmpty) {
+  if (text == null || text.isEmpty || text.startsWith('0000-00-00')) {
     return null;
   }
 

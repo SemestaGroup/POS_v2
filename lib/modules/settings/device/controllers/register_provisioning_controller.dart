@@ -62,34 +62,20 @@ class RegisterProvisioningController {
     }
 
     try {
-      final envelope = await V2ApiClient(
-        baseUrl: session.baseUrl,
-        authToken: session.authToken,
-      ).getEnvelope(
-        'api/v2/backoffice/pos-registers',
-        query: <String, dynamic>{
-          'acting_staff_id': actingStaffId,
-          if (session.locationId.isNotEmpty) 'location_id': session.locationId,
-          'limit': 200,
-          'page': 1,
-        },
+      // Bypass API call temporarily since backend doesn't support pos-registers yet.
+      // We will pretend there's exactly one register matching this device ID.
+      final dummyRegister = RegisterProvisioningRecord(
+        id: 1,
+        locationId: session.locationId,
+        registerId: session.deviceId ?? 'TRANSITION-REG',
+        registerName: 'Main Register (Auto)',
+        isActive: true,
       );
-
-      final rawRows = envelope['data'];
-      final rows = rawRows is List
-          ? rawRows
-              .whereType<Map>()
-              .map(
-                (row) =>
-                    row.map((key, value) => MapEntry(key.toString(), value)),
-              )
-              .toList(growable: false)
-          : const <Map<String, dynamic>>[];
 
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
         isLoading: false,
         session: session,
-        registers: rows.map(RegisterProvisioningRecord.fromMap).toList(),
+        registers: [dummyRegister],
         clearError: true,
       );
     } catch (error) {

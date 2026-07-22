@@ -443,198 +443,322 @@ class _PrinterListViewState extends State<PrinterListView> {
             (profile) => profile.id == paperProfileId,
             orElse: () => kPrinterPaperProfiles[1],
           );
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: Text(printer == null ? 'Add Printer' : 'Edit Printer'),
-            content: SizedBox(
-              width: 460,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _field(name, 'Printer Name'),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: connectionType,
-                      items: [
-                        DropdownMenuItem(value: 'system', child: Text(AppLocalizations.of(context)!.printerTypeSystem, style: const TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'network', child: Text(AppLocalizations.of(context)!.printerTypeNetwork, style: const TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'bluetooth', child: Text(AppLocalizations.of(context)!.printerTypeBluetooth, style: const TextStyle(fontSize: 12))),
-                        DropdownMenuItem(value: 'usb', child: Text(AppLocalizations.of(context)!.printerTypeUsb, style: const TextStyle(fontSize: 12))),
+          return Dialog(
+            backgroundColor: Colors.white,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+            child: SizedBox(
+              width: 500,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 24, 16, 16),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF0F2FF),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.print_rounded, size: 22, color: Color(0xFF4F46E5)),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                printer == null ? AppLocalizations.of(context)!.printerAddProfile : 'Edit Printer',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Konfigurasi koneksi dan profil kertas',
+                                style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close_rounded, size: 20, color: Color(0xFF9CA3AF)),
+                          style: IconButton.styleFrom(backgroundColor: const Color(0xFFF9FAFB)),
+                        ),
                       ],
-                      onChanged: (value) => setDialogState(() => connectionType = value ?? 'system'),
-                      decoration: _decoration('Connection Type'),
                     ),
-                    const SizedBox(height: 10),
-                    _field(target, connectionType == 'network' ? 'IP / Host' : 'Device / Queue Identifier'),
-                    const SizedBox(height: 10),
-                    _field(port, 'Network Port'),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: paperProfileId,
-                      items: kPrinterPaperProfiles
-                          .map((profile) => DropdownMenuItem(
-                                value: profile.id,
-                                child: Text(profile.label, style: const TextStyle(fontSize: 12)),
-                              ))
-                          .toList(growable: false),
-                      onChanged: (value) => setDialogState(() {
-                        paperProfileId = value ?? 'thermal_58';
-                        final selected = kPrinterPaperProfiles.firstWhere(
-                          (profile) => profile.id == paperProfileId,
-                          orElse: () => kPrinterPaperProfiles[1],
-                        );
-                        autoCut = selected.supportsAutoCut;
-                        chars.text = selected.defaultCharsPerLine.toString();
-                        if (paperProfileId != 'custom_roll') {
-                          customWidth.text = '';
-                        }
-                      }),
-                      decoration: _decoration('Paper Profile'),
-                    ),
-                    const SizedBox(height: 6),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Real profile: ${profile.widthMm.toStringAsFixed(0)}mm • ${profile.defaultCharsPerLine} chars/line',
-                        style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _sectionTitle('General Info'),
+                          const SizedBox(height: 12),
+                          _field(name, 'Printer Name', Icons.badge_outlined),
+                          
+                          const SizedBox(height: 24),
+                          _sectionTitle('Connection'),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: connectionType,
+                            items: [
+                              DropdownMenuItem(value: 'system', child: Text(AppLocalizations.of(context)!.printerTypeSystem, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'network', child: Text(AppLocalizations.of(context)!.printerTypeNetwork, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'bluetooth', child: Text(AppLocalizations.of(context)!.printerTypeBluetooth, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                              DropdownMenuItem(value: 'usb', child: Text(AppLocalizations.of(context)!.printerTypeUsb, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500))),
+                            ],
+                            onChanged: (value) => setDialogState(() => connectionType = value ?? 'system'),
+                            decoration: _decoration('Connection Type', Icons.settings_ethernet_rounded),
+                            dropdownColor: Colors.white,
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: _field(target, connectionType == 'network' ? 'IP / Host' : 'Device / Queue', Icons.link_rounded),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 1,
+                                child: _field(port, 'Port', Icons.numbers_rounded),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          _sectionTitle('Paper & Formatting'),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String>(
+                            initialValue: paperProfileId,
+                            items: kPrinterPaperProfiles
+                                .map((profile) => DropdownMenuItem(
+                                      value: profile.id,
+                                      child: Text(profile.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                                    ))
+                                .toList(growable: false),
+                            onChanged: (value) => setDialogState(() {
+                              paperProfileId = value ?? 'thermal_58';
+                              final selected = kPrinterPaperProfiles.firstWhere(
+                                (profile) => profile.id == paperProfileId,
+                                orElse: () => kPrinterPaperProfiles[1],
+                              );
+                              autoCut = selected.supportsAutoCut;
+                              chars.text = selected.defaultCharsPerLine.toString();
+                              if (paperProfileId != 'custom_roll') {
+                                customWidth.text = '';
+                              }
+                            }),
+                            decoration: _decoration('Paper Profile', Icons.receipt_long_rounded),
+                            dropdownColor: Colors.white,
+                          ),
+                          const SizedBox(height: 6),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Text(
+                              'Real profile: ${profile.widthMm.toStringAsFixed(0)}mm • ${profile.defaultCharsPerLine} chars/line',
+                              style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                            ),
+                          ),
+                          if (paperProfileId == 'custom_roll') ...[
+                            const SizedBox(height: 12),
+                            _field(customWidth, 'Custom Width (mm)', Icons.straighten_rounded),
+                          ],
+                          const SizedBox(height: 12),
+                          _field(chars, 'Chars Per Line Override', Icons.text_format_rounded),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(child: _readonlyField('Font Scale', fontScale.toStringAsFixed(1))),
+                              const SizedBox(width: 12),
+                              Expanded(child: _readonlyField('Line Spacing', lineSpacing.toStringAsFixed(1))),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _field(notes, 'Notes', Icons.notes_rounded),
+                          
+                          const SizedBox(height: 24),
+                          _sectionTitle('Options'),
+                          const SizedBox(height: 12),
+                          _toggleCard(
+                            AppLocalizations.of(context)!.printerSupportsAutoCut,
+                            'Otomatis potong kertas setelah mencetak struk',
+                            autoCut,
+                            (value) => setDialogState(() => autoCut = value),
+                          ),
+                          const SizedBox(height: 8),
+                          _toggleCard(
+                            AppLocalizations.of(context)!.printerActive,
+                            'Aktifkan atau nonaktifkan printer ini untuk operasional',
+                            isActive,
+                            (value) => setDialogState(() => isActive = value),
+                          ),
+                        ],
                       ),
                     ),
-                    if (paperProfileId == 'custom_roll') ...[
-                      const SizedBox(height: 10),
-                      _field(customWidth, 'Custom Width (mm)'),
-                    ],
-                    const SizedBox(height: 10),
-                    _field(chars, 'Chars Per Line Override'),
-                    const SizedBox(height: 10),
-                    Row(
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Expanded(
-                          child: _readonlyField(
-                            'Font Scale',
-                            fontScale.toStringAsFixed(1),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF4B5563),
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                           ),
+                          child: Text(AppLocalizations.of(context)!.cancel, style: const TextStyle(fontWeight: FontWeight.w600)),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _readonlyField(
-                            'Line Spacing',
-                            lineSpacing.toStringAsFixed(1),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: () async {
+                            final selectedProfile = kPrinterPaperProfiles.firstWhere(
+                              (profile) => profile.id == paperProfileId,
+                              orElse: () => kPrinterPaperProfiles[1],
+                            );
+                            final config = (printer ??
+                                    PrinterDeviceConfig(
+                                      id: 0,
+                                      printerKey: 'printer-${DateTime.now().microsecondsSinceEpoch}',
+                                      displayName: '',
+                                      connectionType: 'system',
+                                      connectionTarget: null,
+                                      networkPort: 9100,
+                                      paperProfileId: 'thermal_58',
+                                      customWidthMm: null,
+                                      charsPerLine: null,
+                                      fontScale: 1,
+                                      lineSpacing: 1,
+                                      supportsAutoCut: false,
+                                      roles: const <String>[],
+                                      roleBrandFilters: const <String, List<String>>{},
+                                      notes: null,
+                                      isActive: true,
+                                      lastTestedAt: null,
+                                    ))
+                                .copyWith(
+                              displayName: name.text.trim(),
+                              connectionType: connectionType,
+                              connectionTarget: target.text.trim(),
+                              networkPort: int.tryParse(port.text.trim()) ?? 9100,
+                              paperProfileId: paperProfileId,
+                              customWidthMm: paperProfileId == 'custom_roll'
+                                  ? double.tryParse(customWidth.text.trim())
+                                  : null,
+                              charsPerLine: int.tryParse(chars.text.trim()) ?? selectedProfile.defaultCharsPerLine,
+                              fontScale: fontScale,
+                              lineSpacing: lineSpacing,
+                              supportsAutoCut: autoCut,
+                              notes: notes.text.trim(),
+                              isActive: isActive,
+                            );
+                            await _controller.savePrinter(config);
+                            if (context.mounted) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
                           ),
+                          child: Text(AppLocalizations.of(context)!.save, style: const TextStyle(fontWeight: FontWeight.w600)),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    _field(notes, 'Notes'),
-                    const SizedBox(height: 6),
-                    SwitchListTile.adaptive(
-                      value: autoCut,
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(AppLocalizations.of(context)!.printerSupportsAutoCut, style: const TextStyle(fontSize: 12)),
-                      onChanged: (value) => setDialogState(() => autoCut = value),
-                    ),
-                    SwitchListTile.adaptive(
-                      value: isActive,
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(AppLocalizations.of(context)!.printerActive, style: const TextStyle(fontSize: 12)),
-                      onChanged: (value) => setDialogState(() => isActive = value),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(AppLocalizations.of(context)!.cancel)),
-              FilledButton(
-                onPressed: () async {
-                  final selectedProfile = kPrinterPaperProfiles.firstWhere(
-                    (profile) => profile.id == paperProfileId,
-                    orElse: () => kPrinterPaperProfiles[1],
-                  );
-                  final config = (printer ??
-                          PrinterDeviceConfig(
-                            id: 0,
-                            printerKey: 'printer-${DateTime.now().microsecondsSinceEpoch}',
-                            displayName: '',
-                            connectionType: 'system',
-                            connectionTarget: null,
-                            networkPort: 9100,
-                            paperProfileId: 'thermal_58',
-                            customWidthMm: null,
-                            charsPerLine: null,
-                            fontScale: 1,
-                            lineSpacing: 1,
-                            supportsAutoCut: false,
-                            roles: const <String>[],
-                            roleBrandFilters: const <String, List<String>>{},
-                            notes: null,
-                            isActive: true,
-                            lastTestedAt: null,
-                          ))
-                      .copyWith(
-                    displayName: name.text.trim(),
-                    connectionType: connectionType,
-                    connectionTarget: target.text.trim(),
-                    networkPort: int.tryParse(port.text.trim()) ?? 9100,
-                    paperProfileId: paperProfileId,
-                    customWidthMm: paperProfileId == 'custom_roll'
-                        ? double.tryParse(customWidth.text.trim())
-                        : null,
-                    charsPerLine: int.tryParse(chars.text.trim()) ?? selectedProfile.defaultCharsPerLine,
-                    fontScale: fontScale,
-                    lineSpacing: lineSpacing,
-                    supportsAutoCut: autoCut,
-                    notes: notes.text.trim(),
-                    isActive: isActive,
-                  );
-                  await _controller.savePrinter(config);
-                  if (context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                },
-                child: Text(AppLocalizations.of(context)!.save),
-              ),
-            ],
           );
         },
       ),
     );
   }
 
-  Widget _field(TextEditingController controller, String label, {bool enabled = true}) {
-    return TextField(
-      controller: controller,
-      enabled: enabled,
-      style: const TextStyle(fontSize: 12),
-      decoration: _decoration(label),
+  Widget _sectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF111827),
+        letterSpacing: 0.3,
+      ),
     );
   }
 
+  Widget _field(TextEditingController controller, String label, [IconData? icon, bool enabled = true]) {
+    return TextField(
+      controller: controller,
+      enabled: enabled,
+      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+      decoration: _decoration(label, icon),
+    );
+  }
+
+  InputDecoration _decoration(String label, [IconData? icon]) => InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
+        prefixIcon: icon != null ? Icon(icon, size: 18, color: const Color(0xFF9CA3AF)) : null,
+        filled: true,
+        fillColor: const Color(0xFFF9FAFB),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
+        ),
+      );
+
   Widget _readonlyField(String label, String value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
+          color: const Color(0xFFF9FAFB),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFE5E7EB)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280))),
-            const SizedBox(height: 3),
-            Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+            const SizedBox(height: 2),
+            Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
           ],
         ),
       );
 
-  InputDecoration _decoration(String label) => InputDecoration(
-        labelText: label,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-      );
+  Widget _toggleCard(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: value ? const Color(0xFFC7D2FE) : const Color(0xFFE5E7EB)),
+      ),
+      child: SwitchListTile.adaptive(
+        value: value,
+        onChanged: onChanged,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF111827))),
+        subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
+        activeTrackColor: const Color(0xFF4F46E5),
+      ),
+    );
+  }
 
   Widget _badge(String label, Color bg, Color fg) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

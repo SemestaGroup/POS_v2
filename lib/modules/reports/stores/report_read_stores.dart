@@ -70,7 +70,7 @@ class ReportSummarySnapshot {
 
 class SalesReportRowRecord {
   const SalesReportRowRecord({
-    required this.idPos,
+    required this.token,
     required this.label,
     required this.statusCode,
     required this.totalAmount,
@@ -79,7 +79,7 @@ class SalesReportRowRecord {
     required this.createdAt,
   });
 
-  final String idPos;
+  final String token;
   final String label;
   final String statusCode;
   final int totalAmount;
@@ -315,9 +315,9 @@ class ReportSummaryStore {
     try {
       final session = await _requireSession();
       final now = DateTime.now();
-      final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
-      final weekStart = now.subtract(const Duration(days: 7)).toIso8601String();
-      final monthStart = DateTime(now.year, now.month, 1).toIso8601String();
+      final todayStart = _formatSqlDate(DateTime(now.year, now.month, now.day));
+      final weekStart = _formatSqlDate(now.subtract(const Duration(days: 7)));
+      final monthStart = _formatSqlDate(DateTime(now.year, now.month, 1));
 
       final todayRow = await DatabaseService.instance.rawQuery(
         '''
@@ -326,9 +326,9 @@ class ReportSummaryStore {
                COALESCE(SUM(discount_total_amount),0) as disc_total
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('paid','posted')
+          AND status_code IN ('2', '4')
           AND deleted_at IS NULL
-          AND created_at >= ?
+          AND COALESCE(order_date, created_at) >= ?
         ''',
         <Object?>[session.tenantId, todayStart],
       );
@@ -338,9 +338,9 @@ class ReportSummaryStore {
                COUNT(*) as tx_count
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('paid','posted')
+          AND status_code IN ('2', '4')
           AND deleted_at IS NULL
-          AND created_at >= ?
+          AND COALESCE(order_date, created_at) >= ?
         ''',
         <Object?>[session.tenantId, weekStart],
       );
@@ -350,9 +350,9 @@ class ReportSummaryStore {
                COUNT(*) as tx_count
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('paid','posted')
+          AND status_code IN ('2', '4')
           AND deleted_at IS NULL
-          AND created_at >= ?
+          AND COALESCE(order_date, created_at) >= ?
         ''',
         <Object?>[session.tenantId, monthStart],
       );
@@ -364,10 +364,10 @@ class ReportSummaryStore {
         FROM pos_order_item oi
         INNER JOIN pos_order o ON o.id = oi.order_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('paid','posted')
+          AND o.status_code IN ('2', '4')
           AND o.deleted_at IS NULL
           AND oi.deleted_at IS NULL
-          AND o.created_at >= ?
+          AND COALESCE(o.order_date, o.created_at) >= ?
         GROUP BY oi.product_name_snapshot
         ORDER BY total_revenue DESC
         LIMIT 5
@@ -430,16 +430,16 @@ class SalesReportStore {
 
     try {
       final session = await _requireSession();
-      final startDate = _startDateForPeriod(nextPeriod).toIso8601String();
+      final startDate = _formatSqlDate(_startDateForPeriod(nextPeriod));
       final rows = await DatabaseService.instance.rawQuery(
         '''
-        SELECT o.id_pos, o.label, o.status_code, o.total_amount,
-               o.discount_total_amount, o.created_at,
-               COALESCE(pm.methods, '-') as payment_methods
+        SELECT o.formatted_number as token, o.label, o.status_code, o.total_amount,
+               o.discount_total_amount, COALESCE(o.order_date, o.created_at) as transaction_date,
+               COALESCE(NULLIF(pm.methods, ''), '-') as payment_methods
         FROM pos_order o
         LEFT JOIN (
           SELECT order_id,
-                 GROUP_CONCAT(COALESCE(payment_mode_name_snapshot, ''), ', ') as methods
+                 GROUP_CONCAT(NULLIF(payment_mode_name_snapshot, ''), ', ') as methods
           FROM pos_order_payment
           WHERE deleted_at IS NULL
             AND is_refund = 0
@@ -447,10 +447,10 @@ class SalesReportStore {
         ) pm ON pm.order_id = o.id
         WHERE o.tenant_id = ?
           AND o.deleted_at IS NULL
-          AND o.status_code IN ('paid','posted')
-          AND o.created_at >= ?
-        ORDER BY o.created_at DESC
-        LIMIT 100
+          AND o.status_code IN ('2', '4')
+          AND COALESCE(o.order_date, o.created_at) >= ?
+        ORDER BY COALESCE(o.order_date, o.created_at) DESC
+        LIMIT 5000
         ''',
         <Object?>[session.tenantId, startDate],
       );
@@ -458,13 +458,13 @@ class SalesReportStore {
       final mapped = rows
           .map(
             (row) => SalesReportRowRecord(
-              idPos: row['id_pos']?.toString() ?? '-',
+              token: row['token']?.toString() ?? '-',
               label: row['label']?.toString() ?? 'Walk-in',
               statusCode: row['status_code']?.toString() ?? 'unknown',
               totalAmount: _asInt(row['total_amount']) ?? 0,
               discountAmount: _asInt(row['discount_total_amount']) ?? 0,
               paymentMethods: row['payment_methods']?.toString() ?? '-',
-              createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
+              createdAt: _parseDateTime(row['transaction_date']) ?? DateTime.now(),
             ),
           )
           .toList(growable: false);
@@ -510,7 +510,7 @@ class ProductReportStore {
 
     try {
       final session = await _requireSession();
-      final startDate = _startDateForPeriod(nextPeriod).toIso8601String();
+      final startDate = _formatSqlDate(_startDateForPeriod(nextPeriod));
       final rows = await DatabaseService.instance.rawQuery(
         '''
         SELECT oi.product_name_snapshot as product_name,
@@ -520,7 +520,7 @@ class ProductReportStore {
         FROM pos_order_item oi
         INNER JOIN pos_order o ON o.id = oi.order_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('paid','posted')
+          AND o.status_code IN ('2', '4')
           AND o.deleted_at IS NULL
           AND oi.deleted_at IS NULL
           AND o.created_at >= ?
@@ -577,7 +577,7 @@ class StaffReportStore {
 
     try {
       final session = await _requireSession();
-      final startDate = _startDateForPeriod(nextPeriod).toIso8601String();
+      final startDate = _formatSqlDate(_startDateForPeriod(nextPeriod));
       final orderRows = await DatabaseService.instance.rawQuery(
         '''
         SELECT s.full_name as staff_name,
@@ -587,7 +587,7 @@ class StaffReportStore {
         FROM pos_order o
         LEFT JOIN staff s ON s.id = o.sale_staff_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('paid','posted')
+          AND o.status_code IN ('2', '4')
           AND o.deleted_at IS NULL
           AND o.created_at >= ?
         GROUP BY o.sale_staff_id, s.full_name
@@ -720,7 +720,7 @@ class CashierReportLiteStore {
         FROM pos_order_payment p
         INNER JOIN pos_order o ON o.id = p.order_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('paid','posted')
+          AND o.status_code IN ('2', '4')
           AND o.deleted_at IS NULL
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
@@ -825,4 +825,11 @@ String? _nullableEmpty(String? value) {
     return null;
   }
   return trimmed;
+}
+
+String _formatSqlDate(DateTime value) {
+  final year = value.year.toString().padLeft(4, '0');
+  final month = value.month.toString().padLeft(2, '0');
+  final day = value.day.toString().padLeft(2, '0');
+  return '$year-$month-$day';
 }

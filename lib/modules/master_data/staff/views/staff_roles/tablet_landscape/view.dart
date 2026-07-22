@@ -1,9 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
+import '../../../stores/staff_roles_store.dart';
 
-class StaffRolesView extends StatelessWidget {
+class StaffRolesView extends StatefulWidget {
   const StaffRolesView({super.key});
+
+  @override
+  State<StaffRolesView> createState() => _StaffRolesViewState();
+}
+
+class _StaffRolesViewState extends State<StaffRolesView> {
+  late StaffRolesStore _store;
+
+  @override
+  void initState() {
+    super.initState();
+    _store = StaffRolesStore();
+    _store.fetchRoles();
+  }
+
+  @override
+  void dispose() {
+    _store.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,30 +78,42 @@ class StaffRolesView extends StatelessWidget {
 
         // ── Content ───────────────────────────────────────────────────────
         Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              _buildRoleCard(
-                context: context,
-                roleName: 'Pemilik (Owner)',
-                userCount: 1,
-                isDefault: true,
-              ),
-              const SizedBox(height: 16),
-              _buildRoleCard(
-                context: context,
-                roleName: 'Supervisor',
-                userCount: 2,
-                isDefault: false,
-              ),
-              const SizedBox(height: 16),
-              _buildRoleCard(
-                context: context,
-                roleName: 'Kasir',
-                userCount: 5,
-                isDefault: false,
-              ),
-            ],
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _store.isLoading,
+            builder: (context, isLoading, child) {
+              if (isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              return ValueListenableBuilder<List<StaffRoleAggregate>>(
+                valueListenable: _store.roles,
+                builder: (context, roles, child) {
+                  if (roles.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'Belum ada data peran staf',
+                        style: TextStyle(color: Colors.grey.shade500),
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(24),
+                    itemCount: roles.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final role = roles[index];
+                      return _buildRoleCard(
+                        context: context,
+                        roleName: role.roleName,
+                        userCount: role.userCount,
+                        isDefault: role.isDefault,
+                      );
+                    },
+                  );
+                },
+              );
+            },
           ),
         ),
       ],

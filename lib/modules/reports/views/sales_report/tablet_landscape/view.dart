@@ -130,9 +130,6 @@ class _SalesReportViewState extends State<SalesReportView> {
                           Divider(height: 1, color: Colors.grey.shade100),
                       itemBuilder: (context, index) {
                         final row = snapshot.rows[index];
-                        final shortId = row.idPos.length > 12
-                            ? '...${row.idPos.substring(row.idPos.length - 10)}'
-                            : row.idPos;
                         return Container(
                           color: index.isOdd
                               ? Colors.transparent
@@ -143,7 +140,7 @@ class _SalesReportViewState extends State<SalesReportView> {
                           ),
                           child: Row(
                             children: [
-                              _DataCell(shortId, 2, monospace: true),
+                              _DataCell(row.token, 2, monospace: true),
                               _DataCell(row.label.isEmpty ? 'Walk-in' : row.label, 2),
                               _DataCell(dateFmt.format(row.createdAt), 2),
                               _DataCell(row.paymentMethods, 2),

@@ -96,6 +96,7 @@ class _PosCartItem {
     int? overriddenUnitPrice,
     bool clearOverriddenUnitPrice = false,
     bool clearDiscountedUnitPrice = false,
+    bool clearPromoLabel = false,
   }) {
     return _PosCartItem(
       id: id ?? this.id,
@@ -105,7 +106,7 @@ class _PosCartItem {
       regularUnitPrice: regularUnitPrice ?? this.regularUnitPrice,
       quantity: quantity ?? this.quantity,
       productRemoteId: productRemoteId ?? this.productRemoteId,
-      promoLabel: promoLabel ?? this.promoLabel,
+      promoLabel: clearPromoLabel ? null : (promoLabel ?? this.promoLabel),
       isDiscountEnabled: isDiscountEnabled ?? this.isDiscountEnabled,
       orderType: orderType ?? this.orderType,
       note: clearNote ? null : (note ?? this.note),
@@ -200,7 +201,69 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     }
 
     if (_cartItems.isNotEmpty) {
-      await _commitOrder(1); // Auto-save current workspace as active order
+      // Auto-save removed as per user request.
+      // The cart will just be replaced by the resumed order.
+    }
+
+    final productIndex = <String, Map<String, dynamic>>{};
+    for (final product in _catalogSnapshot.products) {
+      final remoteId = product['remoteId']?.toString();
+      if (remoteId != null && remoteId.isNotEmpty) {
+        productIndex[remoteId] = product;
+      }
+    }
+
+    final matchItems = pendingOrder.items
+        .where(
+          (item) =>
+              item.productRemoteId != null && item.productRemoteId!.isNotEmpty,
+        )
+        .map((item) {
+          final metadata =
+              productIndex[item.productRemoteId!]?['metadata_json'];
+          final categoryId = metadata is Map
+              ? metadata['category_remote_id']?.toString() ?? ''
+              : '';
+          final brandId = metadata is Map
+              ? metadata['brand_remote_id']?.toString() ?? ''
+              : '';
+              
+          final originalDiscountedPrice =
+              productIndex[item.productRemoteId!]?['discountedPrice'];
+          int? parsedDiscounted;
+          if (originalDiscountedPrice != null) {
+            parsedDiscounted = int.tryParse(originalDiscountedPrice.toString());
+            if (parsedDiscounted != null && parsedDiscounted <= 0) {
+              parsedDiscounted = null;
+            }
+          }
+
+          return PosPromotionMatchItem(
+            refId: item.id,
+            productRemoteId: item.productRemoteId!,
+            productName: item.name,
+            categoryRemoteId: categoryId,
+            brandRemoteId: brandId,
+            activeUnitPrice: parsedDiscounted ?? item.regularUnitPrice ?? 0,
+            quantity: item.quantity,
+          );
+        })
+        .toList();
+
+    final applicablePromos = await PosPromotionService.instance
+        .getApplicablePromotions(
+          items: matchItems,
+          orderTypeCode: _toBackendOrderTypeCode(pendingOrder.orderType ?? ''),
+        );
+
+    PosPromotionResult? actualPromo;
+    if (pendingOrder.appliedPromotionRemoteId != null &&
+        pendingOrder.appliedPromotionRemoteId!.isNotEmpty) {
+      try {
+        actualPromo = applicablePromos.firstWhere(
+          (p) => p.remoteId == pendingOrder.appliedPromotionRemoteId,
+        );
+      } catch (_) {}
     }
 
     setState(() {
@@ -231,24 +294,9 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       _editingOrderCreatedAt = pendingOrder.createdAt;
       _appliedOrderPromoLabel = pendingOrder.appliedPromotionName;
       _orderLevelDiscountAmount = pendingOrder.orderLevelDiscountAmount;
-      _selectedPromotions = pendingOrder.appliedPromotionName == null
-          ? []
-          : [
-              PosPromotionResult(
-                remoteId: pendingOrder.appliedPromotionRemoteId ?? '',
-                name: pendingOrder.appliedPromotionName!,
-                promoType: pendingOrder.appliedPromotionType ?? 'discount',
-                discountAmount: pendingOrder.orderLevelDiscountAmount,
-                displayAmount: pendingOrder.orderLevelDiscountAmount.toString(),
-                matchedTotal: pendingOrder.subtotalAmount,
-                summary:
-                    pendingOrder.appliedPromotionSummary ==
-                        'PROMO_NOT_APPLICABLE'
-                    ? AppLocalizations.of(context)!.promoNotApplicable
-                    : (pendingOrder.appliedPromotionSummary ?? ''),
-              ),
-            ];
-      if (pendingOrder.customerRemoteId.isNotEmpty) {
+      _selectedPromotions = actualPromo == null ? [] : [actualPromo];
+      if (pendingOrder.customerName.isNotEmpty &&
+          pendingOrder.customerName != '-') {
         _selectedCustomer = PosCustomerRecord(
           localId: pendingOrder.customerLocalId,
           remoteId: pendingOrder.customerRemoteId,
@@ -261,7 +309,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         );
       }
     });
-
+    _recalculateCartPromotions();
     SalesOrderStore.instance.clearPendingResumeOrder();
   }
 
@@ -652,13 +700,16 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             : null;
         final originalDiscountedPrice =
             catalogProduct?['discountedPrice'] as int?;
+        final originalPromoLabel = catalogProduct?['promo'] as String?;
 
         final cleanItem = item.copyWith(
           clearAppliedPromoId: true,
           clearAppliedPromoName: true,
           clearOverriddenUnitPrice: true,
           clearDiscountedUnitPrice: originalDiscountedPrice == null,
+          clearPromoLabel: originalPromoLabel == null,
           discountedUnitPrice: originalDiscountedPrice,
+          promoLabel: originalPromoLabel,
           isDiscountEnabled: originalDiscountedPrice != null,
         );
         final index = rawItems.indexWhere(
@@ -992,9 +1043,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                         ScaffoldMessenger.of(
                                                           context,
                                                         ).showSnackBar(
-                                                          const SnackBar(
+                                                          SnackBar(
                                                             content: Text(
-                                                              'Promo ini tidak bisa ditumpuk dengan promo lain.',
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.promoNotStackable,
                                                             ),
                                                           ),
                                                         );
@@ -1008,9 +1061,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                                         ScaffoldMessenger.of(
                                                           context,
                                                         ).showSnackBar(
-                                                          const SnackBar(
+                                                          SnackBar(
                                                             content: Text(
-                                                              'Sudah ada promo yang tidak bisa ditumpuk terpilih.',
+                                                              AppLocalizations.of(
+                                                                context,
+                                                              )!.unstackablePromoAlreadySelected,
                                                             ),
                                                           ),
                                                         );
@@ -1628,9 +1683,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             regularUnitPrice: item.regularUnitPrice,
             quantity: item.quantity,
             productRemoteId: item.productRemoteId,
-            discountedUnitPrice: item.discountedUnitPrice,
-            promoLabel: item.promoLabel,
-            isDiscountEnabled: item.isDiscountEnabled,
+            discountedUnitPrice:
+                item.overriddenUnitPrice ?? item.discountedUnitPrice,
+            promoLabel: item.appliedPromoName ?? item.promoLabel,
+            isDiscountEnabled:
+                item.overriddenUnitPrice != null || item.isDiscountEnabled,
             orderType: item.orderType,
             note: item.note,
           ),
@@ -3407,6 +3464,41 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     final products = _catalogSnapshot.products
         .map(_applySelectedOrderTypePricing)
         .toList(growable: true);
+
+    // Propagate promo labels and active promo selections from children to parents
+    final parentPromoMap = <String, String>{};
+    for (final p in products) {
+      final parentId = p['parentRemoteId']?.toString();
+      final promoLabel = p['promo']?.toString();
+      final remoteId = p['remoteId']?.toString();
+      final catId = p['categoryRemoteId']?.toString();
+      
+      if (parentId != null && parentId.isNotEmpty && parentId != 'null') {
+        if (promoLabel != null) {
+          parentPromoMap[parentId] = promoLabel;
+        }
+        for (final promo in _selectedPromotions) {
+          if (promo.eligibleProductIds.contains(remoteId) ||
+              promo.eligibleCategoryIds.contains(catId)) {
+            // Because eligibleProductIds is mutable during lifecycle,
+            // we inject the parentId so the UI knows this parent contains an active promo.
+            try {
+              promo.eligibleProductIds.add(parentId);
+            } catch (_) {
+              // Ignore if set is unmodifiable in some edge case
+            }
+          }
+        }
+      }
+    }
+    
+    for (var i = 0; i < products.length; i++) {
+      final id = products[i]['remoteId']?.toString();
+      if (id != null && parentPromoMap.containsKey(id) && products[i]['promo'] == null) {
+        products[i] = Map<String, dynamic>.from(products[i]);
+        products[i]['promo'] = parentPromoMap[id];
+      }
+    }
     final brandNames = _availableBrands(products);
     final selectedBrandName = brandNames.contains(_selectedBrandName)
         ? _selectedBrandName

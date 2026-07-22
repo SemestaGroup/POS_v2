@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../stores/overview_store.dart';
 import 'sales_metrics_view.dart';
 import 'customer_metrics_view.dart';
 
@@ -24,6 +25,25 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
       start: now.subtract(const Duration(days: 7)),
       end: now,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _applyFilter();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  void _applyFilter() {
+    if (_selectedDateRange != null) {
+      OverviewStore.instance.refresh(
+        startDate: _selectedDateRange!.start,
+        endDate: _selectedDateRange!.end,
+      );
+    }
   }
 
   void _selectDateRange(String rangeType) {
@@ -55,6 +75,7 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
     setState(() {
       _selectedDateRange = DateTimeRange(start: start, end: end);
     });
+    _applyFilter();
   }
 
   @override
@@ -77,7 +98,15 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
             // Body
             Expanded(
               child: _selectedTab == 0
-                  ? const SalesMetricsView()
+                  ? ValueListenableBuilder<OverviewSnapshot>(
+                      valueListenable: OverviewStore.instance.snapshotNotifier,
+                      builder: (context, snapshot, _) {
+                        if (snapshot.isLoading && snapshot.salesToday == 0 && snapshot.salesThisMonth == 0) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        return SalesMetricsView(snapshot: snapshot);
+                      },
+                    )
                   : const CustomerMetricsView(),
             ),
           ],
@@ -123,7 +152,7 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
                     SizedBox(
                       height: 32,
                       child: OutlinedButton(
-                        onPressed: () {},
+                        onPressed: _applyFilter,
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           side: BorderSide(color: theme.dividerColor),
@@ -204,10 +233,26 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
         _buildPopupMenuItem(l10n.filterLast7Days, 'last7days', theme),
         _buildPopupMenuItem(l10n.filterLast30Days, 'last30days', theme),
         _buildPopupMenuItem(l10n.filterThisMonth, 'thisMonth', theme),
+        _buildPopupMenuItem(l10n.selectDate, 'custom', theme),
       ],
     );
 
-    if (result != null) {
+    if (!context.mounted) return;
+
+    if (result == 'custom') {
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2020),
+        lastDate: DateTime(2030),
+        initialDateRange: _selectedDateRange,
+      );
+      if (picked != null) {
+        setState(() {
+          _selectedDateRange = picked;
+        });
+        _applyFilter();
+      }
+    } else if (result != null) {
       _selectDateRange(result);
     }
   }

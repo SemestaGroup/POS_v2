@@ -81,8 +81,13 @@ class _HistoryLiteViewState extends State<HistoryLiteView> {
       valueListenable: SalesOrderStore.instance.recordsNotifier,
       builder: (context, allOrders, _) {
         final query = _searchController.text.trim().toLowerCase();
+        final today = DateTime.now();
         final historyOrders = allOrders
             .where((order) => {2, 4, 5}.contains(order.statusCode))
+            .where((order) =>
+                order.createdAt.year == today.year &&
+                order.createdAt.month == today.month &&
+                order.createdAt.day == today.day)
             .where((order) {
               if (query.isEmpty) {
                 return true;
@@ -95,13 +100,22 @@ class _HistoryLiteViewState extends State<HistoryLiteView> {
             .toList();
 
         final closedCount = allOrders
-            .where((order) => order.statusCode == 2)
+            .where((order) => order.statusCode == 2 && 
+                order.createdAt.year == today.year && 
+                order.createdAt.month == today.month && 
+                order.createdAt.day == today.day)
             .length;
         final overdueCount = allOrders
-            .where((order) => order.statusCode == 4)
+            .where((order) => order.statusCode == 4 && 
+                order.createdAt.year == today.year && 
+                order.createdAt.month == today.month && 
+                order.createdAt.day == today.day)
             .length;
         final voidCount = allOrders
-            .where((order) => order.statusCode == 5)
+            .where((order) => order.statusCode == 5 && 
+                order.createdAt.year == today.year && 
+                order.createdAt.month == today.month && 
+                order.createdAt.day == today.day)
             .length;
 
         final content = MediaQuery(
@@ -698,7 +712,7 @@ class _HistoryLiteViewState extends State<HistoryLiteView> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      order.id,
+                      order.token,
                       style: const TextStyle(
                         fontSize: 10,
                         color: Colors.black54,

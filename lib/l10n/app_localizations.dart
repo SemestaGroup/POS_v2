@@ -3167,6 +3167,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'End Date'**
   String get endDate;
+
+  /// No description provided for @promoNotStackable.
+  ///
+  /// In en, this message translates to:
+  /// **'This promo cannot be stacked with other promos.'**
+  String get promoNotStackable;
+
+  /// No description provided for @unstackablePromoAlreadySelected.
+  ///
+  /// In en, this message translates to:
+  /// **'An unstackable promo is already selected.'**
+  String get unstackablePromoAlreadySelected;
 }
 
 class _AppLocalizationsDelegate

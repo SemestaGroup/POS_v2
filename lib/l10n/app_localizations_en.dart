@@ -1684,4 +1684,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get endDate => 'End Date';
+
+  @override
+  String get promoNotStackable =>
+      'This promo cannot be stacked with other promos.';
+
+  @override
+  String get unstackablePromoAlreadySelected =>
+      'An unstackable promo is already selected.';
 }

@@ -1686,4 +1686,12 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get endDate => 'Sampai Tanggal';
+
+  @override
+  String get promoNotStackable =>
+      'Promo ini tidak bisa ditumpuk dengan promo lain.';
+
+  @override
+  String get unstackablePromoAlreadySelected =>
+      'Sudah ada promo yang tidak bisa ditumpuk terpilih.';
 }

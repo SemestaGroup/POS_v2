@@ -395,11 +395,13 @@ class PosV2SyncOrchestrator {
     results.add(
       await syncOrders(
         context,
-        query: <String, dynamic>{'status': 'active', 'limit': 200, 'page': 1},
+        query: <String, dynamic>{'status': '1', 'limit': 200, 'page': 1},
         pullDetails: false,
         detailLimit: 50,
       ),
     );
+
+    results.add(await syncPayments(context));
 
     return results;
   }
@@ -425,7 +427,7 @@ class PosV2SyncOrchestrator {
     results.add(
       await syncOrders(
         context,
-        query: <String, dynamic>{'status': 'completed', 'limit': 50, 'page': 1},
+        query: <String, dynamic>{'limit': 500, 'page': 1},
         pullDetails: false,
         detailLimit: 12,
       ),
@@ -446,8 +448,8 @@ class PosV2SyncOrchestrator {
 
   Future<List<V2SyncResult>> syncHistoryOnDemand(
     V2SyncContext context, {
-    int orderLimit = 50,
-    int paymentLimit = 50,
+    int orderLimit = 500,
+    int paymentLimit = 500,
   }) async {
     return <V2SyncResult>[
       await syncCustomers(context),

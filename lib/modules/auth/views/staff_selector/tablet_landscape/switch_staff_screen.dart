@@ -5,6 +5,7 @@ import '../../../../../core/services/local/database_service.dart';
 import '../../../../../core/services/sync/pos_v2_auth_service.dart';
 import '../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
+import '../../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../../app/auth/auth_gate.dart';
 import '../../../../../app/role_access/role_manager.dart';
@@ -26,6 +27,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
   List<Map<String, Object?>> _allStaffRows = [];
   bool _isLoading = true;
   bool _isLoggingOutLocation = false;
+  int _pendingSyncCount = 0;
 
   @override
   void initState() {
@@ -64,11 +66,14 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       whereArgs: <Object?>[session.tenantId],
       orderBy: 'full_name ASC, email ASC',
     );
+    
+    final pendingCount = await PosV2SyncQueueProcessor.instance.getPendingSyncCount();
 
     if (mounted) {
       setState(() {
         _session = session;
         _allStaffRows = staffRows;
+        _pendingSyncCount = pendingCount;
         _isLoading = false;
       });
     }
@@ -122,6 +127,137 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
 
   Future<void> _logoutLocation() async {
     if (_isLoggingOutLocation) {
+      return;
+    }
+
+    final pendingCount = await PosV2SyncQueueProcessor.instance.getPendingSyncCount();
+
+    if (!mounted) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Container(
+            width: 420,
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red.shade600,
+                    size: 40,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Konfirmasi Keluar Lokasi',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (pendingCount > 0)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 24),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.orange.shade200),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.sync_problem_rounded, color: Colors.orange.shade700, size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Masih ada $pendingCount data yang belum tersinkronisasi. Pastikan sinkronisasi selesai sebelum keluar, atau data tersebut akan HILANG.',
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                Text(
+                  'Semua data operasional lokal akan dihapus dari perangkat ini. Apakah Anda yakin ingin melanjutkan?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Batal',
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Colors.red.shade600,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          'Ya, Keluar Lokasi',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirm != true) {
       return;
     }
 
@@ -262,6 +398,31 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             ),
           ),
         ],
+        const SizedBox(width: 12),
+        if (_pendingSyncCount > 0)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.shade200),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.sync_problem_rounded, color: Colors.orange.shade700, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  '$_pendingSyncCount belum sinkron',
+                  style: TextStyle(
+                    color: Colors.orange.shade900,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(width: 12),
         FilledButton.icon(
           onPressed: _isLoading

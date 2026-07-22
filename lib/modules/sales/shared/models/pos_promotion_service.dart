@@ -397,6 +397,11 @@ class PosPromotionService {
                final perUnitDiscount = (applyDiscount / take).floor();
                poolItem.accumulatedDiscount += perUnitDiscount;
                
+               if (!poolItem.appliedPromoIds.contains(promo.remoteId)) {
+                 poolItem.appliedPromoIds.add(promo.remoteId);
+                 poolItem.appliedPromoNames.add(promo.name);
+               }
+               
                remainingDiscount -= (perUnitDiscount * take);
             }
             appliedCount++;

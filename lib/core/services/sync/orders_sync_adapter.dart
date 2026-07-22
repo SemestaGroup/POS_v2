@@ -373,7 +373,10 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
-        'order_date': V2SyncUtils.asString(row['date']),
+        'order_date': V2SyncUtils.asString(row['datecreated']) ?? 
+                      V2SyncUtils.asString(row['dateadded']) ?? 
+                      V2SyncUtils.asString(row['daterecorded']) ?? 
+                      V2SyncUtils.asString(row['date']),
         'due_date': V2SyncUtils.asString(row['duedate']),
         'business_date': V2SyncUtils.asString(row['date']),
         'currency_remote_id': V2SyncUtils.asString(
@@ -445,7 +448,10 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
-        'order_date': V2SyncUtils.asString(row['date']),
+        'order_date': V2SyncUtils.asString(row['datecreated']) ?? 
+                      V2SyncUtils.asString(row['dateadded']) ?? 
+                      V2SyncUtils.asString(row['daterecorded']) ?? 
+                      V2SyncUtils.asString(row['date']),
         'due_date': V2SyncUtils.asString(row['duedate']),
         'business_date': V2SyncUtils.asString(row['date']),
         'currency_remote_id': V2SyncUtils.asString(

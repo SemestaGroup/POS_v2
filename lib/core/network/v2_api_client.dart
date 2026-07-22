@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'v2_api_debug_logger.dart';
@@ -47,7 +47,7 @@ class V2ApiClient {
       uri: uri,
       headers: _plainHeaders,
       requestBody: null,
-      send: () => http.get(uri, headers: _plainHeaders).timeout(const Duration(seconds: 15)),
+      send: () => http.get(uri, headers: _plainHeaders).timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -58,7 +58,7 @@ class V2ApiClient {
       uri: uri,
       headers: _plainHeaders,
       requestBody: null,
-      send: () => http.get(uri, headers: _plainHeaders).timeout(const Duration(seconds: 15)),
+      send: () => http.get(uri, headers: _plainHeaders).timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -74,7 +74,7 @@ class V2ApiClient {
       headers: _jsonHeaders,
       requestBody: requestBody,
       send: () =>
-          http.post(uri, headers: _jsonHeaders, body: jsonEncode(requestBody)).timeout(const Duration(seconds: 15)),
+          http.post(uri, headers: _jsonHeaders, body: jsonEncode(requestBody)).timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -90,7 +90,7 @@ class V2ApiClient {
       headers: _jsonHeaders,
       requestBody: requestBody,
       send: () =>
-          http.put(uri, headers: _jsonHeaders, body: jsonEncode(requestBody)).timeout(const Duration(seconds: 15)),
+          http.put(uri, headers: _jsonHeaders, body: jsonEncode(requestBody)).timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -109,7 +109,7 @@ class V2ApiClient {
         final request = http.Request('DELETE', uri);
         request.headers.addAll(_jsonHeaders);
         request.body = jsonEncode(requestBody);
-        final streamed = await request.send().timeout(const Duration(seconds: 15));
+        final streamed = await request.send().timeout(const Duration(seconds: 60));
         return http.Response.fromStream(streamed);
       },
     );
@@ -204,6 +204,7 @@ class V2ApiClient {
     try {
       decoded = jsonDecode(response.body);
     } catch (_) {
+      debugPrint('[V2 API JSON ERROR] Raw Body: ${response.body}');
       throw Exception('Invalid server response (${response.statusCode})');
     }
 

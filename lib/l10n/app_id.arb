@@ -677,5 +677,7 @@
   "addCashOut": "Tambah Kas Keluar",
   "amount": "Jumlah",
   "startDate": "Dari Tanggal",
-  "endDate": "Sampai Tanggal"
+  "endDate": "Sampai Tanggal",
+  "promoNotStackable": "Promo ini tidak bisa ditumpuk dengan promo lain.",
+  "unstackablePromoAlreadySelected": "Sudah ada promo yang tidak bisa ditumpuk terpilih."
 }

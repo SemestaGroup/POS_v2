@@ -726,5 +726,7 @@
   "addCashOut": "Add Cash Out",
   "amount": "Amount",
   "startDate": "Start Date",
-  "endDate": "End Date"
+  "endDate": "End Date",
+  "promoNotStackable": "This promo cannot be stacked with other promos.",
+  "unstackablePromoAlreadySelected": "An unstackable promo is already selected."
 }
