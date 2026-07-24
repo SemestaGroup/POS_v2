@@ -240,6 +240,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     int? preservedDeviceSessionId;
     String? preservedShiftSessionRemoteId;
     String? preservedDeviceSessionRemoteId;
+    String? preservedStatusCode;
     if (existingLocalId != null) {
       final existingRows = await executor.query(
         'pos_order',
@@ -253,6 +254,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
           'device_session_id',
           'shift_session_remote_id',
           'device_session_remote_id',
+          'status_code',
         ],
         where: 'id = ?',
         whereArgs: <Object?>[existingLocalId],
@@ -276,6 +278,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         preservedDeviceSessionRemoteId = existingRows
             .first['device_session_remote_id']
             ?.toString();
+        preservedStatusCode = existingRows.first['status_code']?.toString();
         final manualValue = existingRows.first['manual_discount_value'];
         if (manualValue is int) {
           preservedManualDiscountValue = manualValue;
@@ -351,6 +354,11 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
               : <Object?>[tenantId, remoteId]);
     final now = V2SyncUtils.nowIso();
 
+    final rawStatus = V2SyncUtils.asString(row['status']);
+    final resolvedStatusCode = (preservedStatusCode == '6' && rawStatus != '2' && rawStatus != '5')
+        ? '6'
+        : rawStatus;
+
     return databaseService.upsertByUnique(
       executor,
       'pos_order',
@@ -373,9 +381,9 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
-        'order_date': V2SyncUtils.asString(row['datecreated']) ?? 
-                      V2SyncUtils.asString(row['dateadded']) ?? 
-                      V2SyncUtils.asString(row['daterecorded']) ?? 
+        'order_date': V2SyncUtils.asString(row['datecreated']) ??
+                      V2SyncUtils.asString(row['dateadded']) ??
+                      V2SyncUtils.asString(row['daterecorded']) ??
                       V2SyncUtils.asString(row['date']),
         'due_date': V2SyncUtils.asString(row['duedate']),
         'business_date': V2SyncUtils.asString(row['date']),
@@ -400,7 +408,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'order_type_code': V2SyncUtils.asString(row['order_type']),
         'queue_number': V2SyncUtils.asInt(row['queue_number']),
         'table_code': V2SyncUtils.asString(row['table_code']),
-        'status_code': V2SyncUtils.asString(row['status']),
+        'status_code': resolvedStatusCode,
         'status_text': V2SyncUtils.asString(
           row['status_name'] ?? row['status'],
         ),
@@ -448,9 +456,9 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
-        'order_date': V2SyncUtils.asString(row['datecreated']) ?? 
-                      V2SyncUtils.asString(row['dateadded']) ?? 
-                      V2SyncUtils.asString(row['daterecorded']) ?? 
+        'order_date': V2SyncUtils.asString(row['datecreated']) ??
+                      V2SyncUtils.asString(row['dateadded']) ??
+                      V2SyncUtils.asString(row['daterecorded']) ??
                       V2SyncUtils.asString(row['date']),
         'due_date': V2SyncUtils.asString(row['duedate']),
         'business_date': V2SyncUtils.asString(row['date']),
@@ -475,7 +483,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'order_type_code': V2SyncUtils.asString(row['order_type']),
         'queue_number': V2SyncUtils.asInt(row['queue_number']),
         'table_code': V2SyncUtils.asString(row['table_code']),
-        'status_code': V2SyncUtils.asString(row['status']),
+        'status_code': resolvedStatusCode,
         'status_text': V2SyncUtils.asString(
           row['status_name'] ?? row['status'],
         ),

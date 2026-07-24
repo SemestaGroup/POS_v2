@@ -63,8 +63,8 @@ class PrinterRenderingService {
             PrinterInfoRow(label: 'Priority', value: 'Normal'),
           ],
           items: const <PrinterLineItem>[
-            PrinterLineItem(label: '1x Iced Americano', quantity: 1, note: 'Less ice'),
-            PrinterLineItem(label: '2x Chicken Sandwich', quantity: 2, note: 'No onion'),
+            PrinterLineItem(label: 'Iced Americano', quantity: 1, note: 'Less ice'),
+            PrinterLineItem(label: 'Chicken Sandwich', quantity: 2, note: 'No onion'),
           ],
           footerLines: const <String>['Kitchen flow sample'],
         );
@@ -72,15 +72,14 @@ class PrinterRenderingService {
         return PrinterDocumentData(
           type: type,
           title: 'Label Print',
-          subtitle: 'Short, sticker-friendly layout',
+          subtitle: 'Take Away | Customer A',
           infoRows: const <PrinterInfoRow>[
-            PrinterInfoRow(label: 'Queue', value: 'B008'),
-            PrinterInfoRow(label: 'Time', value: '12:14'),
+            PrinterInfoRow(label: 'Waktu', value: '12:14'),
           ],
           items: const <PrinterLineItem>[
-            PrinterLineItem(label: 'Cold Brew Bottle 1L', quantity: 1),
+            PrinterLineItem(label: 'Cold Brew Bottle 1L', quantity: 1, note: 'Less sugar'),
+            PrinterLineItem(label: 'Matcha Latte', quantity: 2),
           ],
-          footerLines: const <String>['Label sample'],
         );
       case PrinterDocumentType.report:
         return PrinterDocumentData(
@@ -120,6 +119,49 @@ class PrinterRenderingService {
   String _buildPreviewText(PrinterDeviceConfig printer, PrinterDocumentData document) {
     final maxChars = printer.effectiveCharsPerLine;
     final separator = '-' * maxChars;
+
+    if (document.type == PrinterDocumentType.label) {
+      final labelBlocks = <String>[];
+
+      int totalUnits = 0;
+      for (final item in document.items) {
+        totalUnits += item.quantity > 0 ? item.quantity : 1;
+      }
+      if (totalUnits == 0) totalUnits = 1;
+
+      int currentUnitIndex = 0;
+      for (final item in document.items) {
+        final count = item.quantity > 0 ? item.quantity : 1;
+        final cleanProductName = item.label.replaceFirst(RegExp(r'^\d+x\s*'), '');
+
+        for (int q = 0; q < count; q++) {
+          currentUnitIndex++;
+          final blockLines = <String>[];
+
+          if ((document.subtitle ?? '').trim().isNotEmpty) {
+            blockLines.addAll(_centerWrapped(document.subtitle!, maxChars));
+          }
+          blockLines.add(separator);
+
+          blockLines.addAll(_wrap(cleanProductName, maxChars));
+          if ((item.note ?? '').trim().isNotEmpty) {
+            blockLines.addAll(_wrap('  note: ${item.note!.trim()}', maxChars));
+          }
+
+          blockLines.add(separator);
+
+          for (final row in document.infoRows) {
+            blockLines.add(_row(row.label, row.value, maxChars));
+          }
+          blockLines.add(_row('No. Item', '$currentUnitIndex / $totalUnits', maxChars));
+
+          labelBlocks.add(blockLines.join('\n'));
+        }
+      }
+
+      return labelBlocks.join('\n\n${"=" * maxChars}\n\n');
+    }
+
     final lines = <String>[];
 
     lines.addAll(_centerWrapped(document.title, maxChars));
@@ -137,13 +179,22 @@ class PrinterRenderingService {
       lines.add(separator);
     }
     for (final item in document.items) {
-      final title = item.amount != null
-          ? '${item.quantity}x ${item.label}'
-          : item.label;
-      lines.addAll(_wrap(title, maxChars));
+      final hasQtyPrefix = RegExp(r'^\d+x\s').hasMatch(item.label);
+      final itemTitle = hasQtyPrefix ? item.label : '${item.quantity}x ${item.label}';
+
       if (item.amount != null) {
-        lines.add(_row(' ', _formatMoney(item.amount!), maxChars));
+        lines.add(_row(itemTitle, _formatMoney(item.amount!), maxChars));
+      } else {
+        lines.addAll(_wrap(itemTitle, maxChars));
       }
+
+      if (item.discountAmount != null && item.discountAmount! > 0) {
+        final labelStr = (item.discountLabel ?? 'Diskon Produk').trim();
+        lines.add(_row('  $labelStr', '-${_formatMoney(item.discountAmount!)}', maxChars));
+      } else if ((item.discountLabel ?? '').trim().isNotEmpty) {
+        lines.addAll(_wrap('  ${item.discountLabel!.trim()}', maxChars));
+      }
+
       if ((item.note ?? '').trim().isNotEmpty) {
         lines.addAll(_wrap('  note: ${item.note!.trim()}', maxChars));
       }

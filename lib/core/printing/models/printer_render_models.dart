@@ -15,12 +15,16 @@ class PrinterLineItem {
     required this.quantity,
     this.amount,
     this.note,
+    this.discountAmount,
+    this.discountLabel,
   });
 
   final String label;
   final int quantity;
   final int? amount;
   final String? note;
+  final int? discountAmount;
+  final String? discountLabel;
 }
 
 class PrinterSummaryRow {

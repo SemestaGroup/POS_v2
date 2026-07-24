@@ -349,7 +349,7 @@ class SalesOrderStore {
     }
   }
 
-  Future<void> createOrder({
+  Future<SalesOrderRecord?> createOrder({
     required int statusCode,
     required List<SalesOrderLineItem> items,
     required String customerName,
@@ -372,7 +372,7 @@ class SalesOrderStore {
     bool processQueueNow = false,
   }) async {
     if (items.isEmpty) {
-      return;
+      return null;
     }
 
     final isUpdate =
@@ -414,6 +414,7 @@ class SalesOrderStore {
       paymentModeName: paymentModeName,
       processQueueNow: processQueueNow,
     );
+    return record;
   }
 
   Future<SalesPaymentModeSnapshot> loadPaymentModeSnapshot({

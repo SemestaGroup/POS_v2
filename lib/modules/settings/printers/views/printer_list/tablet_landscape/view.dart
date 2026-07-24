@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../controllers/printer_settings_controller.dart';
@@ -22,6 +23,7 @@ class _PrinterListViewState extends State<PrinterListView> {
   List<BluetoothDevice> _bluetoothDevices = [];
   Map<String, dynamic> _appSettings = {};
   bool _isLoadingBluetooth = false;
+  String? _bluetoothError;
 
   @override
   void initState() {
@@ -64,22 +66,86 @@ class _PrinterListViewState extends State<PrinterListView> {
     if (mounted) {
       setState(() {
         _autoPrint = printing['auto_print'] ?? false;
-        _isLoadingBluetooth = true;
       });
     }
 
+    await _loadBluetoothDevices();
+  }
+
+  Future<void> _loadBluetoothDevices() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingBluetooth = true;
+      _bluetoothError = null;
+    });
+
+    if (defaultTargetPlatform != TargetPlatform.android &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      if (mounted) {
+        setState(() {
+          _bluetoothDevices = [];
+          _isLoadingBluetooth = false;
+          _bluetoothError = 'Pencarian Bluetooth hanya didukung di perangkat Android / iOS.';
+        });
+      }
+      return;
+    }
+
     try {
-      final devices = await BlueThermalPrinter.instance.getBondedDevices();
+      final bluetooth = BlueThermalPrinter.instance;
+
+      final isAvailable = await bluetooth.isAvailable.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => false,
+      );
+
+      if (isAvailable != true) {
+        if (mounted) {
+          setState(() {
+            _bluetoothDevices = [];
+            _isLoadingBluetooth = false;
+            _bluetoothError = 'Bluetooth tidak tersedia pada perangkat ini.';
+          });
+        }
+        return;
+      }
+
+      final isOn = await bluetooth.isOn.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () => false,
+      );
+
+      if (isOn != true) {
+        if (mounted) {
+          setState(() {
+            _bluetoothDevices = [];
+            _isLoadingBluetooth = false;
+            _bluetoothError = 'Bluetooth belum aktif. Harap nyalakan Bluetooth HP/Tablet Anda.';
+          });
+        }
+        return;
+      }
+
+      final devices = await bluetooth.getBondedDevices().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () => <BluetoothDevice>[],
+      );
+
       if (mounted) {
         setState(() {
           _bluetoothDevices = devices;
           _isLoadingBluetooth = false;
+          if (_bluetoothDevices.isEmpty) {
+            _bluetoothError = 'Tidak ada perangkat Bluetooth yang terpasang (paired). Pastikan printer sudah dipasangkan di Pengaturan Bluetooth HP/Tablet.';
+          }
         });
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         setState(() {
+          _bluetoothDevices = [];
           _isLoadingBluetooth = false;
+          _bluetoothError = 'Gagal memuat perangkat Bluetooth: ${e.toString().replaceFirst('Exception: ', '')}';
         });
       }
     }
@@ -339,21 +405,60 @@ class _PrinterListViewState extends State<PrinterListView> {
                   
                   const SizedBox(height: 16),
                   
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(AppLocalizations.of(context)!.printerPairedBluetoothDevices, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        AppLocalizations.of(context)!.printerPairedBluetoothDevices,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        onPressed: _isLoadingBluetooth ? null : _loadBluetoothDevices,
+                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                        tooltip: 'Pindai Ulang Bluetooth',
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 4),
                   if (_isLoadingBluetooth)
-                    const Center(child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: CircularProgressIndicator(),
-                    ))
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (_bluetoothError != null)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.amber.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            _bluetoothError!,
+                            style: TextStyle(fontSize: 12, color: Colors.brown.shade800),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          OutlinedButton.icon(
+                            onPressed: _loadBluetoothDevices,
+                            icon: const Icon(Icons.refresh_rounded, size: 14),
+                            label: const Text('Pindai Ulang', style: TextStyle(fontSize: 11)),
+                          ),
+                        ],
+                      ),
+                    )
                   else if (_bluetoothDevices.isEmpty)
                     Center(
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Text(
-                          'No paired Bluetooth devices found.',
+                          'Tidak ada perangkat Bluetooth yang terpasang.',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
                         ),
                       ),

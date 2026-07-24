@@ -20,6 +20,10 @@ import 'dart:convert';
 
 import '../../../../orders/views/tablet_landscape/view.dart';
 import '../../checkout/tablet_landscape/payment_flow_page.dart';
+import '../../../../../../core/printing/models/printer_render_models.dart';
+import '../../../../../../core/printing/services/printer_rendering_service.dart';
+import '../../../../../../core/printing/services/printer_transport_service.dart';
+import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
 
 enum _PosQuickAction {
   discount,
@@ -40,6 +44,7 @@ class _PosCartItem {
     required this.regularUnitPrice,
     required this.quantity,
     this.productRemoteId,
+    this.brandName,
     this.discountedUnitPrice,
     this.promoLabel,
     this.isDiscountEnabled = false,
@@ -57,6 +62,7 @@ class _PosCartItem {
   final int regularUnitPrice;
   final int quantity;
   final String? productRemoteId;
+  final String? brandName;
   final int? discountedUnitPrice;
   final String? promoLabel;
   final bool isDiscountEnabled;
@@ -83,6 +89,7 @@ class _PosCartItem {
     int? regularUnitPrice,
     int? quantity,
     String? productRemoteId,
+    String? brandName,
     int? discountedUnitPrice,
     String? promoLabel,
     bool? isDiscountEnabled,
@@ -106,6 +113,7 @@ class _PosCartItem {
       regularUnitPrice: regularUnitPrice ?? this.regularUnitPrice,
       quantity: quantity ?? this.quantity,
       productRemoteId: productRemoteId ?? this.productRemoteId,
+      brandName: brandName ?? this.brandName,
       promoLabel: clearPromoLabel ? null : (promoLabel ?? this.promoLabel),
       isDiscountEnabled: isDiscountEnabled ?? this.isDiscountEnabled,
       orderType: orderType ?? this.orderType,
@@ -672,6 +680,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           regularUnitPrice: regularUnitPrice,
           quantity: 1,
           productRemoteId: product['remoteId'] as String?,
+          brandName: product['brandName']?.toString(),
           discountedUnitPrice: discountedUnitPrice,
           promoLabel: product['promo'] as String?,
           isDiscountEnabled: discountedUnitPrice != null,
@@ -1718,6 +1727,10 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             discountLabel: itemDiscount > 0
                 ? '${AppLocalizations.of(context)!.discount} - ${_formatCurrency(itemDiscount)}'
                 : item.promoLabel,
+            unitPrice: item.activeUnitPrice,
+            regularUnitPrice: item.regularUnitPrice,
+            discountAmount: itemDiscount,
+            note: item.note,
           );
         })
         .toList(growable: false);
@@ -1775,6 +1788,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         fullscreenDialog: true,
         builder: (context) {
           return PosPaymentFlowPage(
+            orderId: _editingOrderId,
             snapshot: paymentSnapshot,
             orderTypeLabel: _orderTypeLabel(this.context),
             customerName: customer.isDefaultWalkIn
@@ -1842,13 +1856,13 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     );
   }
 
-  Future<void> _commitOrder(int statusCode) async {
-    if (_isCommitting) return;
+  Future<SalesOrderRecord?> _commitOrder(int statusCode, {bool clearCart = true}) async {
+    if (_isCommitting) return null;
     final l10n = AppLocalizations.of(context)!;
 
     if (_cartItems.isEmpty) {
       _showOrderActionFeedback(l10n.addProductFirstMessage);
-      return;
+      return null;
     }
 
     setState(() => _isCommitting = true);
@@ -1866,7 +1880,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           activeShift == null) {
         _showOrderActionFeedback(l10n.shiftRequiredBeforeOrderMessage);
         if (mounted) setState(() => _isCommitting = false);
-        return;
+        return null;
       }
 
       await _ensureDefaultCustomerSelected().timeout(
@@ -1876,7 +1890,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       if (customer == null || customer.remoteId.trim().isEmpty) {
         _showOrderActionFeedback(l10n.customerSelectionRequiredMessage);
         if (mounted) setState(() => _isCommitting = false);
-        return;
+        return null;
       }
 
       if (statusCode == 2) {
@@ -1884,12 +1898,12 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             .loadPaymentModeSnapshot(orderTypes: _collectPaymentOrderTypes())
             .timeout(const Duration(seconds: 10));
         if (!mounted) {
-          return;
+          return null;
         }
         if (paymentSnapshot.options.isEmpty) {
           _showOrderActionFeedback(l10n.paymentModeUnavailableMessage);
           setState(() => _isCommitting = false);
-          return;
+          return null;
         }
 
         setState(() => _isCommitting = false);
@@ -1898,10 +1912,10 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           customer: customer,
           paymentSnapshot: paymentSnapshot,
         );
-        return;
+        return null;
       }
 
-      await SalesOrderStore.instance
+      final createdRecord = await SalesOrderStore.instance
           .createOrder(
             statusCode: statusCode,
             items: _buildOrderLines(),
@@ -1934,10 +1948,12 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           .timeout(const Duration(seconds: 15));
 
       if (!mounted) {
-        return;
+        return createdRecord;
       }
 
-      _resetCurrentOrder();
+      if (clearCart) {
+        _resetCurrentOrder();
+      }
 
       switch (statusCode) {
         case 1:
@@ -1950,12 +1966,234 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           _showOrderActionFeedback(l10n.parkedOrderCreatedMessage);
           break;
       }
-    } catch (_) {
-      if (mounted) _showOrderActionFeedback(l10n.orderProcessingFailedMessage);
+      return createdRecord;
+    } catch (e) {
+      _showOrderActionFeedback(e.toString().replaceFirst('Exception: ', ''));
+      return null;
     } finally {
       if (mounted) {
         setState(() => _isCommitting = false);
       }
+    }
+  }
+
+  Future<void> _handleSendToKitchen({bool isReadOnly = false}) async {
+    final l10n = AppLocalizations.of(context)!;
+
+    if (_cartItems.isEmpty) {
+      _showOrderActionFeedback(l10n.addProductFirstMessage);
+      return;
+    }
+
+    // Refresh printer configuration from database
+    await PrinterSettingsController.instance.refresh(silent: true);
+    final printerState = PrinterSettingsController.instance.stateNotifier.value;
+
+    final activePrinters = printerState.printers.where((p) => p.isActive).toList();
+    final kitchenPrinters = activePrinters.where((p) => p.roles.contains('kitchen')).toList();
+
+    if (kitchenPrinters.isEmpty) {
+      if (!mounted) return;
+      final proceed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) {
+          return AlertDialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Printer Dapur Belum Diatur',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Fungsi utama tombol "Kirim ke Dapur" adalah untuk mencetak struk/tiket pesanan ke Printer Dapur.',
+                  style: TextStyle(fontSize: 13, height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  activePrinters.isNotEmpty
+                      ? 'Saat ini ada ${activePrinters.length} printer terdaftar (termasuk printer Kasir/Nota), namun BELUM ada yang dikonfigurasi dengan peran "Dapur" (Kitchen).'
+                      : 'Belum ada printer yang terdaftar di sistem.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: const Text(
+                    'Silakan atur printer dapur di menu Pengaturan > Printer > Pemetaan Printer terlebih dahulu.',
+                    style: TextStyle(fontSize: 11, color: Colors.brown),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Batal'),
+              ),
+              if (!isReadOnly)
+                ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E7D32),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Simpan Tanpa Cetak'),
+                ),
+            ],
+          );
+        },
+      );
+
+      if (proceed == true && !isReadOnly) {
+        await _commitOrder(1);
+      }
+      return;
+    }
+
+    // Commit order first if not read-only to obtain id_pos
+    final committedRecord = !isReadOnly ? await _commitOrder(1, clearCart: false) : null;
+    final rawOrderId = committedRecord?.id ?? _editingOrderId ?? 'POS-${DateTime.now().millisecondsSinceEpoch}';
+    final receiptNo = rawOrderId.length >= 8 ? rawOrderId.substring(rawOrderId.length - 8) : rawOrderId;
+
+    // Kitchen printers exist! Filter items for each kitchen printer according to roleBrandFilters['kitchen']
+    bool printedAny = false;
+    final failedMessages = <String>[];
+
+    for (final printer in kitchenPrinters) {
+      final allowedBrands = printer.roleBrandFilters['kitchen'] ?? <String>[];
+
+      final itemsForPrinter = _cartItems.where((item) {
+        if (allowedBrands.isEmpty) return true;
+
+        String? itemBrand = item.brandName;
+        if (itemBrand == null || itemBrand.isEmpty) {
+          final prod = _catalogSnapshot.products.firstWhere(
+            (p) => p['remoteId'] == item.productRemoteId,
+            orElse: () => const <String, dynamic>{},
+          );
+          itemBrand = prod['brandName']?.toString();
+        }
+
+        if (itemBrand == null || itemBrand.isEmpty) return true;
+        return allowedBrands.contains(itemBrand);
+      }).toList();
+
+      if (itemsForPrinter.isEmpty) continue;
+
+      try {
+        final doc = PrinterDocumentData(
+          type: PrinterDocumentType.kitchenTicket,
+          title: 'TIKET DAPUR (${printer.displayName})',
+          subtitle: 'Pesanan Dapur',
+          infoRows: [
+            PrinterInfoRow(label: 'No. Struk', value: receiptNo),
+            PrinterInfoRow(label: 'Tipe Order', value: _orderTypeLabel(context)),
+            PrinterInfoRow(
+              label: 'Pelanggan',
+              value: _selectedCustomer?.name ?? 'Walk-in Customer',
+            ),
+            PrinterInfoRow(
+              label: 'Waktu',
+              value: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+            ),
+            if (_orderNote.trim().isNotEmpty)
+              PrinterInfoRow(label: 'Catatan Order', value: _orderNote.trim()),
+          ],
+          items: itemsForPrinter
+              .map((item) => PrinterLineItem(
+                    label: item.displayName,
+                    quantity: item.quantity,
+                    note: item.note,
+                  ))
+              .toList(),
+          footerLines: const ['Sinkronisasi Dapur FlinkPOS'],
+        );
+
+        final renderOutput = await PrinterRenderingService.instance.render(printer, doc);
+        final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+
+        if (dispatchResult.success) {
+          printedAny = true;
+        } else {
+          failedMessages.add('${printer.displayName}: ${dispatchResult.message ?? "Gagal koneksi"}');
+        }
+      } catch (e) {
+        failedMessages.add('${printer.displayName}: $e');
+      }
+    }
+
+    // Also send to label printers if any active printer has role 'label'
+    final labelPrinters = activePrinters.where((p) => p.roles.contains('label')).toList();
+    for (final printer in labelPrinters) {
+      final allowedBrands = printer.roleBrandFilters['label'] ?? <String>[];
+      final itemsForPrinter = _cartItems.where((item) {
+        if (allowedBrands.isEmpty) return true;
+        String? itemBrand = item.brandName;
+        if (itemBrand == null || itemBrand.isEmpty) {
+          final prod = _catalogSnapshot.products.firstWhere(
+            (p) => p['remoteId'] == item.productRemoteId,
+            orElse: () => const <String, dynamic>{},
+          );
+          itemBrand = prod['brandName']?.toString();
+        }
+        if (itemBrand == null || itemBrand.isEmpty) return true;
+        return allowedBrands.contains(itemBrand);
+      }).toList();
+
+      if (itemsForPrinter.isEmpty) continue;
+
+      try {
+        final labelDoc = PrinterDocumentData(
+          type: PrinterDocumentType.label,
+          title: 'LABEL STIKER',
+          subtitle: '${_orderTypeLabel(context)} | ${_selectedCustomer?.name ?? "Walk-in"}',
+          infoRows: [
+            PrinterInfoRow(label: 'No. Struk', value: receiptNo),
+            PrinterInfoRow(
+              label: 'Waktu',
+              value: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+            ),
+          ],
+          items: itemsForPrinter
+              .map((item) => PrinterLineItem(
+                    label: item.displayName,
+                    quantity: item.quantity,
+                    note: item.note,
+                  ))
+              .toList(),
+        );
+
+        final renderOutput = await PrinterRenderingService.instance.render(printer, labelDoc);
+        final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+        if (dispatchResult.success) printedAny = true;
+      } catch (_) {}
+    }
+
+    if (!printedAny && (kitchenPrinters.isNotEmpty || labelPrinters.isNotEmpty) && failedMessages.isEmpty) {
+      _showOrderActionFeedback('Perhatian: Tidak ada printer dapur/label yang cocok dengan Brand produk di keranjang ini.');
+    } else if (failedMessages.isNotEmpty && !printedAny) {
+      _showOrderActionFeedback('Gagal mencetak ke printer dapur: ${failedMessages.join("; ")}');
+    }
+
+    if (printedAny) {
+      _showOrderActionFeedback('Pesanan berhasil dikirim ke Dapur / Label!');
     }
   }
 
@@ -4736,17 +4974,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                   // In read-only mode: show Print to Kitchen button (no data saved)
                   if (widget.isReadOnly)
                     ElevatedButton.icon(
-                      onPressed: () {
-                        // TODO: trigger print-only job here (no SQLite/server write)
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              AppLocalizations.of(context)!.printToKitchen,
-                            ),
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
+                      onPressed: () => _handleSendToKitchen(isReadOnly: true),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFFFF8E1),
                         foregroundColor: const Color(0xFFF57F17),
@@ -4772,7 +5000,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     )
                   else
                     ElevatedButton.icon(
-                      onPressed: () => _commitOrder(1),
+                      onPressed: () => _handleSendToKitchen(isReadOnly: false),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFA5D6A7),
                         foregroundColor: const Color(0xFF2E7D32),

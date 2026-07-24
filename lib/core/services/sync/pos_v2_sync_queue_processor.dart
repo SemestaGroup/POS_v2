@@ -351,8 +351,10 @@ class PosV2SyncQueueProcessor {
             existingAmountReceived >= existingTotalAmount;
         final nextStatusCode = existingStatusCode == '2' || isAlreadyFullyPaid
             ? '2'
-            : (responseData['status']?.toString() ??
-                  requestBody['status']?.toString());
+            : (existingStatusCode == '6'
+                ? '6'
+                : (responseData['status']?.toString() ??
+                    requestBody['status']?.toString()));
         await txn.update(
           'pos_order',
           <String, Object?>{

@@ -390,39 +390,77 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       builder: (ctx) => const Center(child: CircularProgressIndicator()),
     );
 
-    String formatSqlDate(DateTime? dt) {
+    // Normalize datetime: strip T, Z, microseconds for reliable SQLite string comparison.
+    // SQLite stores dates without timezone so we compare in local-date-only form.
+    String fmtSql(DateTime? dt) {
       if (dt == null) return '9999-12-31 23:59:59';
-      return dt.toIso8601String().replaceFirst('T', ' ');
+      // toLocal() converts from UTC if needed, then format as simple string
+      final local = dt.toLocal();
+      return '${local.year.toString().padLeft(4,'0')}-${local.month.toString().padLeft(2,'0')}-${local.day.toString().padLeft(2,'0')} '
+             '${local.hour.toString().padLeft(2,'0')}:${local.minute.toString().padLeft(2,'0')}:${local.second.toString().padLeft(2,'0')}';
     }
+
+    // Fetch shift's remote_id so we can also match via shift_session_remote_id on orders
+    final shiftRemoteRows = await DatabaseService.instance.rawQuery(
+      'SELECT remote_id FROM shift_session WHERE id = ? LIMIT 1',
+      <Object?>[shift.id],
+    );
+    final shiftRemoteId = shiftRemoteRows.isNotEmpty ? shiftRemoteRows.first['remote_id']?.toString() : null;
+
+    final startStr = fmtSql(shift.openedAt);
+    final endStr = fmtSql(shift.closedAt);
+
+    // Match orders by: local FK shift_session_id, OR remote_id match, OR time range
+    // Time range uses substr(19) to strip timezone 'Z' and microseconds
+    String orderWhere(String tableAlias) => '''
+      ${tableAlias}tenant_id = ?
+        AND ${tableAlias}deleted_at IS NULL
+        AND (
+          ${tableAlias}shift_session_id = ?
+          OR (? IS NOT NULL AND ${tableAlias}shift_session_remote_id = ?)
+          OR (
+            ${tableAlias}shift_session_id IS NULL
+            AND substr(replace(${tableAlias}created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(${tableAlias}created_at, 'T', ' '), 1, 19) <= ?
+          )
+        )
+    ''';
+
+    List<Object?> orderArgs(int tenantId) => [
+      tenantId, shift.id,
+      shiftRemoteId, shiftRemoteId,
+      startStr, endStr,
+    ];
 
     final paymentRows = await DatabaseService.instance.rawQuery(
       '''
       SELECT COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya') as name,
-             COUNT(DISTINCT COALESCE(NULLIF(p.id_pos, ''), CAST(p.order_id AS TEXT))) as qty,
+             COUNT(DISTINCT o.id) as qty,
              SUM(p.amount) as amount
       FROM pos_order_payment p
       LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
       INNER JOIN pos_order o ON o.id = p.order_id
       WHERE p.tenant_id = ?
         AND p.deleted_at IS NULL
-        AND o.deleted_at IS NULL
         AND p.is_refund = 0
         AND p.sync_state IN ('clean', 'dirty_create', 'dirty_update', 'syncing')
-        AND REPLACE(p.created_at, 'T', ' ') >= ?
-        AND REPLACE(p.created_at, 'T', ' ') <= ?
+        AND o.status_code IN ('2', '4')
+        AND (
+          o.shift_session_id = ?
+          OR (? IS NOT NULL AND o.shift_session_remote_id = ?)
+          OR (
+            o.shift_session_id IS NULL
+            AND substr(replace(o.created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(o.created_at, 'T', ' '), 1, 19) <= ?
+          )
+        )
       GROUP BY COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya')
       ''',
-      <Object?>[
-        session.tenantId,
-        formatSqlDate(shift.openedAt),
-        formatSqlDate(shift.closedAt),
-      ],
+      orderArgs(session.tenantId),
     );
 
     final modeRows = await DatabaseService.instance.rawQuery(
-      '''
-      SELECT name FROM payment_mode WHERE tenant_id = ? AND deleted_at IS NULL AND is_active = 1
-      ''',
+      'SELECT name FROM payment_mode WHERE tenant_id = ? AND deleted_at IS NULL AND is_active = 1',
       <Object?>[session.tenantId],
     );
     final allModeNames = modeRows.map((r) => r['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
@@ -430,7 +468,7 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     int totalRevenue = 0;
     int totalTransactions = 0;
     final payments = <Map<String, dynamic>>[];
-    
+
     for (final mode in allModeNames) {
       payments.add({'name': mode, 'qty': 0, 'amount': 0});
     }
@@ -439,24 +477,36 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       final name = row['name']?.toString() ?? 'Lainnya';
       final amount = int.tryParse(row['amount']?.toString() ?? '0') ?? 0;
       final qty = (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round();
-      
       totalRevenue += amount;
       totalTransactions += qty;
-      
       final existingIdx = payments.indexWhere((p) => p['name'] == name);
       if (existingIdx != -1) {
         payments[existingIdx]['amount'] = (payments[existingIdx]['amount'] as int) + amount;
         payments[existingIdx]['qty'] = (payments[existingIdx]['qty'] as int) + qty;
       } else {
-        payments.add({
-          'name': name,
-          'qty': qty,
-          'amount': amount,
-        });
+        payments.add({'name': name, 'qty': qty, 'amount': amount});
       }
     }
-
     payments.removeWhere((p) => p['qty'] == 0 && p['amount'] == 0);
+
+    // Fallback: count orders directly if no payment records found
+    if (totalTransactions == 0) {
+      final orderCountRows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT COUNT(id) as cnt, COALESCE(SUM(total_amount),0) as total
+        FROM pos_order
+        WHERE ${orderWhere('').trim()}
+          AND status_code IN ('2', '4')
+        ''',
+        orderArgs(session.tenantId),
+      );
+      if (orderCountRows.isNotEmpty) {
+        totalTransactions = (double.tryParse(orderCountRows.first['cnt']?.toString() ?? '0') ?? 0).round();
+        if (totalRevenue == 0) {
+          totalRevenue = int.tryParse(orderCountRows.first['total']?.toString() ?? '0') ?? 0;
+        }
+      }
+    }
 
     final itemRows = await DatabaseService.instance.rawQuery(
       '''
@@ -466,16 +516,21 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       INNER JOIN pos_order o ON o.id = i.order_id
       WHERE i.tenant_id = ?
         AND i.deleted_at IS NULL
+        AND o.status_code IN ('2', '4')
         AND o.deleted_at IS NULL
-        AND REPLACE(o.created_at, 'T', ' ') >= ?
-        AND REPLACE(o.created_at, 'T', ' ') <= ?
+        AND (
+          o.shift_session_id = ?
+          OR (? IS NOT NULL AND o.shift_session_remote_id = ?)
+          OR (
+            o.shift_session_id IS NULL
+            AND substr(replace(o.created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(o.created_at, 'T', ' '), 1, 19) <= ?
+          )
+        )
       GROUP BY i.product_name_snapshot
+      ORDER BY SUM(i.qty) DESC
       ''',
-      <Object?>[
-        session.tenantId,
-        formatSqlDate(shift.openedAt),
-        formatSqlDate(shift.closedAt),
-      ],
+      orderArgs(session.tenantId),
     );
 
     final items = itemRows.map((row) => {

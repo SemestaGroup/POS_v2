@@ -1,9 +1,16 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/sales_order_store.dart';
 import '../../../../../../core/theme/app_colors.dart';
+import '../../../../../../core/printing/models/printer_render_models.dart';
+import '../../../../../../core/printing/services/printer_rendering_service.dart';
+import '../../../../../../core/printing/services/printer_transport_service.dart';
+import '../../../../../../core/services/sync/pos_v2_options_service.dart';
+import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
 
 class PaymentReviewItemData {
   const PaymentReviewItemData({
@@ -14,6 +21,10 @@ class PaymentReviewItemData {
     required this.detailLine,
     required this.orderTypeLabel,
     this.discountLabel,
+    this.unitPrice = 0,
+    this.regularUnitPrice = 0,
+    this.discountAmount = 0,
+    this.note,
   });
 
   final String name;
@@ -23,11 +34,16 @@ class PaymentReviewItemData {
   final String detailLine;
   final String orderTypeLabel;
   final String? discountLabel;
+  final int unitPrice;
+  final int regularUnitPrice;
+  final int discountAmount;
+  final String? note;
 }
 
 class PosPaymentFlowPage extends StatefulWidget {
   const PosPaymentFlowPage({
     super.key,
+    this.orderId,
     required this.snapshot,
     required this.orderTypeLabel,
     required this.customerName,
@@ -39,6 +55,7 @@ class PosPaymentFlowPage extends StatefulWidget {
     required this.onConfirm,
   });
 
+  final String? orderId;
   final SalesPaymentModeSnapshot snapshot;
   final String orderTypeLabel;
   final String customerName;
@@ -383,7 +400,194 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
     );
   }
 
+  String get _effectiveReceiptNo {
+    final raw = widget.orderId;
+    if (raw != null && raw.trim().isNotEmpty) {
+      final clean = raw.trim();
+      return clean.length >= 8 ? clean.substring(clean.length - 8) : clean;
+    }
+    final fallback = DateTime.now().millisecondsSinceEpoch.toString();
+    return fallback.length >= 8 ? fallback.substring(fallback.length - 8) : fallback;
+  }
+
+  Future<void> _printReceipt() async {
+    await PrinterSettingsController.instance.refresh(silent: true);
+    final printerState = PrinterSettingsController.instance.stateNotifier.value;
+    final cashierPrinters = printerState.printers
+        .where((p) => p.isActive && p.roles.contains('cashier'))
+        .toList();
+
+    if (cashierPrinters.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Belum ada printer Nota/Kasir yang diatur di Pengaturan > Printer.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    final isWalkIn = widget.customerName.trim().isEmpty ||
+        widget.customerName.toLowerCase().contains('walk-in') ||
+        widget.customerName.toLowerCase().contains('pelanggan umum');
+    final pointsEarned = !isWalkIn ? (widget.totalPayAmount ~/ 10000) : 0;
+
+    int printedCount = 0;
+    for (final printer in cashierPrinters) {
+      try {
+        final doc = PrinterDocumentData(
+          type: PrinterDocumentType.receipt,
+          title: 'NOTA PENJUALAN',
+          subtitle: 'Bukti Pembayaran',
+          infoRows: [
+            PrinterInfoRow(label: 'No. Struk', value: _effectiveReceiptNo),
+            PrinterInfoRow(label: 'Tipe Order', value: widget.orderTypeLabel),
+            PrinterInfoRow(label: 'Pelanggan', value: widget.customerName),
+            PrinterInfoRow(label: 'Metode Bayar', value: _selectedOption.name),
+            PrinterInfoRow(
+              label: 'Waktu',
+              value: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+            ),
+          ],
+          items: widget.reviewItems
+              .map((item) => PrinterLineItem(
+                    label: item.name,
+                    quantity: item.quantity,
+                    amount: (item.regularUnitPrice > 0 ? item.regularUnitPrice : item.unitPrice) * item.quantity,
+                    discountAmount: item.discountAmount > 0 ? item.discountAmount : null,
+                    discountLabel: item.discountLabel,
+                    note: item.note,
+                  ))
+              .toList(),
+          summaryRows: [
+            PrinterSummaryRow(label: 'Subtotal', value: _formatMoney(widget.subtotalAmount)),
+            if (widget.discountAmount > 0)
+              PrinterSummaryRow(label: 'Diskon Promo', value: '-${_formatMoney(widget.discountAmount)}'),
+            PrinterSummaryRow(
+              label: 'Total',
+              value: _formatMoney(widget.totalPayAmount),
+              highlighted: true,
+            ),
+            PrinterSummaryRow(label: 'Diterima', value: _formatMoney(_tenderAmount)),
+            PrinterSummaryRow(
+              label: 'Kembalian',
+              value: _formatMoney((_tenderAmount - widget.totalPayAmount).clamp(0, 1 << 31)),
+            ),
+            if (!isWalkIn && pointsEarned > 0)
+              PrinterSummaryRow(
+                label: 'Poin Diperoleh',
+                value: '+$pointsEarned Poin',
+              ),
+          ],
+          footerLines: const [
+            'Terima Kasih atas Kunjungan Anda!',
+            'Printed by FlinkPOS',
+          ],
+        );
+
+        final renderOutput = await PrinterRenderingService.instance.render(printer, doc);
+        final result = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+        if (result.success) printedCount++;
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            printedCount > 0
+                ? 'Struk pembayaran berhasil dicetak!'
+                : 'Gagal mencetak ke printer nota.',
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _printLabel() async {
+    await PrinterSettingsController.instance.refresh(silent: true);
+    final printerState = PrinterSettingsController.instance.stateNotifier.value;
+    final labelPrinters = printerState.printers
+        .where((p) => p.isActive && p.roles.contains('label'))
+        .toList();
+
+    if (labelPrinters.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Belum ada printer Label yang diatur di Pengaturan > Printer.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    int printedCount = 0;
+    for (final printer in labelPrinters) {
+      try {
+        final doc = PrinterDocumentData(
+          type: PrinterDocumentType.label,
+          title: 'LABEL STIKER',
+          subtitle: '${widget.orderTypeLabel} | ${widget.customerName}',
+          infoRows: [
+            PrinterInfoRow(label: 'No. Struk', value: _effectiveReceiptNo),
+            PrinterInfoRow(
+              label: 'Waktu',
+              value: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+            ),
+          ],
+          items: widget.reviewItems
+              .map((item) => PrinterLineItem(
+                    label: item.name,
+                    quantity: item.quantity,
+                    note: item.note,
+                  ))
+              .toList(),
+        );
+
+        final renderOutput = await PrinterRenderingService.instance.render(printer, doc);
+        final result = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+        if (result.success) printedCount++;
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            printedCount > 0
+                ? 'Label stiker berhasil dicetak!'
+                : 'Gagal mencetak ke printer label.',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _showPaymentSuccessDialog({required int changeAmount}) async {
+    // Check auto_print setting before automatically printing receipt
+    try {
+      final options = await PosV2OptionsService.instance.getLocalOptions();
+      final raw = options['pos_app_settings'];
+      Map<String, dynamic> appSettings = {};
+      if (raw is Map) {
+        appSettings = Map<String, dynamic>.from(raw);
+      } else if (raw is String && raw.isNotEmpty) {
+        appSettings = jsonDecode(raw) as Map<String, dynamic>;
+      }
+      final printing = appSettings['printing'] is Map<String, dynamic>
+          ? appSettings['printing'] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final bool autoPrint = printing['auto_print'] ?? false;
+
+      if (autoPrint) {
+        unawaited(_printReceipt());
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -515,7 +719,7 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: _printLabel,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 44),
                           shape: RoundedRectangleBorder(
@@ -541,7 +745,7 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: _printReceipt,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size(0, 44),
                           shape: RoundedRectangleBorder(
