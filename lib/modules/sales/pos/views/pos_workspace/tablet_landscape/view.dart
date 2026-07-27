@@ -24,6 +24,9 @@ import '../../../../../../core/printing/models/printer_render_models.dart';
 import '../../../../../../core/printing/services/printer_rendering_service.dart';
 import '../../../../../../core/printing/services/printer_transport_service.dart';
 import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
+import '../../../../../operations/shift/widgets/kas_keluar_dialog.dart';
+import '../../../../../operations/shift/widgets/kas_masuk_dialog.dart';
+import '../../../../../operations/shift/services/expense_service.dart';
 
 enum _PosQuickAction {
   discount,
@@ -32,6 +35,7 @@ enum _PosQuickAction {
   syncData,
   closeOutlet,
   settings,
+  cashIn,
   cashOut,
 }
 
@@ -2285,6 +2289,20 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       case _PosQuickAction.syncData:
         unawaited(_syncQuickMasterData());
         return;
+      case _PosQuickAction.cashIn:
+        if (ActiveShiftStore.instance.activeShiftNotifier.value == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              behavior: SnackBarBehavior.floating,
+              content: Text(
+                'Silakan buka shift terlebih dahulu untuk menambah kas masuk.',
+              ),
+            ),
+          );
+          return;
+        }
+        _showCashInDialog();
+        return;
       case _PosQuickAction.cashOut:
         if (ActiveShiftStore.instance.activeShiftNotifier.value == null) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -2314,6 +2332,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
               _PosQuickAction.discount => '',
               _PosQuickAction.clearOrder => '',
               _PosQuickAction.cancelOrder => '',
+              _PosQuickAction.cashIn => '',
               _PosQuickAction.cashOut => '',
             }),
           ),
@@ -2321,185 +2340,155 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     }
   }
 
-  void _showCashOutDialog() {
-    final l10n = AppLocalizations.of(context)!;
-    final theme = Theme.of(context);
-    final amountController = TextEditingController();
-    final noteController = TextEditingController();
-    bool isSubmitting = false;
+  Future<void> _showCashInDialog() async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                width: 400,
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.arrow_upward_rounded,
-                            color: Colors.red,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          l10n.cashOut,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    TextField(
-                      controller: amountController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: InputDecoration(
-                        labelText: l10n.amount,
-                        prefixText: 'Rp ',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: noteController,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: l10n.note,
-                        alignLabelWithHint: true,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: isSubmitting
-                              ? null
-                              : () => Navigator.pop(context),
-                          child: Text(
-                            l10n.cancel,
-                            style: const TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          onPressed: isSubmitting
-                              ? null
-                              : () async {
-                                  final amountStr = amountController.text
-                                      .replaceAll(RegExp(r'[^0-9]'), '');
-                                  final amount = int.tryParse(amountStr) ?? 0;
-                                  if (amount <= 0) return;
-
-                                  setDialogState(() => isSubmitting = true);
-                                  try {
-                                    final tenantId = PosV2RuntimeSessionStore
-                                        .instance
-                                        .currentSession
-                                        ?.tenantId;
-                                    final locationId = PosV2RuntimeSessionStore
-                                        .instance
-                                        .currentSession
-                                        ?.locationId;
-                                    final staffId = PosV2RuntimeSessionStore
-                                        .instance
-                                        .currentSession
-                                        ?.staffId;
-                                    if (tenantId != null) {
-                                      await DatabaseService.instance.rawInsert(
-                                        '''
-                                        INSERT INTO pos_cash_flow (
-                                          tenant_id, location_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
-                                        ) VALUES (?, ?, 'out', ?, ?, ?, 'dirty_create', ?, ?)
-                                        ''',
-                                        [
-                                          tenantId,
-                                          locationId,
-                                          amount,
-                                          noteController.text,
-                                          staffId,
-                                          DateTime.now().toIso8601String(),
-                                          DateTime.now().toIso8601String(),
-                                        ],
-                                      );
-                                    }
-                                    if (context.mounted) {
-                                      Navigator.pop(context);
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        SnackBar(content: Text('Error: $e')),
-                                      );
-                                    }
-                                  } finally {
-                                    if (context.mounted) {
-                                      setDialogState(
-                                        () => isSubmitting = false,
-                                      );
-                                    }
-                                  }
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 12,
-                            ),
-                          ),
-                          child: isSubmitting
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : Text(l10n.save),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+    List<Map<String, dynamic>>? paymentModes;
+    if (session != null && session.baseUrl.isNotEmpty && session.authToken.isNotEmpty) {
+      try {
+        final expenseService = ExpenseService(
+          baseUrl: session.baseUrl,
+          authToken: session.authToken,
         );
-      },
+        paymentModes = await expenseService.getPaymentModes();
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    final inputData = await KasMasukDialog.show(
+      context,
+      paymentModes: paymentModes,
     );
+
+    if (inputData == null || !mounted) return;
+
+    try {
+      final tenantId = session?.tenantId;
+      final locationId = session?.locationId;
+      final staffId = session?.staffId;
+
+      if (tenantId != null) {
+        await DatabaseService.instance.rawInsert(
+          '''
+          INSERT INTO pos_cash_flow (
+            tenant_id, location_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
+          ) VALUES (?, ?, 'in', ?, ?, ?, 'dirty_create', ?, ?)
+          ''',
+          [
+            tenantId,
+            locationId,
+            inputData.amount,
+            inputData.catatan.isNotEmpty ? '${inputData.nama} - ${inputData.catatan}' : inputData.nama,
+            staffId,
+            inputData.tanggal.toIso8601String(),
+            DateTime.now().toIso8601String(),
+          ],
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Color(0xFF10B981),
+            content: Text('Kas masuk (Petty Cash) berhasil dicatat!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+            content: Text('Gagal mencatat kas masuk: $e'),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _showCashOutDialog() async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+
+    List<Map<String, dynamic>>? paymentModes;
+    if (session != null && session.baseUrl.isNotEmpty && session.authToken.isNotEmpty) {
+      try {
+        final expenseService = ExpenseService(
+          baseUrl: session.baseUrl,
+          authToken: session.authToken,
+        );
+        paymentModes = await expenseService.getPaymentModes();
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    final inputData = await KasKeluarDialog.show(
+      context,
+      paymentModes: paymentModes,
+    );
+
+    if (inputData == null || !mounted) return;
+
+    try {
+      final tenantId = session?.tenantId;
+      final locationId = session?.locationId;
+      final staffId = session?.staffId;
+
+      if (tenantId != null) {
+        await DatabaseService.instance.rawInsert(
+          '''
+          INSERT INTO pos_cash_flow (
+            tenant_id, location_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
+          ) VALUES (?, ?, 'out', ?, ?, ?, 'dirty_create', ?, ?)
+          ''',
+          [
+            tenantId,
+            locationId,
+            inputData.amount,
+            inputData.catatan.isNotEmpty ? '${inputData.nama} - ${inputData.catatan}' : inputData.nama,
+            staffId,
+            inputData.tanggal.toIso8601String(),
+            DateTime.now().toIso8601String(),
+          ],
+        );
+      }
+
+      if (session != null && session.baseUrl.isNotEmpty && session.authToken.isNotEmpty) {
+        final expenseService = ExpenseService(
+          baseUrl: session.baseUrl,
+          authToken: session.authToken,
+        );
+        unawaited(
+          expenseService.postExpense(
+            inputData: inputData,
+            paymentModeId: inputData.paymentModeId,
+          ).catchError((_) => <String, dynamic>{}),
+        );
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Color(0xFF10B981),
+            content: Text('Pengeluaran kas keluar berhasil dicatat!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red,
+            content: Text('Gagal mencatat kas keluar: $e'),
+          ),
+        );
+      }
+    }
   }
 
   void _showOrderTypeMenu(BuildContext context) {
@@ -4570,6 +4559,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                   context,
                                 )!.cancelOrderAction,
                                 isDanger: true,
+                              ),
+                              _buildQuickActionItem(
+                                value: _PosQuickAction.cashIn,
+                                icon: Icons.arrow_circle_down_outlined,
+                                label: 'Kas Masuk (Petty Cash)',
                               ),
                               _buildQuickActionItem(
                                 value: _PosQuickAction.cashOut,

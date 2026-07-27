@@ -207,16 +207,63 @@ class ActiveShiftStore {
     return '$year-$month-$day $hour:$minute:$second';
   }
 
-  /// Returns estimated cash from local SQLite (payments with cash mode in this shift).
-  /// This is an estimate; server is authoritative for final expected_cash.
-  Future<int> getEstimatedCashFromSqlite() async {
+  Future<int> getShiftCashInTotal() async {
     final shift = activeShiftNotifier.value;
-    final session =
-        PosV2RuntimeSessionStore.instance.currentSession ??
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
-    if (shift == null || session == null) {
+    if (shift == null || session == null) return 0;
+
+    try {
+      final openedAtStr = _formatSqlDateTime(shift.openedAt);
+      final rows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM pos_cash_flow
+        WHERE tenant_id = ?
+          AND type = 'in'
+          AND deleted_at IS NULL
+          AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+        ''',
+        <Object?>[session.tenantId, openedAtStr],
+      );
+      if (rows.isEmpty) return 0;
+      return _asInt(rows.first['total']) ?? 0;
+    } catch (_) {
       return 0;
     }
+  }
+
+  Future<int> getShiftCashOutTotal() async {
+    final shift = activeShiftNotifier.value;
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (shift == null || session == null) return 0;
+
+    try {
+      final openedAtStr = _formatSqlDateTime(shift.openedAt);
+      final rows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT COALESCE(SUM(amount), 0) AS total
+        FROM pos_cash_flow
+        WHERE tenant_id = ?
+          AND type = 'out'
+          AND deleted_at IS NULL
+          AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+        ''',
+        <Object?>[session.tenantId, openedAtStr],
+      );
+      if (rows.isEmpty) return 0;
+      return _asInt(rows.first['total']) ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Future<int> getShiftCashSalesTotal() async {
+    final shift = activeShiftNotifier.value;
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (shift == null || session == null) return 0;
 
     try {
       final openedAtText = _formatSqlDateTime(shift.openedAt);
@@ -230,7 +277,7 @@ class ActiveShiftStore {
         WHERE p.tenant_id = ?
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND (p.payment_date >= ? OR CAST(SUBSTR(p.id_pos, 5) AS INTEGER) >= ?)
+          AND (p.payment_date >= ? OR CAST(SUBSTR(p.id_pos, 5) AS INTEGER) >= ? OR substr(replace(p.created_at, 'T', ' '), 1, 19) >= ?)
           AND (
             (? IS NOT NULL AND ? != '' AND o.register_id = ?)
             OR o.location_id = ?
@@ -246,6 +293,7 @@ class ActiveShiftStore {
           session.tenantId,
           openedAtText,
           openedAtMs,
+          openedAtText,
           shift.registerId,
           shift.registerId,
           shift.registerId,
@@ -253,11 +301,23 @@ class ActiveShiftStore {
         ],
       );
       if (rows.isEmpty) return 0;
-      final val = rows.first['total_cash'];
-      return _asInt(val) ?? 0;
+      return _asInt(rows.first['total_cash']) ?? 0;
     } catch (_) {
       return 0;
     }
+  }
+
+  /// Returns estimated cash from local SQLite (opening + cashIn + cashSales - cashOut).
+  Future<int> getEstimatedCashFromSqlite() async {
+    final shift = activeShiftNotifier.value;
+    if (shift == null) return 0;
+
+    final opening = shift.openingBalance;
+    final cashIn = await getShiftCashInTotal();
+    final cashOut = await getShiftCashOutTotal();
+    final cashSales = await getShiftCashSalesTotal();
+
+    return opening + cashIn + cashSales - cashOut;
   }
 
   Future<List<ShiftPaymentMethodRecapRecord>>

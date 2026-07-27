@@ -19,6 +19,9 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
   bool _isLoadingEstimate = true;
   String? _errorMessage;
   int _estimatedCash = 0;
+  int _cashIn = 0;
+  int _cashOut = 0;
+  int _cashSales = 0;
   List<ShiftPaymentMethodRecapRecord> _paymentMethodRecaps =
       const <ShiftPaymentMethodRecapRecord>[];
   List<ShiftPaymentMethodRecapRecord> _dbRecaps =
@@ -42,16 +45,20 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
 
   Future<void> _loadEstimatedCash() async {
     setState(() => _isLoadingEstimate = true);
-    final estimate = await ActiveShiftStore.instance
-        .getEstimatedCashFromSqlite();
-    final recapRows = await ActiveShiftStore.instance
-        .getNonCashRecapFromSqlite();
-    final available = await ActiveShiftStore.instance
-        .getAvailableNonCashPaymentModes();
+    final store = ActiveShiftStore.instance;
+    final estimate = await store.getEstimatedCashFromSqlite();
+    final cashIn = await store.getShiftCashInTotal();
+    final cashOut = await store.getShiftCashOutTotal();
+    final cashSales = await store.getShiftCashSalesTotal();
+    final recapRows = await store.getNonCashRecapFromSqlite();
+    final available = await store.getAvailableNonCashPaymentModes();
 
     if (mounted) {
       setState(() {
         _estimatedCash = estimate;
+        _cashIn = cashIn;
+        _cashOut = cashOut;
+        _cashSales = cashSales;
         _dbRecaps = recapRows;
         _availableModes = available;
         _paymentMethodRecaps =
@@ -711,7 +718,7 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                 )
-              else
+              else ...[
                 Text(
                   'Rp ${formatter.format(_estimatedCash)}',
                   style: TextStyle(
@@ -720,9 +727,58 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
                     color: primary,
                   ),
                 ),
-              const SizedBox(height: 4),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Modal Awal (Petty Cash)', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                          Text('Rp ${formatter.format(shift.openingBalance)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                      if (_cashIn > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Kas Masuk', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                            Text('+Rp ${formatter.format(_cashIn)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+                          ],
+                        ),
+                      ],
+                      if (_cashOut > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Total Kas Keluar (Pengeluaran)', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                            Text('-Rp ${formatter.format(_cashOut)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFFE11D48))),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Penjualan Tunai (Cash Sales)', style: TextStyle(fontSize: 11.5, color: Color(0xFF475569))),
+                          Text('Rp ${formatter.format(_cashSales)}', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 6),
               Text(
-                'Jumlah kas tunai yang seharusnya ada di laci berdasarkan transaksi tercatat.',
+                'Kas tunai yang harus ada di laci (Modal Awal + Kas Masuk + Penjualan Tunai - Kas Keluar).',
                 style: TextStyle(
                   fontSize: 10,
                   color: Colors.grey.shade500,
@@ -975,14 +1031,49 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
 
         const SizedBox(height: 16),
 
-        // ── Actual Cash Input ─────────────────────────────────────────
-        const Text(
-          'Uang Tunai Aktual *',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF374151),
-          ),
+        const SizedBox(height: 6),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Uang Tunai Aktual *',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF374151),
+              ),
+            ),
+            Row(
+              children: [
+                InkWell(
+                  onTap: () {
+                    _actualCashController.text = _estimatedCash.toString();
+                    setState(() {});
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: primary.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.content_copy_rounded, size: 11, color: primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Isi Total Laci (Rp ${formatter.format(_estimatedCash)})',
+                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         const SizedBox(height: 6),
         TextFormField(
@@ -1027,7 +1118,7 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
         ),
         const SizedBox(height: 4),
         Text(
-          'Hitung uang tunai fisik di laci kasir lalu masukkan jumlahnya.',
+          'Hitung seluruh uang tunai fisik di laci kasir (Sisa Petty Cash + Penjualan Tunai) lalu masukkan jumlahnya.',
           style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
         ),
 

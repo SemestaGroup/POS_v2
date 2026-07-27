@@ -226,40 +226,6 @@ class RecapStore {
         <Object?>[session.tenantId],
       );
 
-      final openShiftRows = await DatabaseService.instance.rawQuery(
-        '''
-        SELECT id
-        FROM shift_session
-        WHERE tenant_id = ?
-          AND deleted_at IS NULL
-          AND eod_group_id IS NULL
-          AND status = 'open'
-        LIMIT 1
-        ''',
-        <Object?>[session.tenantId],
-      );
-
-      // Construct a list of shift IDs to filter pos_order_payment accurately.
-      // Usually recap uses all unarchived closed shifts. 
-      // If there are none, we fallback to returning 0 for total revenue.
-      int totalRevenue = 0;
-      int totalTransactions = 0;
-      
-      if (shiftRows.isNotEmpty) {
-         // Gather the shift registers or timeframes to get accurate aggregate revenue.
-         // Wait, the simplest way is to sum the expected/actual cash and non-cash of these shifts!
-         // Wait, recap actually wants all payments in those shifts.
-         // We can just sum them up directly from the shift_session!
-         totalRevenue = shiftRows.fold<int>(
-            0,
-            (sum, row) =>
-                sum + (_asInt(row['actual_cash']) ?? 0) + (_asInt(row['total_non_cash']) ?? 0)
-         );
-         // For total transactions, we might need a separate query if shift_session doesn't have it.
-         // But for recap overview, totalRevenue is the main thing. We'll set transactions to 0 if not needed, 
-         // or keep the old broad query if it doesn't hurt.
-      }
-
       final recapRows = await DatabaseService.instance.rawQuery(
         '''
         SELECT
@@ -276,7 +242,10 @@ class RecapStore {
                AND s.deleted_at IS NULL
                AND s.eod_group_id IS NULL
                AND s.status = 'closed'
-               AND (p.payment_date >= s.opened_at AND p.payment_date <= COALESCE(s.closed_at, '9999-12-31'))
+               AND (
+                 substr(replace(p.created_at, 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                 AND substr(replace(p.created_at, 'T', ' '), 1, 19) <= COALESCE(substr(replace(s.closed_at, 'T', ' '), 1, 19), '9999-12-31 23:59:59')
+               )
           )
         ''',
         <Object?>[session.tenantId],
@@ -386,8 +355,6 @@ class RecapStore {
         throw Exception('Tidak ada shift tertutup yang bisa direkap.');
       }
 
-      final shiftIds = shiftRows.map((r) => r['id'].toString()).toList();
-      
       // 3. Gather payment data
       final paymentRows = await DatabaseService.instance.rawQuery(
         '''

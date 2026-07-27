@@ -538,6 +538,96 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       'qty': (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round(),
     }).toList();
 
+    // Query Cash Sales
+    final cashSalesRows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT COALESCE(SUM(p.amount), 0) as cash_sales
+      FROM pos_order_payment p
+      LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
+      INNER JOIN pos_order o ON o.id = p.order_id
+      WHERE p.tenant_id = ?
+        AND p.deleted_at IS NULL
+        AND p.is_refund = 0
+        AND p.sync_state IN ('clean', 'dirty_create', 'dirty_update', 'syncing')
+        AND o.status_code IN ('2', '4')
+        AND (
+          LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, '')) LIKE '%cash%'
+          OR LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, '')) LIKE '%tunai%'
+        )
+        AND (
+          o.shift_session_id = ?
+          OR (? IS NOT NULL AND o.shift_session_remote_id = ?)
+          OR (
+            o.shift_session_id IS NULL
+            AND substr(replace(o.created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(o.created_at, 'T', ' '), 1, 19) <= ?
+          )
+        )
+      ''',
+      orderArgs(session.tenantId),
+    );
+    final cashSales = (double.tryParse(cashSalesRows.first['cash_sales']?.toString() ?? '0') ?? 0).round();
+
+    // Query Kas Masuk
+    final cashInRows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT note, amount, created_at
+      FROM pos_cash_flow
+      WHERE tenant_id = ?
+        AND type = 'in'
+        AND deleted_at IS NULL
+        AND (
+          substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+          AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+        )
+      ORDER BY created_at DESC
+      ''',
+      <Object?>[session.tenantId, startStr, endStr],
+    );
+
+    int totalCashIn = 0;
+    final cashInList = <Map<String, dynamic>>[];
+    for (final r in cashInRows) {
+      final amt = (double.tryParse(r['amount']?.toString() ?? '0') ?? 0).round();
+      totalCashIn += amt;
+      cashInList.add({
+        'note': r['note']?.toString() ?? 'Kas Masuk',
+        'amount': amt,
+      });
+    }
+
+    // Query Kas Keluar (pengeluaran) during shift
+    final cashOutRows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT note, amount, created_at
+      FROM pos_cash_flow
+      WHERE tenant_id = ?
+        AND type = 'out'
+        AND deleted_at IS NULL
+        AND (
+          substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+          AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+        )
+      ORDER BY created_at DESC
+      ''',
+      <Object?>[session.tenantId, startStr, endStr],
+    );
+
+    int totalCashOut = 0;
+    final cashOutList = <Map<String, dynamic>>[];
+    for (final r in cashOutRows) {
+      final amt = (double.tryParse(r['amount']?.toString() ?? '0') ?? 0).round();
+      totalCashOut += amt;
+      cashOutList.add({
+        'note': r['note']?.toString() ?? 'Kas Keluar',
+        'amount': amt,
+      });
+    }
+
+    final openingBalance = shift.openingBalance;
+    final sisaPettyCash = openingBalance + totalCashIn - totalCashOut;
+    final expectedCashInDrawer = sisaPettyCash + cashSales;
+
     if (!context.mounted) return;
     Navigator.of(context).pop(); // close loading
 
@@ -560,7 +650,7 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
             ],
           ),
           content: SizedBox(
-            width: 400,
+            width: 420,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -568,11 +658,119 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                 children: [
                   Text('Shift: ${shift.shiftName}', style: const TextStyle(fontWeight: FontWeight.w600)),
                   Text('Kasir: ${shift.staffName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
+
+                  // Section Card Rincian Kas & Petty Cash
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Modal Awal (Petty Cash)', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                            Text('Rp ${currencyFmt.format(openingBalance)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                        if (totalCashIn > 0) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Kas Masuk', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                              Text('+Rp ${currencyFmt.format(totalCashIn)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+                            ],
+                          ),
+                        ],
+                        if (totalCashOut > 0) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Total Kas Keluar (Pengeluaran)', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                              Text('-Rp ${currencyFmt.format(totalCashOut)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFE11D48))),
+                            ],
+                          ),
+                        ],
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Sisa Petty Cash', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+                            Text(
+                              'Rp ${currencyFmt.format(sisaPettyCash)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: sisaPettyCash >= 0 ? const Color(0xFF0284C7) : const Color(0xFFDC2626),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Penjualan Tunai (Cash Sales)', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
+                            Text('Rp ${currencyFmt.format(cashSales)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Kas Harus Ada di Laci', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                            Text('Rp ${currencyFmt.format(expectedCashInDrawer)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
+                          ],
+                        ),
+                        if (shift.closedAt != null || shift.status == 'closed') ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Kas Aktual (Diinput Kasir)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+                              Text('Rp ${currencyFmt.format(shift.actualCash)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Selisih Kas', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                              Text(
+                                (shift.actualCash - expectedCashInDrawer) == 0
+                                    ? 'Rp 0 (Pas)'
+                                    : (shift.actualCash - expectedCashInDrawer) > 0
+                                        ? '+Rp ${currencyFmt.format(shift.actualCash - expectedCashInDrawer)} (Surplus)'
+                                        : '-Rp ${currencyFmt.format((shift.actualCash - expectedCashInDrawer).abs())} (Minus)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: (shift.actualCash - expectedCashInDrawer) == 0
+                                      ? const Color(0xFF16A34A)
+                                      : (shift.actualCash - expectedCashInDrawer) > 0
+                                          ? const Color(0xFF0284C7)
+                                          : const Color(0xFFDC2626),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Pendapatan', style: TextStyle(fontSize: 13)),
+                      const Text('Total Pendapatan (Penjualan)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                       Text('Rp ${currencyFmt.format(totalRevenue)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
                     ],
                   ),
@@ -583,6 +781,36 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                       Text('$totalTransactions', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                     ],
                   ),
+                  if (cashInList.isNotEmpty) ...[
+                    const Divider(height: 28),
+                    const Text('Kas Masuk (Petty Cash In)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF10B981))),
+                    const SizedBox(height: 8),
+                    ...cashInList.map((ci) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: Text('${ci['note']}', style: const TextStyle(fontSize: 12))),
+                          Text('+Rp ${currencyFmt.format(ci['amount'])}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
+                        ],
+                      ),
+                    )),
+                  ],
+                  if (cashOutList.isNotEmpty) ...[
+                    const Divider(height: 28),
+                    const Text('Pengeluaran (Kas Keluar)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFE11D48))),
+                    const SizedBox(height: 8),
+                    ...cashOutList.map((co) => Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(child: Text('${co['note']}', style: const TextStyle(fontSize: 12))),
+                          Text('-Rp ${currencyFmt.format(co['amount'])}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red)),
+                        ],
+                      ),
+                    )),
+                  ],
                   const Divider(height: 32),
                   const Text('Metode Pembayaran', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 8),
