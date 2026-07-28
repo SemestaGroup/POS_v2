@@ -154,22 +154,22 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
           color: Colors.white,
           child: Row(
             children: [
-              Icon(Icons.history_toggle_off_rounded,
-                  color: primaryColor, size: 18),
+              Icon(
+                Icons.history_toggle_off_rounded,
+                color: primaryColor,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               const Text(
                 'Riwayat Shift',
-                style:
-                    TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
               const Spacer(),
               TextButton.icon(
                 onPressed: _load,
                 icon: const Icon(Icons.refresh_rounded, size: 14),
-                label: const Text('Refresh',
-                    style: TextStyle(fontSize: 11)),
-                style:
-                    TextButton.styleFrom(foregroundColor: primaryColor),
+                label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                style: TextButton.styleFrom(foregroundColor: primaryColor),
               ),
             ],
           ),
@@ -179,65 +179,69 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
               : _errorMessage != null
-                  ? _buildError()
-                  : _rows.isEmpty
-                      ? _buildEmpty()
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(20),
-                          itemCount: _rows.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 10),
-                          itemBuilder: (context, index) => _buildCard(
-                            _rows[index],
-                            primaryColor,
-                            currencyFmt,
-                            dateFmt,
-                          ),
-                        ),
+              ? _buildError()
+              : _rows.isEmpty
+              ? _buildEmpty()
+              : ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: _rows.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (context, index) => _buildCard(
+                    _rows[index],
+                    primaryColor,
+                    currencyFmt,
+                    dateFmt,
+                  ),
+                ),
         ),
       ],
     );
   }
 
   Widget _buildError() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.error_outline_rounded,
-                  size: 36, color: Colors.red.shade400),
-              const SizedBox(height: 10),
-              Text(_errorMessage ?? 'Error',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.red.shade600),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 10),
-              TextButton(
-                  onPressed: _load,
-                  child: const Text('Coba Lagi',
-                      style: TextStyle(fontSize: 12))),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 36,
+            color: Colors.red.shade400,
           ),
-        ),
-      );
+          const SizedBox(height: 10),
+          Text(
+            _errorMessage ?? 'Error',
+            style: TextStyle(fontSize: 12, color: Colors.red.shade600),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          TextButton(
+            onPressed: _load,
+            child: const Text('Coba Lagi', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    ),
+  );
 
   Widget _buildEmpty() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.inbox_rounded,
-                  size: 40, color: Colors.grey.shade300),
-              const SizedBox(height: 10),
-              Text('Belum ada riwayat shift.',
-                  style: TextStyle(
-                      fontSize: 13, color: Colors.grey.shade500)),
-            ],
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.inbox_rounded, size: 40, color: Colors.grey.shade300),
+          const SizedBox(height: 10),
+          Text(
+            'Belum ada riwayat shift.',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
   Widget _buildCard(
     _ShiftRow shift,
@@ -246,141 +250,261 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     DateFormat dateFmt,
   ) {
     final isOpen = shift.status == 'open';
-    final statusColor =
-        isOpen ? Colors.green.shade600 : Colors.grey.shade600;
-    final statusBg =
-        isOpen ? Colors.green.shade50 : Colors.grey.shade100;
+    final statusColor = isOpen
+        ? const Color(0xFF15803D)
+        : const Color(0xFF475569);
+    final statusBg = isOpen ? const Color(0xFFECFDF3) : const Color(0xFFF1F5F9);
     final variance = shift.variance;
     final varianceColor = variance < 0
-        ? Colors.red.shade600
-        : (variance > 0
-            ? Colors.orange.shade600
-            : Colors.green.shade600);
+        ? const Color(0xFFB91C1C)
+        : (variance > 0 ? const Color(0xFFB45309) : const Color(0xFF15803D));
+    final compactDateFmt = DateFormat('dd MMM yy · HH:mm', 'id_ID');
 
-    return GestureDetector(
-      onTap: () => _showShiftDetail(shift, context, currencyFmt, dateFmt),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade100),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          Row(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: () => _showShiftDetail(shift, context, currencyFmt, dateFmt),
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE5EAF2)),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: primaryColor.withValues(alpha: 0.08),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.person_rounded,
-                    color: primaryColor, size: 15),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      shift.staffName,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700, fontSize: 13),
+              Row(
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.09),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(height: 1),
-                    Text(
-                      shift.shiftName +
-                          (shift.registerId != null
-                              ? ' · ${shift.registerId}'
-                              : ''),
+                    child: Icon(
+                      Icons.person_outline_rounded,
+                      color: primaryColor,
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          shift.staffName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF1E293B),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          shift.shiftName +
+                              (shift.registerId != null
+                                  ? ' · ${shift.registerId}'
+                                  : ''),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF64748B),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: statusBg,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                    child: Text(
+                      isOpen ? 'AKTIF' : 'SELESAI',
                       style: TextStyle(
-                          fontSize: 10, color: Colors.grey.shade500),
+                        color: statusColor,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Divider(height: 1, color: Color(0xFFF0F3F7)),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: _shiftCardMetric(
+                      'Dibuka',
+                      compactDateFmt.format(shift.openedAt),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: _shiftCardMetric(
+                      'Ditutup',
+                      shift.closedAt == null
+                          ? 'Masih berjalan'
+                          : compactDateFmt.format(shift.closedAt!),
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                children: [
+                  Expanded(
+                    child: _shiftCardMetric(
+                      'Saldo awal',
+                      'Rp ${currencyFmt.format(shift.openingBalance)}',
+                    ),
+                  ),
+                  if (!isOpen) ...[
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: _shiftCardMetric(
+                        'Kas aktual',
+                        'Rp ${currencyFmt.format(shift.actualCash)}',
+                        alignEnd: true,
+                      ),
                     ),
                   ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 9, vertical: 3),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isOpen ? 'AKTIF' : 'TUTUP',
-                  style: TextStyle(
-                      color: statusColor,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.4),
-                ),
-              ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            child: Divider(height: 1, color: Colors.grey.shade100),
-          ),
-          Row(
-            children: [
-              Expanded(
-                  child: _infoCol(
-                      'Buka', dateFmt.format(shift.openedAt))),
-              Expanded(
-                child: _infoCol(
-                  'Tutup',
-                  shift.closedAt != null
-                      ? dateFmt.format(shift.closedAt!)
-                      : '—',
-                ),
-              ),
-              Expanded(
-                child: _infoCol(
-                  'Saldo Awal',
-                  'Rp ${currencyFmt.format(shift.openingBalance)}',
-                ),
+                ],
               ),
               if (!isOpen) ...[
-                Expanded(
-                  child: _infoCol(
-                    'Est. Kas',
-                    'Rp ${currencyFmt.format(shift.expectedCash)}',
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
                   ),
-                ),
-                Expanded(
-                  child: _infoCol(
-                    'Kas Aktual',
-                    'Rp ${currencyFmt.format(shift.actualCash)}',
+                  decoration: BoxDecoration(
+                    color: variance == 0
+                        ? const Color(0xFFF0FDF4)
+                        : variance > 0
+                        ? const Color(0xFFFFFBEB)
+                        : const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                ),
-                Expanded(
-                  child: _infoCol(
-                    'Selisih',
-                    'Rp ${currencyFmt.format(variance)}',
-                    valueColor: varianceColor,
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Selisih kas',
+                        style: TextStyle(
+                          color: Color(0xFF475569),
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Flexible(
+                        child: Text(
+                          variance == 0
+                              ? 'Rp 0 · Pas'
+                              : '${variance > 0 ? '+' : '-'}Rp ${currencyFmt.format(variance.abs())}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: varianceColor,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.receipt_long_outlined,
+                    color: Color(0xFF64748B),
+                    size: 15,
+                  ),
+                  const SizedBox(width: 6),
+                  const Expanded(
+                    child: Text(
+                      'Lihat rekap shift',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    color: primaryColor,
+                    size: 19,
+                  ),
+                ],
+              ),
             ],
           ),
-        ],
+        ),
       ),
-    ));
+    );
+  }
+
+  Widget _shiftCardMetric(String label, String value, {bool alignEnd = false}) {
+    return Column(
+      crossAxisAlignment: alignEnd
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF94A3B8),
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+          child: Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF1E293B),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _showShiftDetail(
-      _ShiftRow shift, BuildContext context, NumberFormat currencyFmt, DateFormat dateFmt) async {
+    _ShiftRow shift,
+    BuildContext context,
+    NumberFormat currencyFmt,
+    DateFormat dateFmt,
+  ) async {
     final session = PosV2RuntimeSessionStore.instance.currentSession;
     if (session == null) return;
 
@@ -396,8 +520,8 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       if (dt == null) return '9999-12-31 23:59:59';
       // toLocal() converts from UTC if needed, then format as simple string
       final local = dt.toLocal();
-      return '${local.year.toString().padLeft(4,'0')}-${local.month.toString().padLeft(2,'0')}-${local.day.toString().padLeft(2,'0')} '
-             '${local.hour.toString().padLeft(2,'0')}:${local.minute.toString().padLeft(2,'0')}:${local.second.toString().padLeft(2,'0')}';
+      return '${local.year.toString().padLeft(4, '0')}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} '
+          '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}';
     }
 
     // Fetch shift's remote_id so we can also match via shift_session_remote_id on orders
@@ -405,14 +529,17 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       'SELECT remote_id FROM shift_session WHERE id = ? LIMIT 1',
       <Object?>[shift.id],
     );
-    final shiftRemoteId = shiftRemoteRows.isNotEmpty ? shiftRemoteRows.first['remote_id']?.toString() : null;
+    final shiftRemoteId = shiftRemoteRows.isNotEmpty
+        ? shiftRemoteRows.first['remote_id']?.toString()
+        : null;
 
     final startStr = fmtSql(shift.openedAt);
     final endStr = fmtSql(shift.closedAt);
 
     // Match orders by: local FK shift_session_id, OR remote_id match, OR time range
     // Time range uses substr(19) to strip timezone 'Z' and microseconds
-    String orderWhere(String tableAlias) => '''
+    String orderWhere(String tableAlias) =>
+        '''
       ${tableAlias}tenant_id = ?
         AND ${tableAlias}deleted_at IS NULL
         AND (
@@ -427,13 +554,15 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     ''';
 
     List<Object?> orderArgs(int tenantId) => [
-      tenantId, shift.id,
-      shiftRemoteId, shiftRemoteId,
-      startStr, endStr,
+      tenantId,
+      shift.id,
+      shiftRemoteId,
+      shiftRemoteId,
+      startStr,
+      endStr,
     ];
 
-    final paymentRows = await DatabaseService.instance.rawQuery(
-      '''
+    final paymentRows = await DatabaseService.instance.rawQuery('''
       SELECT COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya') as name,
              COUNT(DISTINCT o.id) as qty,
              SUM(p.amount) as amount
@@ -455,15 +584,16 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
           )
         )
       GROUP BY COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya')
-      ''',
-      orderArgs(session.tenantId),
-    );
+      ''', orderArgs(session.tenantId));
 
     final modeRows = await DatabaseService.instance.rawQuery(
       'SELECT name FROM payment_mode WHERE tenant_id = ? AND deleted_at IS NULL AND is_active = 1',
       <Object?>[session.tenantId],
     );
-    final allModeNames = modeRows.map((r) => r['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
+    final allModeNames = modeRows
+        .map((r) => r['name']?.toString() ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
 
     int totalRevenue = 0;
     int totalTransactions = 0;
@@ -481,8 +611,10 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       totalTransactions += qty;
       final existingIdx = payments.indexWhere((p) => p['name'] == name);
       if (existingIdx != -1) {
-        payments[existingIdx]['amount'] = (payments[existingIdx]['amount'] as int) + amount;
-        payments[existingIdx]['qty'] = (payments[existingIdx]['qty'] as int) + qty;
+        payments[existingIdx]['amount'] =
+            (payments[existingIdx]['amount'] as int) + amount;
+        payments[existingIdx]['qty'] =
+            (payments[existingIdx]['qty'] as int) + qty;
       } else {
         payments.add({'name': name, 'qty': qty, 'amount': amount});
       }
@@ -491,25 +623,26 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
 
     // Fallback: count orders directly if no payment records found
     if (totalTransactions == 0) {
-      final orderCountRows = await DatabaseService.instance.rawQuery(
-        '''
+      final orderCountRows = await DatabaseService.instance.rawQuery('''
         SELECT COUNT(id) as cnt, COALESCE(SUM(total_amount),0) as total
         FROM pos_order
         WHERE ${orderWhere('').trim()}
           AND status_code IN ('2', '4')
-        ''',
-        orderArgs(session.tenantId),
-      );
+        ''', orderArgs(session.tenantId));
       if (orderCountRows.isNotEmpty) {
-        totalTransactions = (double.tryParse(orderCountRows.first['cnt']?.toString() ?? '0') ?? 0).round();
+        totalTransactions =
+            (double.tryParse(orderCountRows.first['cnt']?.toString() ?? '0') ??
+                    0)
+                .round();
         if (totalRevenue == 0) {
-          totalRevenue = int.tryParse(orderCountRows.first['total']?.toString() ?? '0') ?? 0;
+          totalRevenue =
+              int.tryParse(orderCountRows.first['total']?.toString() ?? '0') ??
+              0;
         }
       }
     }
 
-    final itemRows = await DatabaseService.instance.rawQuery(
-      '''
+    final itemRows = await DatabaseService.instance.rawQuery('''
       SELECT i.product_name_snapshot as name,
              SUM(i.qty) as qty
       FROM pos_order_item i
@@ -529,18 +662,20 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
         )
       GROUP BY i.product_name_snapshot
       ORDER BY SUM(i.qty) DESC
-      ''',
-      orderArgs(session.tenantId),
-    );
+      ''', orderArgs(session.tenantId));
 
-    final items = itemRows.map((row) => {
-      'name': row['name']?.toString() ?? 'Produk',
-      'qty': (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round(),
-    }).toList();
+    final items = itemRows
+        .map(
+          (row) => {
+            'name': row['name']?.toString() ?? 'Produk',
+            'qty': (double.tryParse(row['qty']?.toString() ?? '0') ?? 0)
+                .round(),
+          },
+        )
+        .toList();
 
     // Query Cash Sales
-    final cashSalesRows = await DatabaseService.instance.rawQuery(
-      '''
+    final cashSalesRows = await DatabaseService.instance.rawQuery('''
       SELECT COALESCE(SUM(p.amount), 0) as cash_sales
       FROM pos_order_payment p
       LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
@@ -563,10 +698,13 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
             AND substr(replace(o.created_at, 'T', ' '), 1, 19) <= ?
           )
         )
-      ''',
-      orderArgs(session.tenantId),
-    );
-    final cashSales = (double.tryParse(cashSalesRows.first['cash_sales']?.toString() ?? '0') ?? 0).round();
+      ''', orderArgs(session.tenantId));
+    final cashSales =
+        (double.tryParse(
+                  cashSalesRows.first['cash_sales']?.toString() ?? '0',
+                ) ??
+                0)
+            .round();
 
     // Query Kas Masuk
     final cashInRows = await DatabaseService.instance.rawQuery(
@@ -588,7 +726,8 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     int totalCashIn = 0;
     final cashInList = <Map<String, dynamic>>[];
     for (final r in cashInRows) {
-      final amt = (double.tryParse(r['amount']?.toString() ?? '0') ?? 0).round();
+      final amt = (double.tryParse(r['amount']?.toString() ?? '0') ?? 0)
+          .round();
       totalCashIn += amt;
       cashInList.add({
         'note': r['note']?.toString() ?? 'Kas Masuk',
@@ -616,7 +755,8 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     int totalCashOut = 0;
     final cashOutList = <Map<String, dynamic>>[];
     for (final r in cashOutRows) {
-      final amt = (double.tryParse(r['amount']?.toString() ?? '0') ?? 0).round();
+      final amt = (double.tryParse(r['amount']?.toString() ?? '0') ?? 0)
+          .round();
       totalCashOut += amt;
       cashOutList.add({
         'note': r['note']?.toString() ?? 'Kas Keluar',
@@ -631,220 +771,321 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     if (!context.mounted) return;
     Navigator.of(context).pop(); // close loading
 
-    showDialog(
+    showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(Icons.receipt_long_rounded, color: Theme.of(context).colorScheme.primary),
-              const SizedBox(width: 8),
-              const Expanded(child: Text('Detail Rekap Shift', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700))),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-                splashRadius: 24,
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 420,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Shift: ${shift.shiftName}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('Kasir: ${shift.staffName}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  const SizedBox(height: 14),
-
-                  // Section Card Rincian Kas & Petty Cash
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF8FAFC),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2E8F0)),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Modal Awal (Petty Cash)', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                            Text('Rp ${currencyFmt.format(openingBalance)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                          ],
+        return DraggableScrollableSheet(
+          initialChildSize: 0.88,
+          minChildSize: 0.52,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) => Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFFEFEFF),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 14, 10, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(11),
                         ),
-                        if (totalCashIn > 0) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Total Kas Masuk', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                              Text('+Rp ${currencyFmt.format(totalCashIn)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
-                            ],
-                          ),
-                        ],
-                        if (totalCashOut > 0) ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Total Kas Keluar (Pengeluaran)', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                              Text('-Rp ${currencyFmt.format(totalCashOut)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFFE11D48))),
-                            ],
-                          ),
-                        ],
-                        const Divider(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Icon(
+                          Icons.receipt_long_outlined,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Sisa Petty Cash', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-                            Text(
-                              'Rp ${currencyFmt.format(sisaPettyCash)}',
+                            const Text(
+                              'Rekap shift',
                               style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: sisaPettyCash >= 0 ? const Color(0xFF0284C7) : const Color(0xFFDC2626),
+                                color: Color(0xFF1E293B),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${shift.shiftName} · ${shift.staffName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Penjualan Tunai (Cash Sales)', style: TextStyle(fontSize: 12, color: Color(0xFF475569))),
-                            Text('Rp ${currencyFmt.format(cashSales)}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
-                          ],
+                      ),
+                      IconButton(
+                        tooltip: 'Tutup rekap',
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                        color: const Color(0xFF64748B),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                Expanded(
+                  child: ListView(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 28),
+                    children: [
+                      const Text(
+                        'RINGKASAN OPERASIONAL',
+                        style: TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.5,
                         ),
-                        const Divider(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Kas Harus Ada di Laci', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-                            Text('Rp ${currencyFmt.format(expectedCashInDrawer)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF0F172A))),
-                          ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Section Card Rincian Kas & Petty Cash
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE2E8F0)),
                         ),
-                        if (shift.closedAt != null || shift.status == 'closed') ...[
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Kas Aktual (Diinput Kasir)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-                              Text('Rp ${currencyFmt.format(shift.actualCash)}', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: Color(0xFF334155))),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Selisih Kas', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
-                              Text(
-                                (shift.actualCash - expectedCashInDrawer) == 0
-                                    ? 'Rp 0 (Pas)'
-                                    : (shift.actualCash - expectedCashInDrawer) > 0
-                                        ? '+Rp ${currencyFmt.format(shift.actualCash - expectedCashInDrawer)} (Surplus)'
-                                        : '-Rp ${currencyFmt.format((shift.actualCash - expectedCashInDrawer).abs())} (Minus)',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: (shift.actualCash - expectedCashInDrawer) == 0
-                                      ? const Color(0xFF16A34A)
-                                      : (shift.actualCash - expectedCashInDrawer) > 0
-                                          ? const Color(0xFF0284C7)
-                                          : const Color(0xFFDC2626),
-                                ),
+                        child: Column(
+                          children: [
+                            _recapAmountRow(
+                              'Modal awal (petty cash)',
+                              'Rp ${currencyFmt.format(openingBalance)}',
+                            ),
+                            if (totalCashIn > 0) ...[
+                              const SizedBox(height: 7),
+                              _recapAmountRow(
+                                'Total kas masuk',
+                                '+Rp ${currencyFmt.format(totalCashIn)}',
+                                valueColor: const Color(0xFF15803D),
                               ),
                             ],
+                            if (totalCashOut > 0) ...[
+                              const SizedBox(height: 7),
+                              _recapAmountRow(
+                                'Total kas keluar',
+                                '-Rp ${currencyFmt.format(totalCashOut)}',
+                                valueColor: const Color(0xFFDC2626),
+                              ),
+                            ],
+                            const Divider(height: 16),
+                            _recapAmountRow(
+                              'Sisa petty cash',
+                              'Rp ${currencyFmt.format(sisaPettyCash)}',
+                              valueColor: sisaPettyCash >= 0
+                                  ? const Color(0xFF0369A1)
+                                  : const Color(0xFFDC2626),
+                              emphasis: true,
+                            ),
+                            const SizedBox(height: 7),
+                            _recapAmountRow(
+                              'Penjualan tunai',
+                              'Rp ${currencyFmt.format(cashSales)}',
+                              valueColor: const Color(0xFF15803D),
+                            ),
+                            const Divider(height: 16),
+                            _recapAmountRow(
+                              'Kas seharusnya di laci',
+                              'Rp ${currencyFmt.format(expectedCashInDrawer)}',
+                              emphasis: true,
+                            ),
+                            if (shift.closedAt != null ||
+                                shift.status == 'closed') ...[
+                              const SizedBox(height: 7),
+                              _recapAmountRow(
+                                'Kas aktual',
+                                'Rp ${currencyFmt.format(shift.actualCash)}',
+                                emphasis: true,
+                              ),
+                              const SizedBox(height: 7),
+                              _recapAmountRow(
+                                'Selisih kas',
+                                (shift.actualCash - expectedCashInDrawer) == 0
+                                    ? 'Rp 0 · Pas'
+                                    : (shift.actualCash -
+                                              expectedCashInDrawer) >
+                                          0
+                                    ? '+Rp ${currencyFmt.format(shift.actualCash - expectedCashInDrawer)} · Surplus'
+                                    : '-Rp ${currencyFmt.format((shift.actualCash - expectedCashInDrawer).abs())} · Minus',
+                                valueColor:
+                                    (shift.actualCash - expectedCashInDrawer) ==
+                                        0
+                                    ? const Color(0xFF15803D)
+                                    : (shift.actualCash -
+                                              expectedCashInDrawer) >
+                                          0
+                                    ? const Color(0xFFB45309)
+                                    : const Color(0xFFB91C1C),
+                                emphasis: true,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 14),
+
+                      Container(
+                        padding: const EdgeInsets.all(13),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0FDF4),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFDCFCE7)),
+                        ),
+                        child: Column(
+                          children: [
+                            _recapAmountRow(
+                              'Total pendapatan',
+                              'Rp ${currencyFmt.format(totalRevenue)}',
+                              valueColor: const Color(0xFF15803D),
+                              emphasis: true,
+                            ),
+                            const SizedBox(height: 7),
+                            _recapAmountRow(
+                              'Total transaksi',
+                              '$totalTransactions transaksi',
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (cashInList.isNotEmpty) ...[
+                        const Divider(height: 28),
+                        const Text(
+                          'Kas Masuk (Petty Cash In)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF10B981),
                           ),
-                        ],
+                        ),
+                        const SizedBox(height: 8),
+                        ...cashInList.map(
+                          (ci) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: _recapAmountRow(
+                              '${ci['note']}',
+                              '+Rp ${currencyFmt.format(ci['amount'])}',
+                              valueColor: const Color(0xFF15803D),
+                            ),
+                          ),
+                        ),
                       ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total Pendapatan (Penjualan)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      Text('Rp ${currencyFmt.format(totalRevenue)}', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.green)),
+                      if (cashOutList.isNotEmpty) ...[
+                        const Divider(height: 28),
+                        const Text(
+                          'Pengeluaran (Kas Keluar)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFE11D48),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ...cashOutList.map(
+                          (co) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: _recapAmountRow(
+                              '${co['note']}',
+                              '-Rp ${currencyFmt.format(co['amount'])}',
+                              valueColor: const Color(0xFFDC2626),
+                            ),
+                          ),
+                        ),
+                      ],
+                      const Divider(height: 32),
+                      const Text(
+                        'Metode Pembayaran',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (payments.isEmpty)
+                        const Text(
+                          'Belum ada pembayaran',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        )
+                      else
+                        ...payments.map(
+                          (p) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: _recapAmountRow(
+                              '${p['name']} (${p['qty']}x)',
+                              'Rp ${currencyFmt.format(p['amount'])}',
+                            ),
+                          ),
+                        ),
+                      const Divider(height: 32),
+                      const Text(
+                        'Produk Terjual',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (items.isEmpty)
+                        const Text(
+                          'Belum ada produk terjual',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        )
+                      else
+                        ...items.map(
+                          (i) => Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '${i['name']}',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                Text(
+                                  '${i['qty']}',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Total Transaksi', style: TextStyle(fontSize: 13)),
-                      Text('$totalTransactions', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                  if (cashInList.isNotEmpty) ...[
-                    const Divider(height: 28),
-                    const Text('Kas Masuk (Petty Cash In)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFF10B981))),
-                    const SizedBox(height: 8),
-                    ...cashInList.map((ci) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(child: Text('${ci['note']}', style: const TextStyle(fontSize: 12))),
-                          Text('+Rp ${currencyFmt.format(ci['amount'])}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF10B981))),
-                        ],
-                      ),
-                    )),
-                  ],
-                  if (cashOutList.isNotEmpty) ...[
-                    const Divider(height: 28),
-                    const Text('Pengeluaran (Kas Keluar)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Color(0xFFE11D48))),
-                    const SizedBox(height: 8),
-                    ...cashOutList.map((co) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(child: Text('${co['note']}', style: const TextStyle(fontSize: 12))),
-                          Text('-Rp ${currencyFmt.format(co['amount'])}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.red)),
-                        ],
-                      ),
-                    )),
-                  ],
-                  const Divider(height: 32),
-                  const Text('Metode Pembayaran', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  if (payments.isEmpty)
-                    const Text('Belum ada pembayaran', style: TextStyle(fontSize: 12, color: Colors.grey))
-                  else
-                    ...payments.map((p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('${p['name']} (${p['qty']}x)', style: const TextStyle(fontSize: 12)),
-                          Text('Rp ${currencyFmt.format(p['amount'])}', style: const TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    )),
-                  const Divider(height: 32),
-                  const Text('Produk Terjual', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  if (items.isEmpty)
-                    const Text('Belum ada produk terjual', style: TextStyle(fontSize: 12, color: Colors.grey))
-                  else
-                    ...items.map((i) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(child: Text('${i['name']}', style: const TextStyle(fontSize: 12))),
-                          Text('${i['qty']}', style: const TextStyle(fontSize: 12)),
-                        ],
-                      ),
-                    )),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -852,24 +1093,49 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     );
   }
 
-  Widget _infoCol(String label, String value, {Color? valueColor}) =>
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: TextStyle(
-                  color: Colors.grey.shade500,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500)),
-          const SizedBox(height: 3),
-          Text(
-            value,
+  Widget _recapAmountRow(
+    String label,
+    String value, {
+    Color? valueColor,
+    bool emphasis = false,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(
+            label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: valueColor ?? const Color(0xFF1F2937),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              color: emphasis
+                  ? const Color(0xFF334155)
+                  : const Color(0xFF64748B),
+              fontSize: emphasis ? 12 : 11.5,
+              fontWeight: emphasis ? FontWeight.w800 : FontWeight.w600,
+              height: 1.25,
             ),
           ),
-        ],
-      );
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: valueColor ?? const Color(0xFF1E293B),
+                fontSize: emphasis ? 12.5 : 11.5,
+                fontWeight: emphasis ? FontWeight.w800 : FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

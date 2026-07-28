@@ -18,6 +18,7 @@ import '../../../../orders/shared/orders_history_sync_service.dart';
 import '../../../../../../core/services/sync/pos_v2_options_service.dart';
 import 'dart:convert';
 
+import '../mobile_portrait/view.dart';
 import '../../../../orders/views/tablet_landscape/view.dart';
 import '../../checkout/tablet_landscape/payment_flow_page.dart';
 import '../../../../../../core/printing/models/printer_render_models.dart';
@@ -3398,6 +3399,12 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    if (isMobile) {
+      return PosWorkspaceMobileView(isReadOnly: widget.isReadOnly);
+    }
+
     final content = Row(
       children: [
         _buildSecondarySidebar(theme, primaryColor),

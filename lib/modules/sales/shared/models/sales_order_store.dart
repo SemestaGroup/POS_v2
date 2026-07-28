@@ -86,7 +86,7 @@ class SalesOrderRecord {
   final int? fallbackSubtotalAmount;
   final int? fallbackTotalAmount;
 
-  int get subtotalAmount => items.isNotEmpty 
+  int get subtotalAmount => items.isNotEmpty
       ? items.fold(0, (sum, item) => sum + item.totalPrice)
       : (fallbackSubtotalAmount ?? 0);
 
@@ -858,6 +858,22 @@ class SalesOrderStore {
 
     if (filteredOptions.isEmpty) {
       filteredOptions = allOptions;
+    }
+
+    // Cash remains a valid cashier-controlled settlement even when the active
+    // order type resolves to a merchant payment method (for example GoFood).
+    // Keep it available alongside the matched merchant methods on every POS
+    // workspace, matching the tablet payment flow.
+    final cashOptions = allOptions.where((option) {
+      final name = option.name.toLowerCase();
+      return name.contains('cash') || name.contains('tunai');
+    });
+    for (final cashOption in cashOptions) {
+      if (!filteredOptions.any(
+        (option) => option.remoteId == cashOption.remoteId,
+      )) {
+        filteredOptions = [...filteredOptions, cashOption];
+      }
     }
 
     SalesPaymentModeOption? selectedOption;
