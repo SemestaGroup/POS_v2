@@ -6,13 +6,110 @@ import '../../../stores/overview_store.dart';
 
 class SalesMetricsView extends StatelessWidget {
   const SalesMetricsView({super.key, required this.snapshot});
-  
+
   final OverviewSnapshot snapshot;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+
+    if (isMobile) {
+      return SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Section: Ringkasan
+            _buildSectionTitle(context, theme, 'Ringkasan'),
+            const SizedBox(height: 8),
+            // KPI Cards stacked vertically (pastel premium style)
+            Column(
+              children: [
+                _buildKpiCard(
+                  theme,
+                  AppLocalizations.of(context)!.totalSales,
+                  currencyFormatter.format(snapshot.salesToday),
+                  snapshot.periodLabel,
+                  'assets/mockups/dashboard/sales-summary.webp',
+                  isMobile: true,
+                  customBg: const Color(0xFFF0F9FF),
+                  iconBg: const Color(0xFFE0F2FE),
+                  iconColor: const Color(0xFF0284C7),
+                ),
+                const SizedBox(height: 10),
+                _buildKpiCard(
+                  theme,
+                  'Penjualan Bulan Ini',
+                  currencyFormatter.format(snapshot.salesThisMonth),
+                  '',
+                  'assets/mockups/dashboard/sales-summary.webp',
+                  isMobile: true,
+                  customBg: const Color(0xFFF0FDF4),
+                  iconBg: const Color(0xFFD1FAE5),
+                  iconColor: const Color(0xFF16A34A),
+                ),
+                const SizedBox(height: 10),
+                _buildKpiCard(
+                  theme,
+                  AppLocalizations.of(context)!.transactions,
+                  snapshot.transactionsToday.toString(),
+                  snapshot.periodLabel,
+                  'assets/mockups/dashboard/transactions.webp',
+                  isMobile: true,
+                  customBg: const Color(0xFFFFFBEB),
+                  iconBg: const Color(0xFFFEF3C7),
+                  iconColor: const Color(0xFFD97706),
+                ),
+                const SizedBox(height: 10),
+                _buildKpiCard(
+                  theme,
+                  'Rata-rata Transaksi',
+                  snapshot.transactionsToday > 0
+                    ? currencyFormatter.format(snapshot.salesToday / snapshot.transactionsToday)
+                    : 'Rp 0',
+                  snapshot.periodLabel,
+                  'assets/mockups/dashboard/discount.webp',
+                  isMobile: true,
+                  customBg: const Color(0xFFFAF5FF),
+                  iconBg: const Color(0xFFF3E8FF),
+                  iconColor: const Color(0xFF9333EA),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Section: Tren Penjualan
+            _buildSectionTitle(context, theme, 'Tren Penjualan'),
+            const SizedBox(height: 8),
+            // Charts Stacked Vertically (Height 210 is perfect & compact for mobile)
+            SizedBox(
+              height: 216,
+              child: _buildBarChartCard(context, theme),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 216,
+              child: _buildLineChartCard(context, theme),
+            ),
+            const SizedBox(height: 18),
+
+            // Section: Aktivitas
+            _buildSectionTitle(context, theme, 'Aktivitas'),
+            const SizedBox(height: 8),
+            // Bottom Panels Stacked Vertically (Flexible heights, fully scrollable)
+            _buildTopSellingPanel(context, theme),
+            const SizedBox(height: 12),
+            _buildStatusPanel(context, theme),
+            const SizedBox(height: 12),
+            _buildTransactionFeedPanel(context, theme),
+            const SizedBox(height: 20),
+          ],
+        ),
+      );
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
@@ -104,13 +201,233 @@ class SalesMetricsView extends StatelessWidget {
     );
   }
 
+  Widget _buildSectionTitle(BuildContext context, ThemeData theme, String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2.0),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 14,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Colors.grey.shade800,
+              letterSpacing: 0.1,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Themed section card carrying the same pastel language as the KPI cards
+  /// so charts and panels feel like one cohesive system.
+  Widget _buildThemedCard({
+    required ThemeData theme,
+    required Color accent,
+    required Widget child,
+    double radius = 16,
+    EdgeInsets padding = const EdgeInsets.all(16.0),
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildPanelHeader({
+    required IconData icon,
+    required Color accent,
+    required String title,
+    String? subtitle,
+  }) {
+    return Row(
+      children: [
+        // Left accent bar indicator
+        Container(
+          width: 4,
+          height: 28,
+          decoration: BoxDecoration(
+            color: accent,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 16, color: accent),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.grey.shade800,
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Small status chip used for sync / shift states, following the project
+  /// UI guideline ("badge/chip kecil untuk status", soft color backgrounds).
+  Widget _buildStatusChip({
+    required Color color,
+    required String label,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildKpiCard(
     ThemeData theme,
     String title,
     String value,
     String subtitle,
-    String imagePath,
-  ) {
+    String imagePath, {
+    bool isMobile = false,
+    Color? customBg,
+    Color? iconBg,
+    Color? iconColor,
+  }) {
+    if (isMobile) {
+      return Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        color: customBg ?? Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: customBg != null
+                ? Colors.transparent
+                : theme.dividerColor.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: iconBg ?? theme.colorScheme.primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Image.asset(
+                  imagePath,
+                  width: 20,
+                  height: 20,
+                  color: iconColor,
+                  errorBuilder: (context, error, stackTrace) => Icon(Icons.show_chart, size: 20, color: iconColor),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.grey.shade900,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (subtitle.isNotEmpty)
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 9,
+                    color: Colors.grey.shade400,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Card(
       margin: EdgeInsets.zero,
       elevation: 0,
@@ -149,8 +466,7 @@ class SalesMetricsView extends StatelessWidget {
                 ),
               ],
             ),
-            const Spacer(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
             TweenAnimationBuilder<double>(
               tween: Tween(begin: 0, end: 1),
               duration: const Duration(seconds: 1),
@@ -233,25 +549,26 @@ class SalesMetricsView extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Expanded(
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  maxY: 6.5,
-                  barTouchData: BarTouchData(
-                    enabled: true,
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final realVal = rod.toY * scaleFactor;
-                        return BarTooltipItem(
-                          NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(realVal),
-                          const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      },
+              child: ExcludeSemantics(
+                child: BarChart(
+                  BarChartData(
+                    alignment: BarChartAlignment.spaceAround,
+                    maxY: 6.5,
+                    barTouchData: BarTouchData(
+                      enabled: true,
+                      touchTooltipData: BarTouchTooltipData(
+                        getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                          final realVal = rod.toY * scaleFactor;
+                          return BarTooltipItem(
+                            NumberFormat.currency(locale: 'id_ID', symbol: 'Rp', decimalDigits: 0).format(realVal),
+                            const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        },
+                      ),
                     ),
-                  ),
                   titlesData: FlTitlesData(
                     show: true,
                     bottomTitles: AxisTitles(
@@ -310,6 +627,7 @@ class SalesMetricsView extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ],
         ),
       ),
@@ -353,8 +671,12 @@ class SalesMetricsView extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Expanded(
-              child: LineChart(
-                LineChartData(
+              child: ExcludeSemantics(
+                child: LineChart(
+                  LineChartData(
+                    lineTouchData: const LineTouchData(
+                      enabled: true,
+                    ),
                   minY: 0,
                   maxY: 6.5,
                   gridData: const FlGridData(show: false),
@@ -422,6 +744,7 @@ class SalesMetricsView extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ],
         ),
       ),
@@ -430,269 +753,263 @@ class SalesMetricsView extends StatelessWidget {
 
   Widget _buildTopSellingPanel(BuildContext context, ThemeData theme) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final accent = const Color(0xFF8B5CF6);
+    final maxQty = snapshot.topProducts.isNotEmpty ? snapshot.topProducts.first.quantity : 1;
 
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.star, color: Colors.amber),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Top 5 Produk Terlaris (Bulan Ini)',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (snapshot.topProducts.isEmpty)
-              const Expanded(child: Center(child: Text('Belum ada data penjualan', style: TextStyle(color: Colors.grey, fontSize: 12))))
-            else
-              Expanded(
-                child: ListView.separated(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: snapshot.topProducts.length,
-                  separatorBuilder: (_, _) => Divider(color: theme.dividerColor, height: 1),
-                  itemBuilder: (context, index) {
-                    final p = snapshot.topProducts[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return _buildThemedCard(
+      theme: theme,
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPanelHeader(
+            icon: Icons.star_rounded,
+            accent: accent,
+            title: 'Top 5 Produk Terlaris',
+            subtitle: 'Bulan ini',
+          ),
+          const SizedBox(height: 12),
+          if (snapshot.topProducts.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20.0),
+              child: Center(child: Text('Belum ada data penjualan', style: TextStyle(color: Colors.grey, fontSize: 11))),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: snapshot.topProducts.length > 5 ? 5 : snapshot.topProducts.length,
+              itemBuilder: (context, index) {
+                final p = snapshot.topProducts[index];
+                
+                Color rankColor;
+                if (index == 0) {
+                  rankColor = const Color(0xFFD4AF37);
+                } else if (index == 1) {
+                  rankColor = const Color(0xFFC0C0C0);
+                } else if (index == 2) {
+                  rankColor = const Color(0xFFCD7F32);
+                } else {
+                  rankColor = Colors.grey.shade400;
+                }
+
+                final double progress = p.quantity / maxQty;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Column(
+                    children: [
+                      Row(
                         children: [
+                          Container(
+                            width: 18,
+                            height: 18,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: rankColor.withValues(alpha: 0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${index + 1}',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: rankColor),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               p.name,
-                              style: const TextStyle(fontSize: 11),
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF1F2937)),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           Text(
                             '${p.quantity}x',
-                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey),
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 12),
                           Text(
                             currencyFormatter.format(p.totalSales),
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+                      const SizedBox(height: 4),
+                      Padding(
+                        padding: const EdgeInsets.only(left: 26.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: Colors.grey.shade100,
+                            valueColor: AlwaysStoppedAnimation<Color>(accent.withValues(alpha: 0.6)),
+                            minHeight: 3.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildStatusPanel(BuildContext context, ThemeData theme) {
+    final hasPendingSync = snapshot.pendingSyncCount > 0;
+    final isShiftOpen = snapshot.isShiftOpen;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+
+    Widget syncCard = _buildThemedCard(
+      theme: theme,
+      accent: hasPendingSync ? Colors.orange : Colors.green,
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: _buildPanelHeader(
+              icon: Icons.sync_rounded,
+              accent: hasPendingSync ? Colors.orange : Colors.green,
+              title: 'Status Sinkronisasi',
+              subtitle: hasPendingSync ? 'Ada data tertunda' : 'Semua aman',
+            ),
+          ),
+          _buildStatusChip(
+            color: hasPendingSync ? Colors.orange.shade800 : Colors.green.shade700,
+            label: hasPendingSync ? '${snapshot.pendingSyncCount} Antrean' : 'Tersinkron',
+            icon: hasPendingSync ? Icons.sync_problem_rounded : Icons.check_circle_rounded,
+          ),
+        ],
+      ),
+    );
+
+    Widget shiftCard = _buildThemedCard(
+      theme: theme,
+      accent: isShiftOpen ? const Color(0xFF10B981) : Colors.blueGrey,
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: _buildPanelHeader(
+              icon: Icons.storefront_rounded,
+              accent: isShiftOpen ? const Color(0xFF10B981) : Colors.blueGrey,
+              title: 'Shift Operasional',
+              subtitle: isShiftOpen ? 'Sedang berjalan' : 'Shift tutup',
+            ),
+          ),
+          _buildStatusChip(
+            color: isShiftOpen ? const Color(0xFF047857) : Colors.blueGrey.shade700,
+            label: isShiftOpen ? 'Shift Aktif' : 'Tutup',
+            icon: isShiftOpen ? Icons.play_arrow_rounded : Icons.stop_rounded,
+          ),
+        ],
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        children: [
+          syncCard,
+          const SizedBox(height: 10),
+          shiftCard,
+        ],
+      );
+    }
+
     return Column(
       children: [
-        Expanded(
-          child: Card(
-            margin: EdgeInsets.zero,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.sync, color: snapshot.pendingSyncCount > 0 ? Colors.orange : Colors.green),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Status Sinkronisasi',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    snapshot.pendingSyncCount > 0 
-                      ? 'Ada ${snapshot.pendingSyncCount} data antrean'
-                      : 'Semua data telah tersinkron',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: snapshot.pendingSyncCount > 0 ? Colors.orange.shade800 : Colors.green.shade800,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: Card(
-            margin: EdgeInsets.zero,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: theme.dividerColor.withValues(alpha: 0.5),
-              ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.storefront, color: snapshot.isShiftOpen ? Colors.green : Colors.grey),
-                      const SizedBox(width: 8),
-                      const Expanded(
-                        child: Text(
-                          'Status Shift Operasional',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    snapshot.isShiftOpen ? 'Shift Sedang Berjalan' : 'Belum Ada Shift Aktif',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                      color: snapshot.isShiftOpen ? Colors.green.shade800 : Colors.grey.shade700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+        Expanded(child: syncCard),
+        const SizedBox(height: 10),
+        Expanded(child: shiftCard),
       ],
     );
   }
 
   Widget _buildTransactionFeedPanel(BuildContext context, ThemeData theme) {
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
+    final accent = const Color(0xFF3B82F6);
 
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.receipt_long, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Transaksi Terbaru',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+    return _buildThemedCard(
+      theme: theme,
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPanelHeader(
+            icon: Icons.receipt_long_rounded,
+            accent: accent,
+            title: 'Transaksi Terbaru',
+            subtitle: 'Aktivitas kasir hari ini',
+          ),
+          const SizedBox(height: 16),
+          if (snapshot.recentTransactions.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20.0),
+              child: Center(child: Text('Belum ada transaksi', style: TextStyle(color: Colors.grey, fontSize: 11))),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: snapshot.recentTransactions.length > 5 ? 5 : snapshot.recentTransactions.length,
+              separatorBuilder: (_, _) => Divider(color: Colors.grey.shade100, height: 16),
+              itemBuilder: (context, index) {
+                final trx = snapshot.recentTransactions[index];
+                final bool isSuccess = trx.status == 'success' || trx.status == 'paid' || trx.status == 'completed';
+
+                return Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isSuccess ? const Color(0xFFE8F5E9) : const Color(0xFFFFF3E0),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.account_balance_wallet_rounded,
+                        size: 16,
+                        color: isSuccess ? Colors.green.shade700 : Colors.orange.shade700,
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            if (snapshot.recentTransactions.isEmpty)
-              const Expanded(child: Center(child: Text('Belum ada transaksi', style: TextStyle(color: Colors.grey, fontSize: 12))))
-            else
-              Expanded(
-                child: ListView.separated(
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: snapshot.recentTransactions.length,
-                  separatorBuilder: (_, _) => Divider(color: theme.dividerColor, height: 1),
-                  itemBuilder: (context, index) {
-                    final trx = snapshot.recentTransactions[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 10.0),
-                      child: Row(
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              trx.idPos,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.black54,
-                              ),
-                              overflow: TextOverflow.ellipsis,
+                          Text(
+                            trx.idPos,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1F2937),
                             ),
                           ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              DateFormat('HH:mm').format(trx.createdAt),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(
-                              currencyFormatter.format(trx.total),
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          const SizedBox(height: 3),
+                          Text(
+                            DateFormat('HH:mm').format(trx.createdAt),
+                            style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                           ),
                         ],
                       ),
-                    );
-                  },
-                ),
-              ),
-          ],
-        ),
+                    ),
+                    // Value (Total Sales)
+                    Text(
+                      currencyFormatter.format(trx.total),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF111827),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+        ],
       ),
     );
   }

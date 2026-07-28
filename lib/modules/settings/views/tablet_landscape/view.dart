@@ -139,11 +139,227 @@ class _SettingsShellViewState extends State<SettingsShellView> {
     ];
   }
 
+  Color getCategoryBgColor(IconData icon) {
+    if (icon == Icons.settings_rounded) return const Color(0xFFEFF6FF);
+    if (icon == Icons.storefront_rounded) return const Color(0xFFF0FDF4);
+    if (icon == Icons.print_rounded) return const Color(0xFFF5F3FF);
+    if (icon == Icons.sync_rounded) return const Color(0xFFFFFBEB);
+    if (icon == Icons.devices_rounded) return const Color(0xFFF0FDFA);
+    return const Color(0xFFF1F5F9);
+  }
+
+  Color getCategoryIconColor(IconData icon) {
+    if (icon == Icons.settings_rounded) return const Color(0xFF1D4ED8);
+    if (icon == Icons.storefront_rounded) return const Color(0xFF16A34A);
+    if (icon == Icons.print_rounded) return const Color(0xFF7C3AED);
+    if (icon == Icons.sync_rounded) return const Color(0xFFD97706);
+    if (icon == Icons.devices_rounded) return const Color(0xFF0D9488);
+    return const Color(0xFF475569);
+  }
+
+  Widget _buildMobileSettings(
+    BuildContext context,
+    List<_MenuCategory> categories,
+    ThemeData theme,
+    Color primaryColor,
+  ) {
+    final l10n = AppLocalizations.of(context)!;
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FD),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          l10n.settings,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1A1D2E),
+          ),
+        ),
+        centerTitle: false,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
+            child: Text(
+              'PENGATURAN APLIKASI',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF8E8E93),
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          ...categories.map((cat) {
+            final bgColor = getCategoryBgColor(cat.icon);
+            final iconColor = getCategoryIconColor(cat.icon);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade100),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(cat.icon, color: iconColor, size: 22),
+                ),
+                title: Text(
+                  cat.title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1D2E),
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    cat.subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey.shade400,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (context) => Scaffold(
+                        backgroundColor: const Color(0xFFF8F9FD),
+                        appBar: AppBar(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          leading: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          title: Text(
+                            cat.title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1A1D2E),
+                            ),
+                          ),
+                          centerTitle: true,
+                        ),
+                        body: ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: Colors.grey.shade100),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.015),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: cat.subMenus.length,
+                                separatorBuilder: (context, sepIdx) => Divider(height: 1, color: Colors.grey.shade100),
+                                itemBuilder: (context, subIdx) {
+                                  final sub = cat.subMenus[subIdx];
+                                  return ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                                    title: Text(
+                                      sub.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Color(0xFF1A1D2E),
+                                      ),
+                                    ),
+                                    trailing: Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 14,
+                                      color: Colors.grey.shade400,
+                                    ),
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute<void>(
+                                          builder: (context) => Scaffold(
+                                            backgroundColor: const Color(0xFFF8F9FD),
+                                            appBar: AppBar(
+                                              backgroundColor: Colors.white,
+                                              elevation: 0,
+                                              scrolledUnderElevation: 0,
+                                              leading: IconButton(
+                                                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
+                                                onPressed: () => Navigator.pop(context),
+                                              ),
+                                              title: Text(
+                                                sub.title,
+                                                style: const TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Color(0xFF1A1D2E),
+                                                ),
+                                              ),
+                                              centerTitle: true,
+                                            ),
+                                            body: sub.view,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -156,6 +372,63 @@ class _SettingsShellViewState extends State<SettingsShellView> {
 
           if (filteredCategories.isEmpty) {
             return Center(child: Text(l10n.settingsUnavailableMessage));
+          }
+
+          if (isMobile) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16, left: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: primaryColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.settings_rounded,
+                            color: primaryColor,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.settings,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1A1D2E),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                l10n.settingsSubtitle,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildMobileSettings(context, filteredCategories, theme, primaryColor),
+                  ),
+                ],
+              ),
+            );
           }
 
           if (_selectedCategoryIndex >= filteredCategories.length) {

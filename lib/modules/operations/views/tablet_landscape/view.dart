@@ -101,12 +101,84 @@ class _OperationsShellViewState extends State<OperationsShellView> {
       body: ValueListenableBuilder<AppRole>(
         valueListenable: RoleManager.roleNotifier,
         builder: (context, activeRole, _) {
+          final isMobile = MediaQuery.of(context).size.shortestSide < 600;
           final filteredSubMenus = _allSubMenus
               .where((menu) => menu.allowedRoles.contains(activeRole))
               .toList();
 
           if (filteredSubMenus.isEmpty) {
             return Center(child: Text(l10n.operationsUnavailableMessage));
+          }
+
+          if (isMobile) {
+            final shiftTypes = [
+              ShiftOpenView,
+              ShiftCloseView,
+              CashFlowView,
+              ShiftHistoryView,
+            ];
+
+            final shiftMenus = filteredSubMenus.where((menu) {
+              return shiftTypes.contains(menu.view.runtimeType);
+            }).toList();
+
+            final managementMenus = filteredSubMenus.where((menu) {
+              return !shiftTypes.contains(menu.view.runtimeType);
+            }).toList();
+
+            return Scaffold(
+              backgroundColor: const Color(0xFFF8F9FD),
+              appBar: AppBar(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                scrolledUnderElevation: 0,
+                title: Text(
+                  l10n.operationsHeader,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1A1D2E),
+                  ),
+                ),
+                centerTitle: false,
+              ),
+              body: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  if (shiftMenus.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
+                      child: Text(
+                        'TRANSAKSI & SHIFT',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8E8E93),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                    ...shiftMenus.map((menu) => _buildMobileMenuCard(context, menu)),
+                    const SizedBox(height: 16),
+                  ],
+                  if (managementMenus.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.only(left: 4, bottom: 10),
+                      child: Text(
+                        'MANAJEMEN & MONITORING',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF8E8E93),
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                    ...managementMenus.map((menu) => _buildMobileMenuCard(context, menu)),
+                  ],
+                ],
+              ),
+            );
           }
 
           if (_selectedSubMenuIndex >= filteredSubMenus.length) {
@@ -240,6 +312,108 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                   ),
                 ),
               ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Color getMenuBgColor(Type viewType) {
+    if (viewType == ShiftOpenView) return const Color(0xFFECFDF5);
+    if (viewType == ShiftCloseView) return const Color(0xFFFEF2F2);
+    if (viewType == RecapView) return const Color(0xFFEEF2FF);
+    if (viewType == ShiftHistoryView) return const Color(0xFFF1F5F9);
+    if (viewType == CashFlowView) return const Color(0xFFFFFBEB);
+    if (viewType == KitchenMonitorView) return const Color(0xFFF5F3FF);
+    return const Color(0xFFF0FDFA);
+  }
+
+  Color getMenuIconColor(Type viewType) {
+    if (viewType == ShiftOpenView) return const Color(0xFF059669);
+    if (viewType == ShiftCloseView) return const Color(0xFFDC2626);
+    if (viewType == RecapView) return const Color(0xFF4F46E5);
+    if (viewType == ShiftHistoryView) return const Color(0xFF475569);
+    if (viewType == CashFlowView) return const Color(0xFFD97706);
+    if (viewType == KitchenMonitorView) return const Color(0xFF7C3AED);
+    return const Color(0xFF0D9488);
+  }
+
+  Widget _buildMobileMenuCard(BuildContext context, _SubMenuDefinition menu) {
+    final bgColor = getMenuBgColor(menu.view.runtimeType);
+    final iconColor = getMenuIconColor(menu.view.runtimeType);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: bgColor,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(menu.icon, color: iconColor, size: 22),
+        ),
+        title: Text(
+          menu.title,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1D2E),
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4.0),
+          child: Text(
+            menu.subtitle,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade500,
+            ),
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right_rounded,
+          color: Colors.grey.shade400,
+        ),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => Scaffold(
+                appBar: AppBar(
+                  backgroundColor: Colors.white,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  title: Text(
+                    menu.title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1D2E),
+                    ),
+                  ),
+                  centerTitle: true,
+                ),
+                body: menu.view,
+              ),
             ),
           );
         },

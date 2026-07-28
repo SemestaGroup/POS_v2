@@ -26,6 +26,7 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
     final currencyFmt = NumberFormat('#,###', 'id_ID');
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return ValueListenableBuilder<ReportSummarySnapshot>(
       valueListenable: _store.snapshotNotifier,
@@ -43,80 +44,100 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
           );
         }
 
+        final periodCards = [
+          _buildPeriodCard(
+            title: 'Hari Ini',
+            sales: snapshot.todaySales,
+            transactions: snapshot.todayTransactions,
+            color: primaryColor,
+            icon: Icons.today_rounded,
+            currencyFmt: currencyFmt,
+          ),
+          _buildPeriodCard(
+            title: '7 Hari Terakhir',
+            sales: snapshot.weekSales,
+            transactions: snapshot.weekTransactions,
+            color: const Color(0xFF8B5CF6),
+            icon: Icons.date_range_rounded,
+            currencyFmt: currencyFmt,
+          ),
+          _buildPeriodCard(
+            title: 'Bulan Ini',
+            sales: snapshot.monthSales,
+            transactions: snapshot.monthTransactions,
+            color: const Color(0xFF10B981),
+            icon: Icons.calendar_month_rounded,
+            currencyFmt: currencyFmt,
+          ),
+        ];
+
+        final statCards = [
+          _buildSmallStatCard(
+            label: 'Transaksi Hari Ini',
+            value: '${snapshot.todayTransactions}',
+            icon: Icons.receipt_rounded,
+            color: primaryColor,
+          ),
+          _buildSmallStatCard(
+            label: 'Diskon Hari Ini',
+            value: 'Rp ${currencyFmt.format(snapshot.todayDiscount)}',
+            icon: Icons.local_offer_rounded,
+            color: const Color(0xFFF59E0B),
+          ),
+          _buildSmallStatCard(
+            label: 'Rata-rata per Transaksi',
+            value: snapshot.todayTransactions > 0
+                ? 'Rp ${currencyFmt.format(snapshot.todaySales ~/ snapshot.todayTransactions)}'
+                : 'Rp 0',
+            icon: Icons.analytics_rounded,
+            color: const Color(0xFF3B82F6),
+          ),
+        ];
+
         return SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildPeriodCard(
-                      title: 'Hari Ini',
-                      sales: snapshot.todaySales,
-                      transactions: snapshot.todayTransactions,
-                      color: primaryColor,
-                      icon: Icons.today_rounded,
-                      currencyFmt: currencyFmt,
+              isMobile
+                  ? Column(
+                      children: [
+                        periodCards[0],
+                        const SizedBox(height: 10),
+                        periodCards[1],
+                        const SizedBox(height: 10),
+                        periodCards[2],
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: periodCards[0]),
+                        const SizedBox(width: 10),
+                        Expanded(child: periodCards[1]),
+                        const SizedBox(width: 10),
+                        Expanded(child: periodCards[2]),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildPeriodCard(
-                      title: '7 Hari Terakhir',
-                      sales: snapshot.weekSales,
-                      transactions: snapshot.weekTransactions,
-                      color: const Color(0xFF8B5CF6),
-                      icon: Icons.date_range_rounded,
-                      currencyFmt: currencyFmt,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildPeriodCard(
-                      title: 'Bulan Ini',
-                      sales: snapshot.monthSales,
-                      transactions: snapshot.monthTransactions,
-                      color: const Color(0xFF10B981),
-                      icon: Icons.calendar_month_rounded,
-                      currencyFmt: currencyFmt,
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildSmallStatCard(
-                      label: 'Transaksi Hari Ini',
-                      value: '${snapshot.todayTransactions}',
-                      icon: Icons.receipt_rounded,
-                      color: primaryColor,
+              isMobile
+                  ? Column(
+                      children: [
+                        statCards[0],
+                        const SizedBox(height: 10),
+                        statCards[1],
+                        const SizedBox(height: 10),
+                        statCards[2],
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: statCards[0]),
+                        const SizedBox(width: 10),
+                        Expanded(child: statCards[1]),
+                        const SizedBox(width: 10),
+                        Expanded(child: statCards[2]),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildSmallStatCard(
-                      label: 'Diskon Hari Ini',
-                      value: 'Rp ${currencyFmt.format(snapshot.todayDiscount)}',
-                      icon: Icons.local_offer_rounded,
-                      color: const Color(0xFFF59E0B),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: _buildSmallStatCard(
-                      label: 'Rata-rata per Transaksi',
-                      value: snapshot.todayTransactions > 0
-                          ? 'Rp ${currencyFmt.format(snapshot.todaySales ~/ snapshot.todayTransactions)}'
-                          : 'Rp 0',
-                      icon: Icons.analytics_rounded,
-                      color: const Color(0xFF3B82F6),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 18),
               _buildTopProductsCard(primaryColor, currencyFmt, snapshot),
             ],

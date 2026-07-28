@@ -26,6 +26,7 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return ValueListenableBuilder<ProfileSettingsState>(
       valueListenable: _controller.stateNotifier,
@@ -44,98 +45,197 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
         }
 
         final session = state.session;
+        final avatarChar = (session?.staffFullName ?? session?.staffEmail ?? '?')
+            .trim()
+            .characters
+            .first
+            .toUpperCase();
+
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(18),
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.all(isMobile ? 14 : 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _sectionTitle('Profile Settings', 'Identity and current device session'),
               const SizedBox(height: 14),
-              _card(
-                child: Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          (session?.staffFullName ?? session?.staffEmail ?? '?')
-                              .trim()
-                              .characters
-                              .first
-                              .toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: primary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
+              isMobile
+                  ? _card(
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                avatarChar,
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
                           Text(
                             session?.staffFullName ?? '-',
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 15,
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF111827),
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 4),
                           Text(
                             session?.staffEmail ?? '-',
                             style: const TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: Color(0xFF6B7280),
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           _pill(state.roleLabel ?? '-', primary),
+                          const SizedBox(height: 16),
+                          const Divider(height: 1),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 44,
+                            child: FilledButton.icon(
+                              onPressed: state.isLoggingOut
+                                  ? null
+                                  : () async {
+                                      try {
+                                        await _controller.logoutCurrentDevice();
+                                      } catch (_) {}
+                                    },
+                              icon: state.isLoggingOut
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.logout_rounded, size: 16, color: Colors.white),
+                              label: const Text(
+                                'Logout Session',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFEF4444),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _card(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 52,
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                avatarChar,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  session?.staffFullName ?? '-',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF111827),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  session?.staffEmail ?? '-',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                _pill(state.roleLabel ?? '-', primary),
+                              ],
+                            ),
+                          ),
+                          TextButton.icon(
+                            onPressed: state.isLoggingOut
+                                ? null
+                                : () async {
+                                    try {
+                                      await _controller.logoutCurrentDevice();
+                                    } catch (_) {}
+                                  },
+                            icon: state.isLoggingOut
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.logout_rounded, size: 16),
+                            label: const Text('Logout', style: TextStyle(fontSize: 11)),
+                            style: TextButton.styleFrom(foregroundColor: Colors.red.shade600),
+                          ),
                         ],
                       ),
                     ),
-                    TextButton.icon(
-                      onPressed: state.isLoggingOut
-                          ? null
-                          : () async {
-                              try {
-                                await _controller.logoutCurrentDevice();
-                              } catch (_) {}
-                            },
-                      icon: state.isLoggingOut
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.logout_rounded, size: 16),
-                      label: const Text('Logout', style: TextStyle(fontSize: 11)),
-                      style: TextButton.styleFrom(foregroundColor: Colors.red.shade600),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 14),
               _card(
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _metaTile('Tenant', session?.tenantName ?? '-'),
-                    _metaTile('Location', session?.locationId ?? '-'),
-                    _metaTile('Register', session?.registerId ?? '-'),
-                    _metaTile('Device', session?.deviceId ?? '-'),
-                    _metaTile('Base URL', session?.baseUrl ?? '-'),
-                  ],
-                ),
+                child: isMobile
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _metaTile('Tenant', session?.tenantName ?? '-', isMobile: true),
+                          const Divider(height: 20, color: Color(0xFFF3F4F6)),
+                          _metaTile('Location', session?.locationId ?? '-', isMobile: true),
+                          const Divider(height: 20, color: Color(0xFFF3F4F6)),
+                          _metaTile('Register', session?.registerId ?? '-', isMobile: true),
+                          const Divider(height: 20, color: Color(0xFFF3F4F6)),
+                          _metaTile('Device', session?.deviceId ?? '-', isMobile: true),
+                          const Divider(height: 20, color: Color(0xFFF3F4F6)),
+                          _metaTile('Base URL', session?.baseUrl ?? '-', isMobile: true),
+                        ],
+                      )
+                    : Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: [
+                          _metaTile('Tenant', session?.tenantName ?? '-'),
+                          _metaTile('Location', session?.locationId ?? '-'),
+                          _metaTile('Register', session?.registerId ?? '-'),
+                          _metaTile('Device', session?.deviceId ?? '-'),
+                          _metaTile('Base URL', session?.baseUrl ?? '-'),
+                        ],
+                      ),
               ),
               if (state.errorMessage != null) ...[
                 const SizedBox(height: 12),
@@ -194,9 +294,9 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
     );
   }
 
-  Widget _metaTile(String label, String value) {
+  Widget _metaTile(String label, String value, {bool isMobile = false}) {
     return SizedBox(
-      width: 220,
+      width: isMobile ? double.infinity : 220,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

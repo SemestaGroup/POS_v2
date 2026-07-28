@@ -9,11 +9,15 @@ import '../../../../app/role_access/role_manager.dart';
 
 class _SubMenuDefinition {
   final String title;
+  final String subtitle;
+  final IconData icon;
   final Widget view;
   final List<AppRole> allowedRoles;
 
   _SubMenuDefinition({
     required this.title,
+    required this.subtitle,
+    required this.icon,
     required this.view,
     required this.allowedRoles,
   });
@@ -34,30 +38,182 @@ class _ReportsShellViewState extends State<ReportsShellView> {
     return [
       _SubMenuDefinition(
         title: l10n.reportSummaryMenu,
+        subtitle: 'Ikhtisar performa penjualan toko',
+        icon: Icons.summarize_rounded,
         view: const ReportSummaryView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
       ),
       _SubMenuDefinition(
         title: l10n.salesReportMenu,
+        subtitle: 'Analisis omzet & grafik harian',
+        icon: Icons.trending_up_rounded,
         view: const SalesReportView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
       ),
       _SubMenuDefinition(
         title: l10n.productReportMenu,
+        subtitle: 'Performa & kontribusi produk terlaris',
+        icon: Icons.inventory_2_rounded,
         view: const ProductReportView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
       ),
       _SubMenuDefinition(
         title: l10n.staffReportMenu,
+        subtitle: 'Performa staf & riwayat transaksi',
+        icon: Icons.people_outline_rounded,
         view: const StaffReportView(),
         allowedRoles: [AppRole.owner],
       ),
       _SubMenuDefinition(
         title: l10n.cashierReportLiteMenu,
+        subtitle: 'Laporan per kasir & setoran uang',
+        icon: Icons.point_of_sale_rounded,
         view: const CashierReportLiteView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
       ),
     ];
+  }
+
+  Color getReportBgColor(Type viewType) {
+    if (viewType == ReportSummaryView) return const Color(0xFFEEF2FF);
+    if (viewType == SalesReportView) return const Color(0xFFECFDF5);
+    if (viewType == ProductReportView) return const Color(0xFFFFFBEB);
+    if (viewType == StaffReportView) return const Color(0xFFF5F3FF);
+    if (viewType == CashierReportLiteView) return const Color(0xFFF0FDFA);
+    return const Color(0xFFF1F5F9);
+  }
+
+  Color getReportIconColor(Type viewType) {
+    if (viewType == ReportSummaryView) return const Color(0xFF4F46E5);
+    if (viewType == SalesReportView) return const Color(0xFF059669);
+    if (viewType == ProductReportView) return const Color(0xFFD97706);
+    if (viewType == StaffReportView) return const Color(0xFF7C3AED);
+    if (viewType == CashierReportLiteView) return const Color(0xFF0D9488);
+    return const Color(0xFF475569);
+  }
+
+  Widget _buildMobileReports(
+    BuildContext context,
+    List<_SubMenuDefinition> subMenus,
+    ThemeData theme,
+    Color primaryColor,
+    AppLocalizations l10n,
+  ) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FD),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          l10n.reports,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1A1D2E),
+          ),
+        ),
+        centerTitle: false,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
+            child: Text(
+              'IKHTISAR & ANALISIS TOKO',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF8E8E93),
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          ...subMenus.map((menu) {
+            final bgColor = getReportBgColor(menu.view.runtimeType);
+            final iconColor = getReportIconColor(menu.view.runtimeType);
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade100),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(menu.icon, color: iconColor, size: 22),
+                ),
+                title: Text(
+                  menu.title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A1D2E),
+                  ),
+                ),
+                subtitle: Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    menu.subtitle,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey.shade400,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (context) => Scaffold(
+                        appBar: AppBar(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
+                          scrolledUnderElevation: 0,
+                          leading: IconButton(
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                          title: Text(
+                            menu.title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1A1D2E),
+                            ),
+                          ),
+                          centerTitle: true,
+                        ),
+                        body: menu.view,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          }),
+        ],
+      ),
+    );
   }
 
   @override
@@ -65,6 +221,7 @@ class _ReportsShellViewState extends State<ReportsShellView> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -77,6 +234,10 @@ class _ReportsShellViewState extends State<ReportsShellView> {
 
           if (filteredSubMenus.isEmpty) {
             return Center(child: Text(l10n.reportsUnavailableMessage));
+          }
+
+          if (isMobile) {
+            return _buildMobileReports(context, filteredSubMenus, theme, primaryColor, l10n);
           }
 
           if (_selectedSubMenuIndex >= filteredSubMenus.length) {

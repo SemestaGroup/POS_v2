@@ -225,226 +225,365 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      child: Container(
-        width: 520,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+
+    Widget bodyContent = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppColors.primary, Colors.blue.shade700],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.primary, Colors.blue.shade700],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(8),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6),
                 ),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(8),
+                child: const Icon(
+                  Icons.person_add_rounded,
+                  color: Colors.white,
+                  size: 20,
                 ),
               ),
-              child: Row(
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Registrasi Staf',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Tambahkan staf baru ke dalam sistem',
+                      style: TextStyle(fontSize: 11, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                splashRadius: 20,
+              ),
+            ],
+          ),
+        ),
+
+        // Body
+        Flexible(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(6),
+                  if (isMobile) ...[
+                    _buildTextField(
+                      controller: _firstNameController,
+                      label: 'Nama Depan',
+                      icon: Icons.badge_outlined,
+                      isRequired: true,
                     ),
-                    child: const Icon(
-                      Icons.person_add_rounded,
-                      color: Colors.white,
-                      size: 20,
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _lastNameController,
+                      label: 'Nama Belakang',
+                      icon: Icons.person_outline,
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
+                  ] else ...[
+                    Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Registrasi Staf',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _firstNameController,
+                            label: 'Nama Depan',
+                            icon: Icons.badge_outlined,
+                            isRequired: true,
                           ),
                         ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Tambahkan staf baru ke dalam sistem',
-                          style: TextStyle(fontSize: 11, color: Colors.white70),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _lastNameController,
+                            label: 'Nama Belakang',
+                            icon: Icons.person_outline,
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.close_rounded, color: Colors.white),
-                    splashRadius: 20,
-                  ),
-                ],
-              ),
-            ),
-
-            // Body
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _firstNameController,
-                              label: 'Nama Depan',
-                              icon: Icons.badge_outlined,
-                              isRequired: true,
-                            ),
+                  ],
+                  const SizedBox(height: 12),
+                  if (isMobile) ...[
+                    _buildTextField(
+                      controller: _emailController,
+                      label: 'Email',
+                      icon: Icons.email_outlined,
+                      isRequired: true,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Peran (Role) *',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black54,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _lastNameController,
-                              label: 'Nama Belakang',
-                              icon: Icons.person_outline,
-                            ),
+                        ),
+                        const SizedBox(height: 4),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedRoleId,
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Colors.black45,
+                            size: 18,
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _emailController,
-                              label: 'Email',
-                              icon: Icons.email_outlined,
-                              isRequired: true,
-                              keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                            prefixIcon: const Icon(
+                              Icons.work_outline,
+                              size: 18,
+                              color: Colors.black45,
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Peran (Role) *',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                DropdownButtonFormField<String>(
-                                  initialValue: _selectedRoleId,
-                                  icon: const Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: Colors.black45,
-                                    size: 18,
-                                  ),
-                                  decoration: InputDecoration(
-                                    filled: true,
-                                    fillColor: Colors.grey.shade50,
-                                    prefixIcon: const Icon(
-                                      Icons.work_outline,
-                                      size: 18,
-                                      color: Colors.black45,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade200,
-                                      ),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: BorderSide(
-                                        color: Colors.grey.shade200,
-                                      ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: const BorderSide(
-                                        color: AppColors.primary,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                  ),
-                                  items: _roles.map((r) {
-                                    return DropdownMenuItem<String>(
-                                      value: r['role_id']?.toString(),
-                                      child: Text(
-                                        r['name']?.toString() ?? '-',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _selectedRoleId = val;
-                                      final roleMap = _roles.firstWhere(
-                                        (r) => r['role_id']?.toString() == val,
-                                      );
-                                      _selectedRoleName =
-                                          roleMap['name']?.toString();
-                                    });
-                                  },
-                                  validator: (val) => val == null
-                                      ? 'Wajib pilih peran'
-                                      : null,
-                                ),
-                              ],
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _passwordController,
-                              label: 'Kata Sandi',
-                              icon: Icons.lock_outline,
-                              isRequired: true,
-                              isPassword: true,
-                              obscureText: _obscurePassword,
-                              onToggleObscure: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade200,
                               ),
-                              extraAction: Tooltip(
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: BorderSide(
+                                color: Colors.grey.shade200,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(6),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          items: _roles.map((r) {
+                            return DropdownMenuItem<String>(
+                              value: r['role_id']?.toString(),
+                              child: Text(
+                                r['name']?.toString() ?? '-',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (val) {
+                            setState(() {
+                              _selectedRoleId = val;
+                              final roleMap = _roles.firstWhere(
+                                (r) => r['role_id']?.toString() == val,
+                              );
+                              _selectedRoleName =
+                                  roleMap['name']?.toString();
+                            });
+                          },
+                          validator: (val) => val == null
+                              ? 'Wajib pilih peran'
+                              : null,
+                        ),
+                      ],
+                    ),
+                  ] else ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _emailController,
+                            label: 'Email',
+                            icon: Icons.email_outlined,
+                            isRequired: true,
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Peran (Role) *',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              DropdownButtonFormField<String>(
+                                initialValue: _selectedRoleId,
+                                icon: const Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  color: Colors.black45,
+                                  size: 18,
+                                ),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.grey.shade50,
+                                  prefixIcon: const Icon(
+                                    Icons.work_outline,
+                                    size: 18,
+                                    color: Colors.black45,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: BorderSide(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(6),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.primary,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                ),
+                                items: _roles.map((r) {
+                                  return DropdownMenuItem<String>(
+                                    value: r['role_id']?.toString(),
+                                    child: Text(
+                                      r['name']?.toString() ?? '-',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                                onChanged: (val) {
+                                  setState(() {
+                                    _selectedRoleId = val;
+                                    final roleMap = _roles.firstWhere(
+                                      (r) => r['role_id']?.toString() == val,
+                                    );
+                                    _selectedRoleName =
+                                        roleMap['name']?.toString();
+                                  });
+                                },
+                                validator: (val) => val == null
+                                    ? 'Wajib pilih peran'
+                                    : null,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  if (isMobile) ...[
+                    _buildTextField(
+                      controller: _passwordController,
+                      label: 'Kata Sandi',
+                      icon: Icons.lock_outline,
+                      isRequired: true,
+                      isPassword: true,
+                      obscureText: _obscurePassword,
+                      onToggleObscure: () => setState(
+                        () => _obscurePassword = !_obscurePassword,
+                      ),
+                      extraAction: ExcludeSemantics(
+                        child: Tooltip(
+                          message: 'Generate',
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.auto_awesome,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () {
+                              final random = (100000 +
+                                      (DateTime.now().millisecondsSinceEpoch %
+                                          899999))
+                                  .toString();
+                              _passwordController.text = 'Flink$random';
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: _pinController,
+                      label: 'PIN (Wajib untuk Switch)',
+                      icon: Icons.dialpad_rounded,
+                      isRequired: true,
+                      isPassword: true,
+                      obscureText: _obscurePin,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      onToggleObscure: () =>
+                          setState(() => _obscurePin = !_obscurePin),
+                    ),
+                  ] else ...[
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _passwordController,
+                            label: 'Kata Sandi',
+                            icon: Icons.lock_outline,
+                            isRequired: true,
+                            isPassword: true,
+                            obscureText: _obscurePassword,
+                            onToggleObscure: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                            extraAction: ExcludeSemantics(
+                              child: Tooltip(
                                 message: 'Generate',
                                 child: IconButton(
                                   icon: const Icon(
@@ -465,106 +604,129 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTextField(
-                              controller: _pinController,
-                              label: 'PIN (Wajib untuk Switch)',
-                              icon: Icons.dialpad_rounded,
-                              isRequired: true,
-                              isPassword: true,
-                              obscureText: _obscurePin,
-                              keyboardType: TextInputType.number,
-                              maxLength: 6,
-                              onToggleObscure: () =>
-                                  setState(() => _obscurePin = !_obscurePin),
-                            ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _pinController,
+                            label: 'PIN (Wajib untuk Switch)',
+                            icon: Icons.dialpad_rounded,
+                            isRequired: true,
+                            isPassword: true,
+                            obscureText: _obscurePin,
+                            keyboardType: TextInputType.number,
+                            maxLength: 6,
+                            onToggleObscure: () =>
+                                setState(() => _obscurePin = !_obscurePin),
                           ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
-            // Footer
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(8),
-                ),
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _isLoading
-                        ? null
-                        : () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                        ),
+                      ],
                     ),
-                    child: const Text(
-                      'Batal',
-                      style: TextStyle(
-                        color: Colors.black54,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: _isLoading ? null : _submit,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 12,
-                      ),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Simpan',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              SizedBox(width: 6),
-                              Icon(Icons.arrow_forward_rounded, size: 16),
-                            ],
-                          ),
-                  ),
+                  ],
                 ],
               ),
             ),
-          ],
+          ),
+        ),
+
+        // Footer
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(8),
+            ),
+            border: Border(top: BorderSide(color: Colors.grey.shade200)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => Navigator.of(context).pop(),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: const Text(
+                  'Batal',
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _isLoading ? null : _submit,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Simpan',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(Icons.arrow_forward_rounded, size: 16),
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: true,
+      body: Center(
+        child: Container(
+          width: isMobile ? MediaQuery.of(context).size.width * 0.92 : 520,
+          margin: EdgeInsets.symmetric(vertical: isMobile ? 24 : 40),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: bodyContent,
         ),
       ),
     );

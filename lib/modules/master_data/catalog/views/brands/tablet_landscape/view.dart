@@ -31,6 +31,7 @@ class _BrandsViewState extends State<BrandsView> {
   @override
   Widget build(BuildContext context) {
     final strings = _BrandsStrings.of(context);
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return ValueListenableBuilder<MasterDataListSnapshot<BrandListRecord>>(
       valueListenable: _store.snapshotNotifier,
@@ -64,11 +65,11 @@ class _BrandsViewState extends State<BrandsView> {
                       padding: const EdgeInsets.all(12),
                       child: GridView.builder(
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isMobile ? 2 : 4,
                           crossAxisSpacing: 10,
                           mainAxisSpacing: 10,
-                          childAspectRatio: 1.45,
+                          childAspectRatio: isMobile ? 1.65 : 1.45,
                         ),
                         itemCount: records.length,
                         itemBuilder: (context, index) {
@@ -125,7 +126,7 @@ class _BrandsViewState extends State<BrandsView> {
                                 ),
                                 const SizedBox(height: 3),
                                 Text(
-                                  (brand.code ?? '').trim().isEmpty
+                                  brand.code == null || brand.code!.trim().isEmpty
                                       ? '—'
                                       : brand.code!,
                                   style: const TextStyle(

@@ -21,8 +21,29 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
     });
   }
 
+  Widget _buildGroupedCard({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+
     return ValueListenableBuilder<ShiftConfigState>(
       valueListenable: _controller.stateNotifier,
       builder: (context, state, _) {
@@ -30,80 +51,115 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
           return const Center(child: CircularProgressIndicator());
         }
 
+        final cashRules = [
+          _switchTile(
+            title: 'Wajibkan Modal Awal',
+            subtitle: 'Kasir wajib memasukkan saldo awal saat buka shift.',
+            value: state.requireOpeningBalance,
+            onChanged: (value) => _controller.updateQuickRules(
+                requireOpeningBalance: value),
+            isMobile: isMobile,
+          ),
+          _switchTile(
+            title: 'Auto Print Rekap Shift',
+            subtitle: 'Cetak rekap otomatis saat shift ditutup.',
+            value: state.autoPrintShiftRecap,
+            onChanged: (value) =>
+                _controller.updateQuickRules(autoPrintShiftRecap: value),
+            isMobile: isMobile,
+          ),
+          _switchTile(
+            title: 'Izinkan Edit Saldo Akhir',
+            subtitle:
+                'Kasir boleh mengubah hasil hitung kas fisik sebelum tutup shift.',
+            value: state.allowEditActualCash,
+            onChanged: (value) =>
+                _controller.updateQuickRules(allowEditActualCash: value),
+            isMobile: isMobile,
+          ),
+        ];
+
+        final scheduleRules = [
+          _switchTile(
+            title: 'Aktifkan Pembatasan Jadwal Shift',
+            subtitle:
+                'Jika aktif, hanya staf yang terdaftar di jadwal shift yang dapat membuka shift pada waktu tersebut.',
+            value: state.shiftScheduleEnabled,
+            onChanged: (value) => _controller.updateShiftSchedule(
+                enabled: value),
+            isMobile: isMobile,
+          ),
+        ];
+
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(18),
+          physics: const BouncingScrollPhysics(),
+          padding: EdgeInsets.all(isMobile ? 16 : 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Title ───────────────────────────────────────────────────
-              const Text(
-                'Konfigurasi Shift',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              // Title Header
+              Text(
+                'Aturan Kas & Operasional Shift',
+                style: TextStyle(
+                  fontSize: isMobile ? 15 : 18,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF111827),
+                ),
               ),
-              const SizedBox(height: 3),
-              const Text(
-                'Aturan operasional pembukaan shift, kas, dan disiplin perangkat.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+              const SizedBox(height: 4),
+              Text(
+                'Sesuaikan kedisiplinan pembukaan shift, pencatatan laci kas, serta verifikasi otentikasi perangkat kasir.',
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 12,
+                  color: const Color(0xFF4B5563),
+                  height: 1.4,
+                ),
               ),
+              const SizedBox(height: 20),
+
+              // Group 1: Cash & Shift rules
+              const _GroupTitle(title: 'Operasional Kasir'),
               const SizedBox(height: 8),
+              _buildGroupedCard(
+                child: Column(
+                  children: [
+                    cashRules[0],
+                    const Divider(height: 1, color: Color(0xFFF3F4F6), indent: 16, endIndent: 16),
+                    cashRules[1],
+                    const Divider(height: 1, color: Color(0xFFF3F4F6), indent: 16, endIndent: 16),
+                    cashRules[2],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
 
-              // ── Quick Rules ──────────────────────────────────────────────
-              const _SectionLabel('Aturan Kas & Shift'),
-              const SizedBox(height: 2),
-              _switchTile(
-                title: 'Wajibkan Modal Awal',
-                subtitle: 'Kasir wajib memasukkan saldo awal saat buka shift.',
-                value: state.requireOpeningBalance,
-                onChanged: (value) => _controller.updateQuickRules(
-                    requireOpeningBalance: value),
+              // Group 2: Schedule rules
+              const _GroupTitle(title: 'Pembatasan & Jadwal'),
+              const SizedBox(height: 8),
+              _buildGroupedCard(
+                child: scheduleRules[0],
               ),
-              _switchTile(
-                title: 'Auto Print Rekap Shift',
-                subtitle: 'Cetak rekap otomatis saat shift ditutup.',
-                value: state.autoPrintShiftRecap,
-                onChanged: (value) =>
-                    _controller.updateQuickRules(autoPrintShiftRecap: value),
-              ),
-              _switchTile(
-                title: 'Izinkan Edit Saldo Akhir',
-                subtitle:
-                    'Kasir boleh mengubah hasil hitung kas fisik sebelum tutup shift.',
-                value: state.allowEditActualCash,
-                onChanged: (value) =>
-                    _controller.updateQuickRules(allowEditActualCash: value),
-              ),
-
-              const SizedBox(height: 10),
-
-              // ── Jadwal Shift ─────────────────────────────────────────────
-              const _SectionLabel('Konfigurasi Jadwal Shift'),
-              const SizedBox(height: 2),
-              _switchTile(
-                title: 'Aktifkan Pembatasan Jadwal Shift',
-                subtitle:
-                    'Jika aktif, hanya staf yang terdaftar di jadwal shift yang dapat membuka shift pada waktu tersebut.\n'
-                    'Jika staf lain mencoba buka shift, akan muncul peringatan konfirmasi.',
-                value: state.shiftScheduleEnabled,
-                onChanged: (value) => _controller.updateShiftSchedule(
-                    enabled: value),
-              ),
-              const SizedBox(height: 2),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              const SizedBox(height: 12),
+              // Schedule Warning Info Panel (Clean & SaaS style)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Icon(Icons.info_outline_rounded,
-                        size: 16, color: Colors.blue.shade600),
-                    const SizedBox(width: 12),
+                        size: 15, color: Colors.blue.shade700),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Jika jadwal shift tidak dikonfigurasi: siapapun yang login dan membuka shift '
-                        'akan dianggap bertanggung jawab atas shift tersebut tanpa batasan.\n\n'
-                        'Jika jadwal shift aktif: hanya staf terdaftar untuk slot waktu tersebut yang dapat '
-                        'membuka shift tanpa peringatan.',
+                        'Jika jadwal tidak aktif, seluruh staf dapat membuka shift secara bebas.\n'
+                        'Jika jadwal aktif, verifikasi jadwal akan dilakukan saat buka shift.',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           color: Colors.grey.shade600,
                           height: 1.5,
                         ),
@@ -112,34 +168,84 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
                   ],
                 ),
               ),
+              const SizedBox(height: 20),
 
-              const SizedBox(height: 10),
-
-              // ── Device Discipline ────────────────────────────────────────
-              const _SectionLabel('Disiplin Perangkat'),
-              const SizedBox(height: 2),
-              _infoCard(
-                [
-                  _InfoRow(
-                    'Satu perangkat per staf',
-                    state.enforceSingleDevicePerStaff ? 'Ya' : 'Tidak',
-                  ),
-                  _InfoRow(
-                    'Wajib Device ID',
-                    state.requireDeviceId ? 'Ya' : 'Tidak',
-                  ),
-                  _InfoRow(
-                    'Self-Order aktif',
-                    state.selfOrderEnabled ? 'Ya' : 'Tidak',
-                  ),
-                  _InfoRow('Mode operasional', state.operatingMode),
-                ],
+              // Group 3: Device Discipline (Clean Key-Value Status Rows)
+              const _GroupTitle(title: 'Keamanan & Autentikasi Perangkat'),
+              const SizedBox(height: 8),
+              _buildGroupedCard(
+                child: Column(
+                  children: [
+                    _infoRowTile(
+                      title: 'Satu Perangkat per Staf',
+                      subtitle: 'Membatasi staf hanya login di satu device terdaftar.',
+                      value: state.enforceSingleDevicePerStaff,
+                    ),
+                    const Divider(height: 1, color: Color(0xFFF3F4F6), indent: 16, endIndent: 16),
+                    _infoRowTile(
+                      title: 'Wajib Device ID Terverifikasi',
+                      subtitle: 'Perangkat kasir wajib terdaftar di database pusat.',
+                      value: state.requireDeviceId,
+                    ),
+                    const Divider(height: 1, color: Color(0xFFF3F4F6), indent: 16, endIndent: 16),
+                    _infoRowTile(
+                      title: 'Fitur Self-Order Aktif',
+                      subtitle: 'Mengizinkan pemesanan mandiri oleh pelanggan.',
+                      value: state.selfOrderEnabled,
+                    ),
+                    const Divider(height: 1, color: Color(0xFFF3F4F6), indent: 16, endIndent: 16),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Mode Operasional Perangkat',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF1F2937),
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Konfigurasi mode kerja pos saat ini.',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              state.operatingMode,
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.bold,
+                                color: theme.colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
 
               if (state.errorMessage != null) ...[
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
                     borderRadius: BorderRadius.circular(10),
@@ -163,9 +269,10 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
+    bool isMobile = false,
   }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -173,23 +280,31 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF1F2937))),
-                const SizedBox(height: 4),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF6B7280),
-                        height: 1.4)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF6B7280),
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
           const SizedBox(width: 16),
           Transform.scale(
-            scale: 0.75,
+            scale: 0.8,
             child: Switch.adaptive(
-              value: value, 
+              value: value,
               onChanged: onChanged,
               activeTrackColor: Theme.of(context).colorScheme.primary,
             ),
@@ -199,61 +314,48 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
     );
   }
 
-  Widget _infoCard(List<_InfoRow> rows) {
+  Widget _infoRowTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+  }) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-      child: Column(
-        children: rows
-            .map(
-              (row) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(row.label,
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF6B7280))),
-                    Text(row.value,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF374151))),
-                  ],
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Container(
-            width: 4, 
-            height: 14, 
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary, 
-              borderRadius: BorderRadius.circular(2)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    color: Color(0xFF6B7280),
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 16),
           Text(
-            text,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF374151),
-                letterSpacing: 0.2),
+            value ? 'Aktif' : 'Nonaktif',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: value ? const Color(0xFF16A34A) : const Color(0xFF6B7280),
+            ),
           ),
         ],
       ),
@@ -261,8 +363,23 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
-class _InfoRow {
-  final String label;
-  final String value;
-  const _InfoRow(this.label, this.value);
+class _GroupTitle extends StatelessWidget {
+  final String title;
+  const _GroupTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 2.0, bottom: 2.0),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF4B5563),
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
 }

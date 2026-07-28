@@ -699,13 +699,15 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(width: 6),
-                  Tooltip(
-                    message:
-                        'Dihitung dari transaksi cash di shift ini.\nNilai final ditentukan oleh server.',
-                    child: Icon(
-                      Icons.info_outline_rounded,
-                      size: 13,
-                      color: Colors.grey.shade400,
+                  ExcludeSemantics(
+                    child: Tooltip(
+                      message:
+                          'Dihitung dari transaksi cash di shift ini.\nNilai final ditentukan oleh server.',
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 13,
+                        color: Colors.grey.shade400,
+                      ),
                     ),
                   ),
                 ],

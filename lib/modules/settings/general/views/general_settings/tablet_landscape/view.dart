@@ -87,18 +87,20 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final l10n = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, 16, isMobile ? 14 : 24, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // ── App Configuration ─────────────────────────────────────────────
           _buildFieldLabel(l10n.settingsAppConfig),
           const SizedBox(height: 10),
-          _buildAppConfigTiles(l10n, primaryColor),
+          _buildAppConfigTiles(l10n, primaryColor, isMobile: isMobile),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           if (_isLoading)
             const Center(child: CircularProgressIndicator())
@@ -106,21 +108,21 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
             // ── Store & API Settings ─────────────────────────────────────────
             _buildFieldLabel(l10n.settingsStoreApi),
             const SizedBox(height: 10),
-            _buildStoreApiTiles(primaryColor),
+            _buildStoreApiTiles(primaryColor, isMobile: isMobile),
 
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
             // ── Display Configuration ────────────────────────────────────────
             _buildFieldLabel(l10n.settingsDisplayConfig),
             const SizedBox(height: 10),
-            _buildDisplayConfiguration(primaryColor),
+            _buildDisplayConfiguration(primaryColor, isMobile: isMobile),
             
-            const SizedBox(height: 28),
+            const SizedBox(height: 24),
 
             // ── Self Order Settings ──────────────────────────────────────────
             _buildFieldLabel(l10n.settingsSelfOrder),
             const SizedBox(height: 10),
-            _buildSelfOrderSettings(primaryColor),
+            _buildSelfOrderSettings(primaryColor, isMobile: isMobile),
           ],
         ],
       ),
@@ -129,170 +131,213 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  Widget _buildAppConfigTiles(AppLocalizations l10n, Color primaryColor) {
-    return Column(
-      children: [
-        ValueListenableBuilder<AppRole>(
-          valueListenable: RoleManager.roleNotifier,
-          builder: (context, role, _) {
-            return _buildDropdownTile<AppRole>(
-              icon: Icons.shield_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsActiveRole,
-              value: role,
-              items: AppRole.values
-                  .where((r) => r != AppRole.programmer)
-                  .toList(),
-              labelBuilder: (r) => r.name.toUpperCase(),
-              onChanged: (newRole) {
-                if (newRole != null) RoleManager.changeRole(newRole);
-              },
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        ValueListenableBuilder<Locale>(
-          valueListenable: LocaleManager.localeNotifier,
-          builder: (context, locale, _) {
-            final isId = locale.languageCode == 'id';
-            return _buildDropdownTile<String>(
-              icon: Icons.language_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsLanguage,
-              value: isId ? 'ID' : 'EN',
-              items: const ['ID', 'EN'],
-              labelBuilder: (l) => l,
-              onChanged: (newLang) {
-                if (newLang != null) {
-                  LocaleManager.changeLocale(Locale(newLang.toLowerCase()));
-                }
-              },
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        ValueListenableBuilder<PosV2SyncStatus>(
-          valueListenable: PosV2SyncStatusStore.instance.statusNotifier,
-          builder: (context, status, _) {
-            final isPartial = status.stage == 'partial_synced';
-            final isError = status.errorMessage != null;
-            final isSyncing = status.isSyncing;
-
-            final icon = isSyncing
-                ? Icons.sync_rounded
-                : isError
-                    ? Icons.error_outline_rounded
-                    : isPartial
-                        ? Icons.cloud_download_rounded
-                        : Icons.cloud_done_rounded;
-                        
-            final label = isSyncing
-                ? l10n.settingsSyncing
-                : isError
-                    ? l10n.settingsSyncError
-                    : isPartial
-                        ? l10n.settingsPartialSynced
-                        : l10n.settingsSynced;
-
-            return _buildActionTile(
-              icon: icon,
-              iconColor: isPartial ? Colors.orange.shade700 : primaryColor,
-              title: l10n.settingsSyncMasterData,
-              subtitle: label,
-              onTap: () {
-                if (!isSyncing) {
-                  // Trigger full master data sync
-                  MainShellSyncController.instance.triggerManualMasterDataSync();
-                }
-              },
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        _buildActionTile(
-          icon: Icons.info_rounded,
-          iconColor: primaryColor,
-          title: l10n.settingsAppInfoTitle,
-          subtitle: l10n.settingsAppInfoSubtitle,
-          onTap: () {
-            _showAppInfoDialog(context);
-          },
-        ),
-        const SizedBox(height: 8),
-        _buildActionTile(
-          icon: Icons.cloud_sync_rounded,
-          iconColor: primaryColor,
-          title: l10n.settingsCheckUpdatesTitle,
-          subtitle: l10n.settingsCheckUpdatesSubtitle,
-          onTap: () {},
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStoreApiTiles(Color primaryColor) {
-    final l10n = AppLocalizations.of(context)!;
-    return Column(
-      children: [
-        Builder(
-          builder: (context) {
-            Map<String, dynamic> opModeJson = {};
-            try {
-              final raw = _options['pos_operating_mode'];
-              if (raw is Map) {
-                opModeJson = Map<String, dynamic>.from(raw);
-              } else if (raw is String && raw.isNotEmpty) {
-                opModeJson = jsonDecode(raw) as Map<String, dynamic>;
+  Widget _buildAppConfigTiles(AppLocalizations l10n, Color primaryColor, {bool isMobile = false}) {
+    final list = [
+      ValueListenableBuilder<AppRole>(
+        valueListenable: RoleManager.roleNotifier,
+        builder: (context, role, _) {
+          return _buildDropdownTile<AppRole>(
+            icon: Icons.shield_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsActiveRole,
+            value: role,
+            items: AppRole.values
+                .where((r) => r != AppRole.programmer)
+                .toList(),
+            labelBuilder: (r) => r.name.toUpperCase(),
+            onChanged: (newRole) {
+              if (newRole != null) RoleManager.changeRole(newRole);
+            },
+          );
+        },
+      ),
+      ValueListenableBuilder<Locale>(
+        valueListenable: LocaleManager.localeNotifier,
+        builder: (context, locale, _) {
+          final isId = locale.languageCode == 'id';
+          return _buildDropdownTile<String>(
+            icon: Icons.language_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsLanguage,
+            value: isId ? 'ID' : 'EN',
+            items: const ['ID', 'EN'],
+            labelBuilder: (l) => l,
+            onChanged: (newLang) {
+              if (newLang != null) {
+                LocaleManager.changeLocale(Locale(newLang.toLowerCase()));
               }
-            } catch (_) {}
+            },
+          );
+        },
+      ),
+      ValueListenableBuilder<PosV2SyncStatus>(
+        valueListenable: PosV2SyncStatusStore.instance.statusNotifier,
+        builder: (context, status, _) {
+          final isPartial = status.stage == 'partial_synced';
+          final isError = status.errorMessage != null;
+          final isSyncing = status.isSyncing;
 
-            final currentMode = opModeJson['mode']?.toString() ?? 'classic';
-            final rawAvailable = opModeJson['available_modes'];
-            final List<String> availableModes = (rawAvailable is List) 
-                ? rawAvailable.map((e) => e.toString()).toList() 
-                : ['classic', 'self_order_hybrid'];
+          final icon = isSyncing
+              ? Icons.sync_rounded
+              : isError
+                  ? Icons.error_outline_rounded
+                  : isPartial
+                      ? Icons.cloud_download_rounded
+                      : Icons.cloud_done_rounded;
+                      
+          final label = isSyncing
+              ? l10n.settingsSyncing
+              : isError
+                  ? l10n.settingsSyncError
+                  : isPartial
+                      ? l10n.settingsPartialSynced
+                      : l10n.settingsSynced;
 
-            if (!availableModes.contains(currentMode)) {
-              availableModes.add(currentMode);
-            }
+          return _buildActionTile(
+            icon: icon,
+            iconColor: isPartial ? Colors.orange.shade700 : primaryColor,
+            title: l10n.settingsSyncMasterData,
+            subtitle: label,
+            onTap: () {
+              if (!isSyncing) {
+                MainShellSyncController.instance.triggerManualMasterDataSync();
+              }
+            },
+          );
+        },
+      ),
+      _buildActionTile(
+        icon: Icons.info_rounded,
+        iconColor: primaryColor,
+        title: l10n.settingsAppInfoTitle,
+        subtitle: l10n.settingsAppInfoSubtitle,
+        onTap: () {
+          _showAppInfoDialog(context);
+        },
+      ),
+      _buildActionTile(
+        icon: Icons.cloud_sync_rounded,
+        iconColor: primaryColor,
+        title: l10n.settingsCheckUpdatesTitle,
+        subtitle: l10n.settingsCheckUpdatesSubtitle,
+        onTap: () {},
+      ),
+    ];
 
-            void updateMode(String? newMode) {
-              if (newMode == null) return;
-              opModeJson['mode'] = newMode;
-              opModeJson['changed_by'] = 'user';
-              _updateOption('pos_operating_mode', jsonEncode(opModeJson));
-            }
-
-            return _buildDropdownTile<String>(
-              icon: Icons.mode_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsOperatingMode,
-              value: currentMode,
-              items: availableModes,
-              labelBuilder: (m) => m.replaceAll('_', ' ').toUpperCase(),
-              onChanged: updateMode,
+    if (isMobile) {
+      return _buildGroupedCard(
+        child: Column(
+          children: List.generate(list.length, (index) {
+            if (index == list.length - 1) return list[index];
+            return Column(
+              children: [
+                list[index],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+              ],
             );
-          },
+          }),
         ),
+      );
+    }
+
+    return Column(
+      children: [
+        list[0],
         const SizedBox(height: 8),
-        _buildOptionTile(
-          l10n.settingsOnlineStoreUrl,
-          _options['pos_online_store_base_url']?.toString() ?? '',
-          Icons.link_rounded,
-          (val) => _updateOption('pos_online_store_base_url', val),
-        ),
+        list[1],
         const SizedBox(height: 8),
-        _buildOptionTile(
-          l10n.settingsWebhookUrl,
-          _options['pos_transaction_webhook_url']?.toString() ?? _options['transaction_webhook_url']?.toString() ?? '',
-          Icons.webhook_rounded,
-          (val) => _updateOption('pos_transaction_webhook_url', val),
-        ),
+        list[2],
+        const SizedBox(height: 8),
+        list[3],
+        const SizedBox(height: 8),
+        list[4],
       ],
     );
   }
 
-  Widget _buildDisplayConfiguration(Color primaryColor) {
+  Widget _buildStoreApiTiles(Color primaryColor, {bool isMobile = false}) {
+    final l10n = AppLocalizations.of(context)!;
+    return Builder(
+      builder: (context) {
+        Map<String, dynamic> opModeJson = {};
+        try {
+          final raw = _options['pos_operating_mode'];
+          if (raw is Map) {
+            opModeJson = Map<String, dynamic>.from(raw);
+          } else if (raw is String && raw.isNotEmpty) {
+            opModeJson = jsonDecode(raw) as Map<String, dynamic>;
+          }
+        } catch (_) {}
+
+        final currentMode = opModeJson['mode']?.toString() ?? 'classic';
+        final rawAvailable = opModeJson['available_modes'];
+        final List<String> availableModes = (rawAvailable is List) 
+            ? rawAvailable.map((e) => e.toString()).toList() 
+            : ['classic', 'self_order_hybrid'];
+
+        if (!availableModes.contains(currentMode)) {
+          availableModes.add(currentMode);
+        }
+
+        void updateMode(String? newMode) {
+          if (newMode == null) return;
+          opModeJson['mode'] = newMode;
+          opModeJson['changed_by'] = 'user';
+          _updateOption('pos_operating_mode', jsonEncode(opModeJson));
+        }
+
+        final list = [
+          _buildDropdownTile<String>(
+            icon: Icons.mode_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsOperatingMode,
+            value: currentMode,
+            items: availableModes,
+            labelBuilder: (m) => m.replaceAll('_', ' ').toUpperCase(),
+            onChanged: updateMode,
+          ),
+          _buildOptionTile(
+            l10n.settingsOnlineStoreUrl,
+            _options['pos_online_store_base_url']?.toString() ?? '',
+            Icons.link_rounded,
+            (val) => _updateOption('pos_online_store_base_url', val),
+          ),
+          _buildOptionTile(
+            l10n.settingsWebhookUrl,
+            _options['pos_transaction_webhook_url']?.toString() ?? _options['transaction_webhook_url']?.toString() ?? '',
+            Icons.webhook_rounded,
+            (val) => _updateOption('pos_transaction_webhook_url', val),
+          ),
+        ];
+
+        if (isMobile) {
+          return _buildGroupedCard(
+            child: Column(
+              children: [
+                list[0],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[1],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[2],
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            list[0],
+            const SizedBox(height: 8),
+            list[1],
+            const SizedBox(height: 8),
+            list[2],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDisplayConfiguration(Color primaryColor, {bool isMobile = false}) {
     final l10n = AppLocalizations.of(context)!;
     return Builder(
       builder: (context) {
@@ -338,50 +383,73 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
           _updateOption('pos_app_settings', jsonEncode(appSettings));
         }
 
+        final list = [
+          _buildToggleTile(
+            icon: Icons.image_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsShowImage,
+            subtitle: l10n.settingsShowImageDesc,
+            value: true, 
+            onChanged: null,
+          ),
+          _buildToggleTile(
+            icon: Icons.title_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsShowName,
+            subtitle: l10n.settingsShowNameDesc,
+            value: showName,
+            onChanged: (val) => updateDisplay('show_name', val),
+          ),
+          _buildToggleTile(
+            icon: Icons.inventory_2_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsShowStock,
+            subtitle: l10n.settingsShowStockDesc,
+            value: showStock,
+            onChanged: (val) => updateDisplay('show_stock', val),
+          ),
+          _buildToggleTile(
+            icon: Icons.payments_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsShowPrice,
+            subtitle: l10n.settingsShowPriceDesc,
+            value: showPrice,
+            onChanged: (val) => updateDisplay('show_price', val),
+          ),
+        ];
+
+        if (isMobile) {
+          return _buildGroupedCard(
+            child: Column(
+              children: [
+                list[0],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[1],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[2],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[3],
+              ],
+            ),
+          );
+        }
+
         return Column(
           children: [
-            _buildToggleTile(
-              icon: Icons.image_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsShowImage,
-              subtitle: l10n.settingsShowImageDesc,
-              value: true, 
-              onChanged: null,
-            ),
+            list[0],
             const SizedBox(height: 8),
-            _buildToggleTile(
-              icon: Icons.title_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsShowName,
-              subtitle: l10n.settingsShowNameDesc,
-              value: showName,
-              onChanged: (val) => updateDisplay('show_name', val),
-            ),
+            list[1],
             const SizedBox(height: 8),
-            _buildToggleTile(
-              icon: Icons.inventory_2_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsShowStock,
-              subtitle: l10n.settingsShowStockDesc,
-              value: showStock,
-              onChanged: (val) => updateDisplay('show_stock', val),
-            ),
+            list[2],
             const SizedBox(height: 8),
-            _buildToggleTile(
-              icon: Icons.payments_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsShowPrice,
-              subtitle: l10n.settingsShowPriceDesc,
-              value: showPrice,
-              onChanged: (val) => updateDisplay('show_price', val),
-            ),
+            list[3],
           ],
         );
       }
     );
   }
 
-  Widget _buildSelfOrderSettings(Color primaryColor) {
+  Widget _buildSelfOrderSettings(Color primaryColor, {bool isMobile = false}) {
     final l10n = AppLocalizations.of(context)!;
     return Builder(
       builder: (context) {
@@ -404,34 +472,54 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
           _updateOption('pos_self_order_settings', jsonEncode(selfOrderSettings));
         }
 
+        final list = [
+          _buildToggleTile(
+            icon: Icons.touch_app_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsEnableSelfOrder,
+            subtitle: l10n.settingsEnableSelfOrderDesc,
+            value: enableSelfOrder,
+            onChanged: (val) => updateSetting('enable_self_order', val),
+          ),
+          _buildToggleTile(
+            icon: Icons.table_bar_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsRequireTableNumber,
+            subtitle: l10n.settingsRequireTableNumberDesc,
+            value: requireTableNumber,
+            onChanged: (val) => updateSetting('require_table_number', val),
+          ),
+          _buildToggleTile(
+            icon: Icons.person_off_rounded,
+            iconColor: primaryColor,
+            title: l10n.settingsAllowGuestCheckout,
+            subtitle: l10n.settingsAllowGuestCheckoutDesc,
+            value: allowGuestCheckout,
+            onChanged: (val) => updateSetting('allow_guest_checkout', val),
+          ),
+        ];
+
+        if (isMobile) {
+          return _buildGroupedCard(
+            child: Column(
+              children: [
+                list[0],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[1],
+                const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                list[2],
+              ],
+            ),
+          );
+        }
+
         return Column(
           children: [
-            _buildToggleTile(
-              icon: Icons.touch_app_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsEnableSelfOrder,
-              subtitle: l10n.settingsEnableSelfOrderDesc,
-              value: enableSelfOrder,
-              onChanged: (val) => updateSetting('enable_self_order', val),
-            ),
+            list[0],
             const SizedBox(height: 8),
-            _buildToggleTile(
-              icon: Icons.table_bar_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsRequireTableNumber,
-              subtitle: l10n.settingsRequireTableNumberDesc,
-              value: requireTableNumber,
-              onChanged: (val) => updateSetting('require_table_number', val),
-            ),
+            list[1],
             const SizedBox(height: 8),
-            _buildToggleTile(
-              icon: Icons.person_off_rounded,
-              iconColor: primaryColor,
-              title: l10n.settingsAllowGuestCheckout,
-              subtitle: l10n.settingsAllowGuestCheckoutDesc,
-              value: allowGuestCheckout,
-              onChanged: (val) => updateSetting('allow_guest_checkout', val),
-            ),
+            list[2],
           ],
         );
       }
@@ -441,6 +529,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
   Widget _buildOptionTile(
       String title, String value, IconData icon, Function(String) onSave) {
     final l10n = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
     return InkWell(
       onTap: () async {
         final ctrl = TextEditingController(text: value);
@@ -483,11 +572,11 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 12 : 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FF),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFEEEFF8), width: 1),
+          color: isMobile ? Colors.transparent : const Color(0xFFF8F9FF),
+          borderRadius: isMobile ? null : BorderRadius.circular(10),
+          border: isMobile ? null : Border.all(color: const Color(0xFFEEEFF8), width: 1),
         ),
         child: Row(
           children: [
@@ -521,6 +610,24 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     );
   }
 
+  Widget _buildGroupedCard({required Widget child}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.015),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+
   Widget _buildDropdownTile<T>({
     required IconData icon,
     required Color iconColor,
@@ -530,12 +637,13 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     required String Function(T) labelBuilder,
     required ValueChanged<T?> onChanged,
   }) {
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 4 : 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FF),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEEEFF8), width: 1),
+        color: isMobile ? Colors.transparent : const Color(0xFFF8F9FF),
+        borderRadius: isMobile ? null : BorderRadius.circular(10),
+        border: isMobile ? null : Border.all(color: const Color(0xFFEEEFF8), width: 1),
       ),
       child: Row(
         children: [
@@ -594,15 +702,16 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 12 : 10),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FF),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFEEEFF8), width: 1),
+          color: isMobile ? Colors.transparent : const Color(0xFFF8F9FF),
+          borderRadius: isMobile ? null : BorderRadius.circular(10),
+          border: isMobile ? null : Border.all(color: const Color(0xFFEEEFF8), width: 1),
         ),
         child: Row(
           children: [
@@ -659,12 +768,13 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     required bool value,
     required ValueChanged<bool>? onChanged,
   }) {
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 10 : 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FF),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFEEEFF8), width: 1),
+        color: isMobile ? Colors.transparent : const Color(0xFFF8F9FF),
+        borderRadius: isMobile ? null : BorderRadius.circular(10),
+        border: isMobile ? null : Border.all(color: const Color(0xFFEEEFF8), width: 1),
       ),
       child: Row(
         children: [

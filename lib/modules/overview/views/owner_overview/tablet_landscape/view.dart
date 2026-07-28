@@ -118,27 +118,101 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
   Widget _buildHeader(BuildContext context, ThemeData theme) {
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final lastModifiedAt = DateTime(2026, 6, 4, 11, 35);
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTabs(context, theme),
+          const SizedBox(height: 6),
+          Text(
+            AppLocalizations.of(context)!.lastModified(
+              DateFormat.yMMMMd(localeName).format(lastModifiedAt),
+              DateFormat.Hm(localeName).format(lastModifiedAt),
+            ),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 9.5,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _buildDateFilter(theme),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    onPressed: _applyFilter,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      side: BorderSide(color: theme.dividerColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)!.applyFilter,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      side: BorderSide(color: theme.colorScheme.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)!.dailySales,
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      );
+    }
+
+    final headerRow1 = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _buildTabs(context, theme),
+        Text(
+          AppLocalizations.of(context)!.lastModified(
+            DateFormat.yMMMMd(localeName).format(lastModifiedAt),
+            DateFormat.Hm(localeName).format(lastModifiedAt),
+          ),
+          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
+        ),
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: Tabs and "Terakhir diubah"
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _buildTabs(context, theme),
-            Text(
-              AppLocalizations.of(context)!.lastModified(
-                DateFormat.yMMMMd(localeName).format(lastModifiedAt),
-                DateFormat.Hm(localeName).format(lastModifiedAt),
-              ),
-              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
-            ),
-          ],
-        ),
+        headerRow1,
         const SizedBox(height: 16),
-        // Row 2: Filters
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

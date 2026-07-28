@@ -295,6 +295,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -304,14 +305,15 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       canPop: !widget.lockedMode,
       child: Scaffold(
         backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(24.0, 20.0, 24.0, 0),
+            padding: EdgeInsets.fromLTRB(isMobile ? 12.0 : 24.0, isMobile ? 12.0 : 20.0, isMobile ? 12.0 : 24.0, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildHeader(theme, l10n),
-                const SizedBox(height: 24),
+                _buildHeader(theme, l10n, isMobile),
+                const SizedBox(height: 16),
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
@@ -320,13 +322,13 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                         top: Radius.circular(15),
                       ),
                     ),
-                    padding: const EdgeInsets.all(18.0),
+                    padding: EdgeInsets.all(isMobile ? 12.0 : 18.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildCurrentSessionBanner(theme, l10n),
-                        const SizedBox(height: 24),
-                        Expanded(child: _buildStaffGrid(theme, l10n)),
+                        _buildCurrentSessionBanner(theme, l10n, isMobile),
+                        const SizedBox(height: 16),
+                        Expanded(child: _buildStaffGrid(theme, l10n, isMobile)),
                       ],
                     ),
                   ),
@@ -339,7 +341,188 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, AppLocalizations l10n) {
+  Widget _buildHeader(ThemeData theme, AppLocalizations l10n, bool isMobile) {
+    final lockButton = !widget.lockedMode
+        ? OutlinedButton.icon(
+            onPressed: _lockApp,
+            icon: const Icon(Icons.lock_outline, color: Colors.orange, size: 16),
+            label: Text(
+              l10n.switchStaffLockAppAction,
+              style: const TextStyle(color: Colors.orange, fontSize: 12),
+            ),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 38),
+              side: const BorderSide(color: Colors.orange),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    final syncButton = FilledButton.icon(
+      onPressed: _isLoading
+          ? null
+          : () async {
+              setState(() {
+                _isLoading = true;
+              });
+              try {
+                if (_session != null) {
+                  await PosV2SyncOrchestrator().syncStaff(
+                    _session!.toSyncContext(),
+                  );
+                }
+                await _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(l10n.switchStaffSyncedMessage)),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                }
+              }
+            },
+      icon: _isLoading
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
+          : const Icon(Icons.sync, size: 16),
+      label: Text(l10n.switchStaffSyncAction, style: const TextStyle(fontSize: 12)),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 38),
+        backgroundColor: AppColors.primary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+
+    final logoutButton = FilledButton.icon(
+      onPressed: _isLoggingOutLocation ? null : _logoutLocation,
+      icon: _isLoggingOutLocation
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
+            )
+          : const Icon(Icons.power_settings_new, size: 16),
+      label: Text(l10n.switchStaffLogoutLocationAction, style: const TextStyle(fontSize: 12)),
+      style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 38),
+        backgroundColor: AppColors.error,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              if (!widget.lockedMode) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 12),
+              ],
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.person_outline,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.switchStaffTitle,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1A1D2E),
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      l10n.switchStaffSubtitle,
+                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_pendingSyncCount > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.sync_problem_rounded, color: Colors.orange.shade700, size: 16),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$_pendingSyncCount belum sinkron',
+                    style: TextStyle(
+                      color: Colors.orange.shade900,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              if (!widget.lockedMode) ...[
+                Expanded(child: lockButton),
+                const SizedBox(width: 8),
+              ],
+              Expanded(child: syncButton),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: logoutButton,
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         if (!widget.lockedMode) ...[
@@ -367,7 +550,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
           children: [
             Text(
               l10n.switchStaffTitle,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF1A1D2E),
@@ -376,27 +559,13 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             const SizedBox(height: 2),
             Text(
               l10n.switchStaffSubtitle,
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ],
         ),
         const Spacer(),
         if (!widget.lockedMode) ...[
-          OutlinedButton.icon(
-            onPressed: _lockApp,
-            icon: const Icon(Icons.lock_outline, color: Colors.orange),
-            label: Text(
-              l10n.switchStaffLockAppAction,
-              style: const TextStyle(color: Colors.orange),
-            ),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 42),
-              side: const BorderSide(color: Colors.orange),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
+          lockButton,
         ],
         const SizedBox(width: 12),
         if (_pendingSyncCount > 0)
@@ -424,79 +593,14 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             ),
           ),
         const SizedBox(width: 12),
-        FilledButton.icon(
-          onPressed: _isLoading
-              ? null
-              : () async {
-                  setState(() {
-                    _isLoading = true;
-                  });
-                  try {
-                    if (_session != null) {
-                      await PosV2SyncOrchestrator().syncStaff(
-                        _session!.toSyncContext(),
-                      );
-                    }
-                    await _loadData();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(l10n.switchStaffSyncedMessage)),
-                      );
-                    }
-                  } finally {
-                    if (mounted) {
-                      setState(() {
-                        _isLoading = false;
-                      });
-                    }
-                  }
-                },
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Icon(Icons.sync),
-          label: Text(l10n.switchStaffSyncAction),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 42),
-            backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
+        syncButton,
         const SizedBox(width: 12),
-        FilledButton.icon(
-          onPressed: _isLoggingOutLocation ? null : _logoutLocation,
-          icon: _isLoggingOutLocation
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Icon(Icons.power_settings_new),
-          label: Text(l10n.switchStaffLogoutLocationAction),
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(0, 42),
-            backgroundColor: AppColors.error,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
+        logoutButton,
       ],
     );
   }
 
-  Widget _buildCurrentSessionBanner(ThemeData theme, AppLocalizations l10n) {
+  Widget _buildCurrentSessionBanner(ThemeData theme, AppLocalizations l10n, [bool isMobile = false]) {
     final currentStaffName =
         _session?.staffFullName ?? l10n.switchStaffNoCurrentSession;
 
@@ -505,7 +609,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
         color: AppColors.primary,
         borderRadius: BorderRadius.circular(16),
       ),
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(isMobile ? 16 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -522,12 +626,12 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Row(
             children: [
               Container(
-                width: 60,
-                height: 60,
+                width: isMobile ? 50 : 60,
+                height: isMobile ? 50 : 60,
                 decoration: BoxDecoration(
                   color: Colors.white,
                   shape: BoxShape.circle,
@@ -542,17 +646,17 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.person,
-                      size: 32,
+                      size: isMobile ? 26 : 32,
                       color: AppColors.primary,
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        width: 14,
-                        height: 14,
+                        width: 12,
+                        height: 12,
                         decoration: BoxDecoration(
                           color: Colors.green,
                           shape: BoxShape.circle,
@@ -563,7 +667,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
                 flex: 2,
                 child: Column(
@@ -574,35 +678,40 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        fontSize: isMobile ? 14 : 16,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       l10n.switchStaffSelectAccountPrompt,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
+                        fontSize: isMobile ? 10 : 12,
                       ),
                     ),
                   ],
                 ),
               ),
-              _buildFeatureInfo(
-                l10n,
-                icon: Icons.shield_outlined,
-                title: l10n.switchStaffSecureTitle,
-                subtitle: l10n.switchStaffSecureSubtitle,
-              ),
-              _buildFeatureInfo(
-                l10n,
-                icon: Icons.people_outline,
-                title: l10n.switchStaffRoleAccessTitle,
-                subtitle: l10n.switchStaffRoleAccessSubtitle,
-              ),
-              _buildFeatureInfo(
-                l10n,
-                icon: Icons.history_outlined,
-                title: l10n.switchStaffAuditTitle,
-                subtitle: l10n.switchStaffAuditSubtitle,
-              ),
+              if (!isMobile) ...[
+                _buildFeatureInfo(
+                  l10n,
+                  icon: Icons.shield_outlined,
+                  title: l10n.switchStaffSecureTitle,
+                  subtitle: l10n.switchStaffSecureSubtitle,
+                ),
+                _buildFeatureInfo(
+                  l10n,
+                  icon: Icons.people_outline,
+                  title: l10n.switchStaffRoleAccessTitle,
+                  subtitle: l10n.switchStaffRoleAccessSubtitle,
+                ),
+                _buildFeatureInfo(
+                  l10n,
+                  icon: Icons.history_outlined,
+                  title: l10n.switchStaffAuditTitle,
+                  subtitle: l10n.switchStaffAuditSubtitle,
+                ),
+              ],
             ],
           ),
         ],
@@ -647,7 +756,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
     );
   }
 
-  Widget _buildStaffGrid(ThemeData theme, AppLocalizations l10n) {
+  Widget _buildStaffGrid(ThemeData theme, AppLocalizations l10n, [bool isMobile = false]) {
+    if (isMobile) {
+      return _buildMobileStaffList(theme, l10n);
+    }
+
     final bool isOwner =
         RoleManager.fromCode(_session?.staffRoleCode) == AppRole.owner;
 
@@ -658,9 +771,10 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       children: [
         Expanded(
           child: GridView.builder(
+            physics: const BouncingScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 5, // Fit more cards in a row to reduce huge sizes
-              childAspectRatio: 0.95, // Make them a bit squarer
+              crossAxisCount: 5,
+              childAspectRatio: 0.95,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
@@ -674,7 +788,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
           ),
         ),
         Padding(
-          padding: EdgeInsets.only(top: 24.0, bottom: 0.0),
+          padding: const EdgeInsets.only(top: 24.0, bottom: 0.0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -699,6 +813,166 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
     );
   }
 
+  Widget _buildMobileStaffList(ThemeData theme, AppLocalizations l10n) {
+    final bool isOwner =
+        RoleManager.fromCode(_session?.staffRoleCode) == AppRole.owner;
+
+    final list = _allStaffRows;
+
+    return ListView.builder(
+      physics: const BouncingScrollPhysics(),
+      itemCount: list.length + (isOwner ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (isOwner && index == list.length) {
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade100),
+            ),
+            child: ListTile(
+              onTap: () {
+                if (_session == null) return;
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => AddStaffDialog(
+                    session: _session!,
+                    authService: _authService,
+                    onSuccess: () async {
+                      Navigator.of(ctx).pop();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Staf berhasil ditambahkan! Mengsinkronkan data...')),
+                      );
+                      setState(() => _isLoading = true);
+                      try {
+                        await PosV2SyncOrchestrator().syncStaff(_session!.toSyncContext());
+                        await _loadData();
+                      } finally {
+                        if (mounted) setState(() => _isLoading = false);
+                      }
+                    },
+                  ),
+                );
+              },
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.primary, size: 18),
+              ),
+              title: Text(
+                l10n.switchStaffAddStaffAction,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+              subtitle: Text(
+                l10n.switchStaffOwnerOnly,
+                style: const TextStyle(fontSize: 10, color: Colors.grey),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+            ),
+          );
+        }
+
+        final staffInfo = list[index];
+        final name = staffInfo['full_name']?.toString() ?? '-';
+        final email = staffInfo['email']?.toString() ?? '-';
+        final roleCode = staffInfo['role_code']?.toString();
+        final role = RoleManager.fromCode(roleCode);
+        final roleName = _roleLabel(l10n, role).toUpperCase();
+        final isCurrentStaff =
+            !widget.lockedMode &&
+            (_session?.staffId == staffInfo['remote_id']?.toString());
+
+        Color roleColor;
+        Color bgRoleColor;
+        if (isCurrentStaff) {
+          roleColor = const Color(0xFF5F6368);
+          bgRoleColor = const Color(0xFFF1F3F4);
+        } else {
+          switch (role) {
+            case AppRole.owner:
+              roleColor = const Color(0xFFE65100);
+              bgRoleColor = const Color(0xFFFFF3E0);
+              break;
+            case AppRole.supervisor:
+              roleColor = const Color(0xFF4A148C);
+              bgRoleColor = const Color(0xFFEDE7F6);
+              break;
+            case AppRole.cashier:
+              roleColor = const Color(0xFF1B5E20);
+              bgRoleColor = const Color(0xFFE8F5E9);
+              break;
+            case AppRole.kitchen:
+              roleColor = const Color(0xFF880E4F);
+              bgRoleColor = const Color(0xFFFCE4EC);
+              break;
+            default:
+              roleColor = const Color(0xFF1A73E8);
+              bgRoleColor = const Color(0xFFE8F0FE);
+          }
+        }
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          decoration: BoxDecoration(
+            color: isCurrentStaff ? Colors.grey.shade50 : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isCurrentStaff
+                  ? AppColors.primary.withValues(alpha: 0.3)
+                  : Colors.grey.shade100,
+              width: isCurrentStaff ? 1.5 : 1,
+            ),
+          ),
+          child: ListTile(
+            onTap: isCurrentStaff ? null : () => _showPinDialog(staffInfo),
+            leading: Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: bgRoleColor,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person_rounded, color: roleColor, size: 20),
+            ),
+            title: Text(
+              name,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isCurrentStaff ? Colors.grey.shade600 : const Color(0xFF111827),
+              ),
+            ),
+            subtitle: Text(
+              email,
+              style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+            ),
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isCurrentStaff ? AppColors.primary : bgRoleColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                isCurrentStaff ? 'AKTIF' : roleName,
+                style: TextStyle(
+                  color: isCurrentStaff ? Colors.white : roleColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 8.5,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildStaffCard(
     ThemeData theme,
     AppLocalizations l10n,
@@ -712,10 +986,35 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
         !widget.lockedMode &&
         (_session?.staffId == staffInfo['remote_id']?.toString());
 
-    // Use different gradients based on role
-    final gradientColors = role == AppRole.owner
-        ? [Colors.orange.shade300, Colors.orange.shade600]
-        : [Colors.red.shade300, Colors.red.shade600];
+    // Color coding based on role
+    Color bgColor;
+    Color iconColor;
+    if (isCurrentStaff) {
+      bgColor = const Color(0xFFF1F3F4);
+      iconColor = const Color(0xFF5F6368);
+    } else {
+      switch (role) {
+        case AppRole.owner:
+          bgColor = const Color(0xFFFFF3E0);
+          iconColor = const Color(0xFFE65100);
+          break;
+        case AppRole.supervisor:
+          bgColor = const Color(0xFFEDE7F6);
+          iconColor = const Color(0xFF4A148C);
+          break;
+        case AppRole.cashier:
+          bgColor = const Color(0xFFE8F5E9);
+          iconColor = const Color(0xFF1B5E20);
+          break;
+        case AppRole.kitchen:
+          bgColor = const Color(0xFFFCE4EC);
+          iconColor = const Color(0xFF880E4F);
+          break;
+        default:
+          bgColor = const Color(0xFFE8F0FE);
+          iconColor = const Color(0xFF1A73E8);
+      }
+    }
 
     return InkWell(
       onTap: isCurrentStaff ? null : () => _showPinDialog(staffInfo),
@@ -742,80 +1041,66 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               width: isCurrentStaff ? 2 : 1,
             ),
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    colors: isCurrentStaff
-                        ? [Colors.grey.shade400, Colors.grey.shade600]
-                        : gradientColors,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  boxShadow: isCurrentStaff
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: gradientColors.last.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
+                  color: bgColor,
                 ),
-                child: const Icon(Icons.person, size: 32, color: Colors.white),
+                child: Icon(Icons.person_rounded, size: 24, color: iconColor),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
                 name,
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: theme.textTheme.titleSmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  color: const Color(0xFF111827),
                 ),
                 textAlign: TextAlign.center,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               if (isCurrentStaff)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Text(
-                    'SEDANG AKTIF',
+                    'AKTIF',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 10,
+                      fontSize: 9,
                     ),
                   ),
                 )
               else
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                    horizontal: 10,
+                    vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
+                    color: iconColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     roleName,
-                    style: const TextStyle(
-                      color: AppColors.primary,
+                    style: TextStyle(
+                      color: iconColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                      fontSize: 9,
                     ),
                   ),
                 ),
@@ -878,44 +1163,45 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
           ],
           border: Border.all(color: Colors.grey.shade100),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 64,
-              height: 64,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.blue.shade50,
               ),
               child: const Icon(
-                Icons.person_add_alt_1,
-                size: 30,
+                Icons.person_add_alt_1_rounded,
+                size: 24,
                 color: AppColors.primary,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Text(
               l10n.switchStaffAddStaffAction,
-              style: theme.textTheme.titleMedium?.copyWith(
+              style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: AppColors.primary,
               ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 l10n.switchStaffOwnerOnly,
                 style: const TextStyle(
                   color: Colors.grey,
                   fontWeight: FontWeight.bold,
-                  fontSize: 11,
+                  fontSize: 9,
                 ),
               ),
             ),

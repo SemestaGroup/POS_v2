@@ -31,6 +31,7 @@ class _CategoriesViewState extends State<CategoriesView> {
   @override
   Widget build(BuildContext context) {
     final strings = _CategoriesStrings.of(context);
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return ValueListenableBuilder<MasterDataListSnapshot<CategoryListRecord>>(
       valueListenable: _store.snapshotNotifier,
@@ -64,11 +65,11 @@ class _CategoriesViewState extends State<CategoriesView> {
                       padding: const EdgeInsets.all(12),
                       child: GridView.builder(
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 4,
+                            SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: isMobile ? 2 : 4,
                           crossAxisSpacing: 10,
                           mainAxisSpacing: 10,
-                          childAspectRatio: 1.45,
+                          childAspectRatio: isMobile ? 1.65 : 1.45,
                         ),
                         itemCount: records.length,
                         itemBuilder: (context, index) {

@@ -32,266 +32,491 @@ class _DeviceStatusViewState extends State<DeviceStatusView> {
       valueListenable: _store.snapshotNotifier,
       builder: (context, snapshot, _) {
         final session = snapshot.session;
+        final isMobile = MediaQuery.of(context).size.shortestSide < 600;
         return Container(
           color: const Color(0xFFF8FAFC),
           child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
             slivers: [
+              // Header & Current Device Info
               SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Header
                     Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            strings.title,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF111827),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            strings.subtitle,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              height: 1.4,
-                              color: Color(0xFF6B7280),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      onPressed: snapshot.isLoading ? null : () => _store.refresh(),
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: Text(strings.refresh),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.icon(
-                      onPressed: snapshot.isSaving || session == null
-                          ? null
-                          : () => _openRegisterDialog(context, null, snapshot),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(strings.newRegister),
-                      style: FilledButton.styleFrom(
-                        minimumSize: const Size(0, 36),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (snapshot.errorMessage != null && snapshot.errorMessage!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
-                  child: _InlineMessage(
-                    message: snapshot.errorMessage!,
-                    tone: _InlineMessageTone.error,
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(18, 0, 18, 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _StatusCard(
-                        title: strings.currentDevice,
-                        accentColor: primary,
-                        child: session == null
-                            ? Text(
-                                strings.noSession,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF6B7280),
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 12),
+                      child: isMobile
+                          ? Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  strings.title,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF111827),
+                                  ),
                                 ),
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
+                                const SizedBox(height: 4),
+                                Text(
+                                  strings.subtitle,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    height: 1.4,
+                                    color: Color(0xFF6B7280),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: snapshot.isLoading ? null : () => _store.refresh(),
+                                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                                        label: Text(strings.refresh),
+                                        style: OutlinedButton.styleFrom(
+                                          minimumSize: const Size(0, 38),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton.icon(
+                                        onPressed: snapshot.isSaving || session == null
+                                            ? null
+                                            : () => _openRegisterDialog(context, null, snapshot),
+                                        icon: const Icon(Icons.add_rounded, size: 16),
+                                        label: Text(strings.newRegister),
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size(0, 38),
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      _MetaPill(
-                                        icon: Icons.devices_rounded,
-                                        label:
-                                            '${strings.deviceId}: ${session.deviceId ?? '-'}',
+                                      Text(
+                                        strings.title,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w800,
+                                          color: Color(0xFF111827),
+                                        ),
                                       ),
-                                      _MetaPill(
-                                        icon: Icons.point_of_sale_rounded,
-                                        label:
-                                            '${strings.registerId}: ${session.registerId ?? strings.unassigned}',
-                                        highlighted: (session.registerId ?? '')
-                                            .trim()
-                                            .isNotEmpty,
-                                      ),
-                                      _MetaPill(
-                                        icon: Icons.place_outlined,
-                                        label:
-                                            '${strings.locationId}: ${session.locationId.isEmpty ? '-' : session.locationId}',
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        strings.subtitle,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          height: 1.4,
+                                          color: Color(0xFF6B7280),
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    session.staffFullName ??
-                                        session.staffEmail ??
-                                        strings.noSession,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF111827),
+                                ),
+                                const SizedBox(width: 12),
+                                OutlinedButton.icon(
+                                  onPressed: snapshot.isLoading ? null : () => _store.refresh(),
+                                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                                  label: Text(strings.refresh),
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(0, 36),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
                                     ),
                                   ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    session.baseUrl,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF6B7280),
+                                ),
+                                const SizedBox(width: 8),
+                                FilledButton.icon(
+                                  onPressed: snapshot.isSaving || session == null
+                                      ? null
+                                      : () => _openRegisterDialog(context, null, snapshot),
+                                  icon: const Icon(Icons.add_rounded, size: 16),
+                                  label: Text(strings.newRegister),
+                                  style: FilledButton.styleFrom(
+                                    minimumSize: const Size(0, 36),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  Wrap(
-                                    spacing: 8,
-                                    children: [
-                                      FilledButton.tonal(
-                                        onPressed: snapshot.isSaving
-                                            ? null
-                                            : () => _store.assignCurrentDeviceRegister(null),
-                                        style: FilledButton.styleFrom(
-                                          minimumSize: const Size(0, 34),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 8,
+                                ),
+                              ],
+                            ),
+                    ),
+
+                    if (snapshot.errorMessage != null && snapshot.errorMessage!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+                        child: _InlineMessage(
+                          message: snapshot.errorMessage!,
+                          tone: _InlineMessageTone.error,
+                        ),
+                      ),
+
+                    // Current Device Status Card (Clean & SaaS visual style)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(18, 0, 18, 16),
+                      child: isMobile
+                          ? Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: session == null
+                                  ? Text(
+                                      strings.noSession,
+                                      style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                                    )
+                                  : Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Active user info
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.all(8),
+                                              decoration: BoxDecoration(
+                                                color: primary.withValues(alpha: 0.08),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(Icons.person_rounded, color: primary, size: 18),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    session.staffFullName ?? session.staffEmail ?? strings.noSession,
+                                                    style: const TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Color(0xFF111827),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  const Text(
+                                                    'Sesi Operator Aktif',
+                                                    style: TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Divider(height: 1, color: Colors.grey.shade100),
+                                        const SizedBox(height: 12),
+                                        // Mobile Device Rows
+                                        _buildMobileDeviceRow(Icons.devices_rounded, strings.deviceId, session.deviceId ?? '-'),
+                                        const SizedBox(height: 8),
+                                        _buildMobileDeviceRow(Icons.point_of_sale_rounded, strings.registerId, session.registerId ?? strings.unassigned, isHighlighted: (session.registerId ?? '').trim().isNotEmpty),
+                                        const SizedBox(height: 8),
+                                        _buildMobileDeviceRow(Icons.place_outlined, strings.locationId, session.locationId.isEmpty ? '-' : session.locationId),
+                                        const SizedBox(height: 8),
+                                        _buildMobileDeviceRow(Icons.link_rounded, 'Base URL', session.baseUrl),
+                                        const SizedBox(height: 12),
+                                        Divider(height: 1, color: Colors.grey.shade100),
+                                        const SizedBox(height: 10),
+                                        // Disconnect/Clear Button styled professionally
+                                        SizedBox(
+                                          width: double.infinity,
+                                          height: 36,
+                                          child: TextButton.icon(
+                                            onPressed: snapshot.isSaving ? null : () => _store.assignCurrentDeviceRegister(null),
+                                            icon: const Icon(Icons.link_off_rounded, size: 16, color: Color(0xFFB91C1C)),
+                                            label: Text(
+                                              strings.clearAssignment,
+                                              style: const TextStyle(
+                                                fontSize: 11.5,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFFB91C1C),
+                                              ),
+                                            ),
+                                            style: TextButton.styleFrom(
+                                              backgroundColor: const Color(0xFFFEF2F2),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              padding: EdgeInsets.zero,
+                                            ),
                                           ),
                                         ),
-                                        child: Text(strings.clearAssignment),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                            )
+                          : Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _StatusCard(
+                                    title: strings.currentDevice,
+                                    accentColor: primary,
+                                    child: session == null
+                                        ? Text(
+                                            strings.noSession,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Color(0xFF6B7280),
+                                            ),
+                                          )
+                                        : Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Wrap(
+                                                spacing: 8,
+                                                runSpacing: 8,
+                                                children: [
+                                                  _MetaPill(
+                                                    icon: Icons.devices_rounded,
+                                                    label: '${strings.deviceId}: ${session.deviceId ?? '-'}',
+                                                  ),
+                                                  _MetaPill(
+                                                    icon: Icons.point_of_sale_rounded,
+                                                    label: '${strings.registerId}: ${session.registerId ?? strings.unassigned}',
+                                                    highlighted: (session.registerId ?? '').trim().isNotEmpty,
+                                                  ),
+                                                  _MetaPill(
+                                                    icon: Icons.place_outlined,
+                                                    label: '${strings.locationId}: ${session.locationId.isEmpty ? '-' : session.locationId}',
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                session.staffFullName ?? session.staffEmail ?? strings.noSession,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF111827),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Text(
+                                                session.baseUrl,
+                                                style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Color(0xFF6B7280),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Wrap(
+                                                spacing: 8,
+                                                children: [
+                                                  FilledButton.tonal(
+                                                    onPressed: snapshot.isSaving ? null : () => _store.assignCurrentDeviceRegister(null),
+                                                    style: FilledButton.styleFrom(
+                                                      minimumSize: const Size(0, 34),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                                    ),
+                                                    child: Text(strings.clearAssignment),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
                                   ),
-                                ],
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatusCard(
-                        title: strings.provisioningNotes,
-                        accentColor: const Color(0xFF7C3AED),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              strings.noteOne,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                height: 1.45,
-                                color: Color(0xFF374151),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              strings.noteTwo,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                height: 1.45,
-                                color: Color(0xFF374151),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              strings.noteThree,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                height: 1.45,
-                                color: Color(0xFF374151),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        SliverFillRemaining(
-                hasScrollBody: true,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
-                    ),
-                    child: snapshot.isLoading && snapshot.registers.isEmpty
-                        ? const Center(child: CircularProgressIndicator())
-                        : snapshot.registers.isEmpty
-                            ? Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(24),
-                                  child: Text(
-                                    strings.emptyRegisters,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      height: 1.5,
-                                      color: Color(0xFF6B7280),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _StatusCard(
+                                    title: strings.provisioningNotes,
+                                    accentColor: const Color(0xFF7C3AED),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          strings.noteOne,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.45,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          strings.noteTwo,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.45,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          strings.noteThree,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.45,
+                                            color: Color(0xFF374151),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              )
-                            : ListView.separated(
-                                padding: const EdgeInsets.all(12),
-                                itemCount: snapshot.registers.length,
-                                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                                itemBuilder: (context, index) {
-                                  final register = snapshot.registers[index];
-                                  final isAssigned =
-                                      snapshot.currentRegisterId == register.registerId;
-                                  return _RegisterTile(
-                                    strings: strings,
-                                    register: register,
-                                    isAssigned: isAssigned,
-                                    isBusy: snapshot.isSaving,
-                                    onAssign: register.isActive
-                                        ? () => _store.assignCurrentDeviceRegister(
-                                              register.registerId,
-                                            )
-                                        : null,
-                                    onEdit: () =>
-                                        _openRegisterDialog(context, register, snapshot),
-                                    onDelete: () =>
-                                        _confirmDelete(context, register, strings),
-                                  );
-                                },
-                              ),
-                  ),
+                              ],
+                            ),
+                    ),
+
+                    if (isMobile) ...[
+                      // List Title for Mobile
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 4, 18, 8),
+                        child: Text(
+                          'DAFTAR REGISTER TERSEDIA',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey.shade500,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+
+              // Registered Devices List Section
+              isMobile
+                  ? SliverPadding(
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      sliver: snapshot.isLoading && snapshot.registers.isEmpty
+                          ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+                          : snapshot.registers.isEmpty
+                              ? SliverFillRemaining(
+                                  child: Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(24),
+                                      child: Text(
+                                        strings.emptyRegisters,
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF6B7280)),
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : SliverList(
+                                  delegate: SliverChildBuilderDelegate(
+                                    (context, index) {
+                                      final register = snapshot.registers[index];
+                                      final isAssigned = snapshot.currentRegisterId == register.registerId;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 10),
+                                        child: _RegisterTile(
+                                          strings: strings,
+                                          register: register,
+                                          isAssigned: isAssigned,
+                                          isBusy: snapshot.isSaving,
+                                          onAssign: register.isActive
+                                              ? () => _store.assignCurrentDeviceRegister(register.registerId)
+                                              : null,
+                                          onEdit: () => _openRegisterDialog(context, register, snapshot),
+                                          onDelete: () => _confirmDelete(context, register, strings),
+                                        ),
+                                      );
+                                    },
+                                    childCount: snapshot.registers.length,
+                                  ),
+                                ),
+                    )
+                  : SliverFillRemaining(
+                      hasScrollBody: true,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                          ),
+                          child: snapshot.isLoading && snapshot.registers.isEmpty
+                              ? const Center(child: CircularProgressIndicator())
+                              : snapshot.registers.isEmpty
+                                  ? Center(
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Text(
+                                          strings.emptyRegisters,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.5,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      padding: const EdgeInsets.all(12),
+                                      itemCount: snapshot.registers.length,
+                                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                                      itemBuilder: (context, index) {
+                                        final register = snapshot.registers[index];
+                                        final isAssigned = snapshot.currentRegisterId == register.registerId;
+                                        return _RegisterTile(
+                                          strings: strings,
+                                          register: register,
+                                          isAssigned: isAssigned,
+                                          isBusy: snapshot.isSaving,
+                                          onAssign: register.isActive
+                                              ? () => _store.assignCurrentDeviceRegister(register.registerId)
+                                              : null,
+                                          onEdit: () => _openRegisterDialog(context, register, snapshot),
+                                          onDelete: () => _confirmDelete(context, register, strings),
+                                        );
+                                      },
+                                    ),
+                        ),
+                      ),
+                    ),
+
+              // Footer Provisioning Notes for Mobile (Out of the way, clean text)
+              if (isMobile)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          strings.provisioningNotes.toUpperCase(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.grey.shade500,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '• ${strings.noteOne}\n\n• ${strings.noteTwo}\n\n• ${strings.noteThree}',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade500,
+                            height: 1.55,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -509,6 +734,36 @@ class _DeviceStatusViewState extends State<DeviceStatusView> {
       ),
     );
   }
+
+  Widget _buildMobileDeviceRow(IconData icon, String label, String value, {bool isHighlighted = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF6B7280)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isHighlighted ? const Color(0xFF6D28D9) : const Color(0xFF374151),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _StatusCard extends StatelessWidget {
@@ -584,6 +839,134 @@ class _RegisterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+
+    final detailContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              register.registerName,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111827),
+              ),
+            ),
+            _StateBadge(
+              label: register.isActive
+                  ? strings.activeLabel
+                  : strings.inactiveLabel,
+              color: register.isActive
+                  ? const Color(0xFF0F766E)
+                  : const Color(0xFF9CA3AF),
+              background: register.isActive
+                  ? const Color(0xFFCCFBF1)
+                  : const Color(0xFFF3F4F6),
+            ),
+            if (isAssigned)
+              _StateBadge(
+                label: strings.assignedLabel,
+                color: const Color(0xFF6D28D9),
+                background: const Color(0xFFEDE9FE),
+              ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${strings.registerId}: ${register.registerId}  •  ${strings.locationId}: ${register.locationId}',
+          style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+        ),
+        if ((register.deviceIdHint ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            '${strings.deviceHint}: ${register.deviceIdHint}',
+            style: const TextStyle(
+              fontSize: 11,
+              color: Color(0xFF6B7280),
+            ),
+          ),
+        ],
+        if ((register.notes ?? '').trim().isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            register.notes!,
+            style: const TextStyle(
+              fontSize: 11,
+              height: 1.5,
+              color: Color(0xFF374151),
+            ),
+          ),
+        ],
+      ],
+    );
+
+    if (isMobile) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isAssigned ? const Color(0xFFF5F3FF) : const Color(0xFFFCFCFD),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isAssigned ? const Color(0xFFC4B5FD) : const Color(0xFFE5E7EB),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            detailContent,
+            const SizedBox(height: 10),
+            Divider(height: 1, color: Colors.grey.shade200),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonal(
+                    onPressed: isBusy ? null : onAssign,
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 36),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                    ),
+                    child: Text(
+                      strings.assignHere,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: isBusy ? null : onEdit,
+                  icon: const Icon(Icons.edit_rounded, size: 18),
+                  color: Colors.grey.shade700,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.grey.shade100,
+                    padding: const EdgeInsets.all(8),
+                    minimumSize: const Size(36, 36),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  onPressed: isBusy ? null : onDelete,
+                  icon: const Icon(Icons.delete_rounded, size: 18),
+                  color: const Color(0xFFB91C1C),
+                  style: IconButton.styleFrom(
+                    backgroundColor: const Color(0xFFFEF2F2),
+                    padding: const EdgeInsets.all(8),
+                    minimumSize: const Size(36, 36),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -596,71 +979,7 @@ class _RegisterTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(
-                      register.registerName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF111827),
-                      ),
-                    ),
-                    _StateBadge(
-                      label: register.isActive
-                          ? strings.activeLabel
-                          : strings.inactiveLabel,
-                      color: register.isActive
-                          ? const Color(0xFF0F766E)
-                          : const Color(0xFF9CA3AF),
-                      background: register.isActive
-                          ? const Color(0xFFCCFBF1)
-                          : const Color(0xFFF3F4F6),
-                    ),
-                    if (isAssigned)
-                      _StateBadge(
-                        label: strings.assignedLabel,
-                        color: const Color(0xFF6D28D9),
-                        background: const Color(0xFFEDE9FE),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${strings.registerId}: ${register.registerId}  •  ${strings.locationId}: ${register.locationId}',
-                  style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-                ),
-                if ((register.deviceIdHint ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    '${strings.deviceHint}: ${register.deviceIdHint}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF6B7280),
-                    ),
-                  ),
-                ],
-                if ((register.notes ?? '').trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    register.notes!,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      height: 1.5,
-                      color: Color(0xFF374151),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          Expanded(child: detailContent),
           const SizedBox(width: 12),
           Wrap(
             spacing: 6,
