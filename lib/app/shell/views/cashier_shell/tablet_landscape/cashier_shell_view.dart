@@ -49,7 +49,10 @@ class _CashierShellViewState extends State<CashierShellView> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Theme.of(context).scaffoldBackgroundColor, Colors.white],
+                colors: [
+                  Theme.of(context).scaffoldBackgroundColor,
+                  Colors.white,
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -59,15 +62,7 @@ class _CashierShellViewState extends State<CashierShellView> {
                 SidebarWidget(
                   items: _menuItems,
                   selectedIndex: _selectedIndex,
-                  onItemSelected: (index) {
-                    setState(() {
-                      _selectedIndex = index;
-                      // Auto collapse on sales (index 0 for cashier)
-                      if (index == 0) {
-                        _isSidebarCollapsed = true;
-                      }
-                    });
-                  },
+                  onItemSelected: _selectSection,
                   isCollapsed: _isSidebarCollapsed,
                   onToggle: () {
                     setState(() {
@@ -75,32 +70,43 @@ class _CashierShellViewState extends State<CashierShellView> {
                     });
                   },
                 ),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    switchInCurve: Curves.easeOut,
-                    switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(opacity: animation, child: child);
-                    },
-                    layoutBuilder: (currentChild, previousChildren) {
-                      return Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          for (final child in previousChildren)
-                            IgnorePointer(child: child),
-                          ...[currentChild].whereType<Widget>(),
-                        ],
-                      );
-                    },
-                    child: _buildBody(),
-                  ),
-                ),
+                Expanded(child: _buildAnimatedBody()),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _selectSection(int index) {
+    if (_selectedIndex == index) return;
+    setState(() {
+      _selectedIndex = index;
+      if (index == 0) {
+        _isSidebarCollapsed = true;
+      }
+    });
+  }
+
+  Widget _buildAnimatedBody() {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        return FadeTransition(opacity: animation, child: child);
+      },
+      layoutBuilder: (currentChild, previousChildren) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            for (final child in previousChildren) IgnorePointer(child: child),
+            ...[currentChild].whereType<Widget>(),
+          ],
+        );
+      },
+      child: _buildBody(),
     );
   }
 

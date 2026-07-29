@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../general/views/general_settings/tablet_landscape/view.dart' show GeneralSettingsSaveAction, GeneralSettingsView;
+import '../../general/views/general_settings/tablet_landscape/view.dart'
+    show GeneralSettingsSaveAction, GeneralSettingsView;
 
 import '../../../../app/role_access/role_manager.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -160,8 +161,6 @@ class _SettingsShellViewState extends State<SettingsShellView> {
   Widget _buildMobileSettings(
     BuildContext context,
     List<_MenuCategory> categories,
-    ThemeData theme,
-    Color primaryColor,
   ) {
     final l10n = AppLocalizations.of(context)!;
     return Scaffold(
@@ -186,7 +185,7 @@ class _SettingsShellViewState extends State<SettingsShellView> {
           const Padding(
             padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
             child: Text(
-              'PENGATURAN APLIKASI',
+              'OPERASIONAL & PERANGKAT TOKO',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
@@ -195,9 +194,10 @@ class _SettingsShellViewState extends State<SettingsShellView> {
               ),
             ),
           ),
-          ...categories.map((cat) {
-            final bgColor = getCategoryBgColor(cat.icon);
-            final iconColor = getCategoryIconColor(cat.icon);
+          ...categories.map((category) {
+            final bgColor = getCategoryBgColor(category.icon);
+            final iconColor = getCategoryIconColor(category.icon);
+            final itemCount = category.subMenus.length;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -214,17 +214,20 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                 ],
               ),
               child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 6,
+                ),
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: bgColor,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(cat.icon, color: iconColor, size: 22),
+                  child: Icon(category.icon, color: iconColor, size: 22),
                 ),
                 title: Text(
-                  cat.title,
+                  category.title,
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -232,124 +235,142 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                   ),
                 ),
                 subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Text(
-                    cat.subtitle,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey.shade500,
-                    ),
+                    category.subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                   ),
                 ),
-                trailing: Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.grey.shade400,
-                ),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => Scaffold(
-                        backgroundColor: const Color(0xFFF8F9FD),
-                        appBar: AppBar(
-                          backgroundColor: Colors.white,
-                          elevation: 0,
-                          scrolledUnderElevation: 0,
-                          leading: IconButton(
-                            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                          title: Text(
-                            cat.title,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF1A1D2E),
-                            ),
-                          ),
-                          centerTitle: true,
-                        ),
-                        body: ListView(
-                          padding: const EdgeInsets.all(16),
-                          children: [
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: Colors.grey.shade100),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.015),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: cat.subMenus.length,
-                                separatorBuilder: (context, sepIdx) => Divider(height: 1, color: Colors.grey.shade100),
-                                itemBuilder: (context, subIdx) {
-                                  final sub = cat.subMenus[subIdx];
-                                  return ListTile(
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                                    title: Text(
-                                      sub.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: Color(0xFF1A1D2E),
-                                      ),
-                                    ),
-                                    trailing: Icon(
-                                      Icons.arrow_forward_ios_rounded,
-                                      size: 14,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute<void>(
-                                          builder: (context) => Scaffold(
-                                            backgroundColor: const Color(0xFFF8F9FD),
-                                            appBar: AppBar(
-                                              backgroundColor: Colors.white,
-                                              elevation: 0,
-                                              scrolledUnderElevation: 0,
-                                              leading: IconButton(
-                                                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
-                                                onPressed: () => Navigator.pop(context),
-                                              ),
-                                              title: Text(
-                                                sub.title,
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF1A1D2E),
-                                                ),
-                                              ),
-                                              centerTitle: true,
-                                            ),
-                                            body: sub.view,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$itemCount menu',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF94A3B8),
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.grey.shade400,
+                    ),
+                  ],
+                ),
+                onTap: () => _openMobileCategory(context, category: category),
               ),
             );
           }),
         ],
+      ),
+    );
+  }
+
+  void _openMobileCategory(
+    BuildContext context, {
+    required _MenuCategory category,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => Scaffold(
+          backgroundColor: const Color(0xFFF8F9FD),
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IconButton(
+              tooltip: 'Kembali',
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+              color: const Color(0xFF1A1D2E),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: Text(
+              category.title,
+              style: const TextStyle(
+                color: Color(0xFF1A1D2E),
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            centerTitle: true,
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
+                child: Text(
+                  'PILIH PENGATURAN',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF8E8E93),
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+              ...category.subMenus.map(
+                (sub) => Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.grey.shade100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ListTile(
+                    minTileHeight: 58,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    title: Text(
+                      sub.title,
+                      style: const TextStyle(
+                        color: Color(0xFF1A1D2E),
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.chevron_right_rounded,
+                      color: Colors.grey.shade400,
+                    ),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => Scaffold(
+                          backgroundColor: const Color(0xFFF8F9FD),
+                          appBar: AppBar(
+                            backgroundColor: Colors.white,
+                            elevation: 0,
+                            scrolledUnderElevation: 0,
+                            title: Text(
+                              sub.title,
+                              style: const TextStyle(
+                                color: Color(0xFF1A1D2E),
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            centerTitle: true,
+                          ),
+                          body: sub.view,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -375,60 +396,7 @@ class _SettingsShellViewState extends State<SettingsShellView> {
           }
 
           if (isMobile) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 16, left: 4),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: primaryColor.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.settings_rounded,
-                            color: primaryColor,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.settings,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  color: Color(0xFF1A1D2E),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                l10n.settingsSubtitle,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: _buildMobileSettings(context, filteredCategories, theme, primaryColor),
-                  ),
-                ],
-              ),
-            );
+            return _buildMobileSettings(context, filteredCategories);
           }
 
           if (_selectedCategoryIndex >= filteredCategories.length) {
@@ -609,14 +577,25 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                                                 return FilledButton.icon(
                                                   onPressed: saving
                                                       ? null
-                                                      : () => GeneralSettingsSaveAction
-                                                          .triggerSave
-                                                          .value++,
+                                                      : () =>
+                                                            GeneralSettingsSaveAction
+                                                                .triggerSave
+                                                                .value++,
                                                   style: FilledButton.styleFrom(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
-                                                    minimumSize: const Size(0, 34),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 14,
+                                                          vertical: 0,
+                                                        ),
+                                                    minimumSize: const Size(
+                                                      0,
+                                                      34,
+                                                    ),
                                                     shape: RoundedRectangleBorder(
-                                                      borderRadius: BorderRadius.circular(8),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
                                                     ),
                                                   ),
                                                   icon: saving
@@ -625,9 +604,10 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                                                           height: 14,
                                                           child:
                                                               CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            color: Colors.white,
-                                                          ),
+                                                                strokeWidth: 2,
+                                                                color: Colors
+                                                                    .white,
+                                                              ),
                                                         )
                                                       : const Icon(
                                                           Icons.save_rounded,
@@ -636,9 +616,10 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                                                   label: const Text(
                                                     'Simpan',
                                                     style: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.bold,
-                                                        letterSpacing: 0.3,
+                                                      fontSize: 13,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      letterSpacing: 0.3,
                                                     ),
                                                   ),
                                                 );
@@ -683,9 +664,10 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 4,
                                           ),
-                                          labelPadding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                          ),
+                                          labelPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                              ),
                                           tabs: selectedCategory.subMenus
                                               .map(
                                                 (sub) => Tab(text: sub.title),

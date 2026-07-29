@@ -74,14 +74,17 @@ class SidebarWidget extends StatelessWidget {
                 ],
               ),
             ),
-            InkWell(
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const SwitchStaffScreen()),
-              ),
-              child: _SidebarFooterActionLabel(
-                isCollapsed: isCollapsed,
-                icon: Icons.switch_account_rounded,
-                label: l10n.switchAccountAction,
+            Tooltip(
+              message: l10n.switchAccountAction,
+              child: InkWell(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SwitchStaffScreen()),
+                ),
+                child: _SidebarFooterActionLabel(
+                  isCollapsed: isCollapsed,
+                  icon: Icons.switch_account_rounded,
+                  label: l10n.switchAccountAction,
+                ),
               ),
             ),
             InkWell(
@@ -160,100 +163,112 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 420),
-        curve: Curves.easeOutCubic,
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            if (widget.isSelected)
-              AnimatedPositioned(
-                duration: const Duration(milliseconds: 520),
-                curve: Curves.easeOutCubic,
-                right: 0,
-                top: widget.isCollapsed ? -14 : -10,
-                bottom: widget.isCollapsed ? -14 : -10,
-                width: widget.isCollapsed ? 55 : 150,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: Image.asset(
-                    widget.isCollapsed
-                        ? 'assets/aktif_2.webp'
-                        : 'assets/aktif_1.webp',
-                    key: ValueKey(widget.isCollapsed ? 'aktif2' : 'aktif1'),
-                    fit: BoxFit.fill,
-                    width: double.infinity,
-                    height: double.infinity,
+    return Semantics(
+      button: true,
+      selected: widget.isSelected,
+      label: widget.item.title,
+      child: Tooltip(
+        message: widget.item.title,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          behavior: HitTestBehavior.opaque,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 420),
+            curve: Curves.easeOutCubic,
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                if (widget.isSelected)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 520),
+                    curve: Curves.easeOutCubic,
+                    right: 0,
+                    top: widget.isCollapsed ? -14 : -10,
+                    bottom: widget.isCollapsed ? -14 : -10,
+                    width: widget.isCollapsed ? 55 : 150,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Image.asset(
+                        widget.isCollapsed
+                            ? 'assets/aktif_2.webp'
+                            : 'assets/aktif_1.webp',
+                        key: ValueKey(widget.isCollapsed ? 'aktif2' : 'aktif1'),
+                        fit: BoxFit.fill,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
+                    ),
+                  ),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: 20,
+                    right: 8,
+                    top: 12,
+                    bottom: 12,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: widget.isCollapsed
+                        ? MainAxisAlignment.center
+                        : MainAxisAlignment.start,
+                    children: [
+                      AnimatedScale(
+                        duration: const Duration(milliseconds: 360),
+                        scale: widget.isSelected ? 1.05 : 1,
+                        curve: Curves.easeOutCubic,
+                        child: Icon(
+                          widget.item.icon,
+                          color: widget.isSelected
+                              ? AppColors.primary
+                              : Colors.white.withValues(alpha: 0.78),
+                          size: 20,
+                        ),
+                      ),
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        alignment: Alignment.centerLeft,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 300),
+                          opacity: _showText ? 1.0 : 0.0,
+                          child: _showText
+                              ? Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(width: 14),
+                                    AnimatedDefaultTextStyle(
+                                      duration: const Duration(
+                                        milliseconds: 360,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      style: TextStyle(
+                                        color: widget.isSelected
+                                            ? AppColors.primary
+                                            : Colors.white.withValues(
+                                                alpha: 0.78,
+                                              ),
+                                        fontSize: 14,
+                                        fontWeight: widget.isSelected
+                                            ? FontWeight.w800
+                                            : FontWeight.w500,
+                                      ),
+                                      child: Text(
+                                        widget.item.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.visible,
+                                      ),
+                                    ),
+                                  ],
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            Padding(
-              padding: const EdgeInsets.only(
-                left: 20,
-                right: 8,
-                top: 12,
-                bottom: 12,
-              ),
-              child: Row(
-                mainAxisAlignment: widget.isCollapsed
-                    ? MainAxisAlignment.center
-                    : MainAxisAlignment.start,
-                children: [
-                  AnimatedScale(
-                    duration: const Duration(milliseconds: 360),
-                    scale: widget.isSelected ? 1.05 : 1,
-                    curve: Curves.easeOutCubic,
-                    child: Icon(
-                      widget.item.icon,
-                      color: widget.isSelected
-                          ? AppColors.primary
-                          : Colors.white.withValues(alpha: 0.78),
-                      size: 20,
-                    ),
-                  ),
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.centerLeft,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 300),
-                      opacity: _showText ? 1.0 : 0.0,
-                      child: _showText
-                          ? Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const SizedBox(width: 14),
-                                AnimatedDefaultTextStyle(
-                                  duration: const Duration(milliseconds: 360),
-                                  curve: Curves.easeOutCubic,
-                                  style: TextStyle(
-                                    color: widget.isSelected
-                                        ? AppColors.primary
-                                        : Colors.white.withValues(alpha: 0.78),
-                                    fontSize: 14,
-                                    fontWeight: widget.isSelected
-                                        ? FontWeight.w800
-                                        : FontWeight.w500,
-                                  ),
-                                  child: Text(
-                                    widget.item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.visible,
-                                  ),
-                                ),
-                              ],
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

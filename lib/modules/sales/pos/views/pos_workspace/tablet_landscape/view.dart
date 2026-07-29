@@ -409,9 +409,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       _handlePendingResumeOrder,
     );
     _searchController.dispose();
-    if (!widget.embedded) {
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    }
     super.dispose();
   }
 
