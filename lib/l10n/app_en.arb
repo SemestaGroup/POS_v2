@@ -142,6 +142,25 @@
   },
   "operationsHeader": "Operations",
   "operationsSubtitle": "Choose an operations workspace from this panel.",
+  "mobileSectionTransactionsAndShift": "TRANSACTIONS & SHIFTS",
+  "mobileSectionManagementAndMonitoring": "MANAGEMENT & MONITORING",
+  "mobileSectionCatalogAndStore": "CATALOG & STORE TOOLS",
+  "mobileSectionReportsAndAnalytics": "REPORTS & STORE ANALYTICS",
+  "mobileSectionSettingsAndDevices": "STORE OPERATIONS & DEVICES",
+  "mobileSectionChooseSettings": "CHOOSE A SETTING",
+  "menuCount": "{count} menu",
+  "@menuCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "expandMenu": "Expand menu",
+  "collapseMenu": "Collapse menu",
+  "expandNavigationMenu": "Expand navigation menu",
+  "collapseNavigationMenu": "Collapse navigation menu",
   "operationsUnavailableMessage": "No operations available for this role.",
   "shiftMenu": "Shift",
   "recapMenu": "Recap",

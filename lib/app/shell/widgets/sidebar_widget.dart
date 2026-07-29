@@ -105,10 +105,12 @@ class SidebarWidget extends StatelessWidget {
                         icon: isCollapsed
                             ? Icons.keyboard_double_arrow_right_rounded
                             : Icons.keyboard_double_arrow_left_rounded,
-                        label: isCollapsed ? 'Lebarkan menu' : 'Ciutkan menu',
+                        label: isCollapsed
+                            ? l10n.expandMenu
+                            : l10n.collapseMenu,
                         tooltip: isCollapsed
-                            ? 'Lebarkan menu navigasi'
-                            : 'Ciutkan menu navigasi',
+                            ? l10n.expandNavigationMenu
+                            : l10n.collapseNavigationMenu,
                         onTap: onToggle,
                         isSubtle: true,
                       ),

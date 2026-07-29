@@ -16,29 +16,8 @@ import '../../store/views/shift_config/tablet_landscape/view.dart';
 import '../../store/views/store_profile/tablet_landscape/view.dart';
 import '../../sync/views/sync_center/tablet_landscape/view.dart';
 import '../../sync/views/sync_history/tablet_landscape/view.dart';
-
-class _SubMenuDefinition {
-  final String title;
-  final Widget view;
-
-  _SubMenuDefinition({required this.title, required this.view});
-}
-
-class _MenuCategory {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final List<AppRole> allowedRoles;
-  final List<_SubMenuDefinition> subMenus;
-
-  _MenuCategory({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.allowedRoles,
-    required this.subMenus,
-  });
-}
+import '../mobile_portrait/view.dart';
+import '../models/settings_menu.dart';
 
 class SettingsShellView extends StatefulWidget {
   const SettingsShellView({super.key});
@@ -50,344 +29,94 @@ class SettingsShellView extends StatefulWidget {
 class _SettingsShellViewState extends State<SettingsShellView> {
   int _selectedCategoryIndex = 0;
 
-  List<_MenuCategory> get _allCategories {
+  List<SettingsMenuCategory> get _allCategories {
     final l10n = AppLocalizations.of(context)!;
     return [
-      _MenuCategory(
+      SettingsMenuCategory(
         title: l10n.settingsGeneralTitle,
         subtitle: l10n.settingsGeneralSubtitle,
         icon: Icons.settings_rounded,
         allowedRoles: [AppRole.owner],
         subMenus: [
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.generalSettingsMenu,
             view: const GeneralSettingsView(),
           ),
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.profileSettingsMenu,
             view: const ProfileSettingsView(),
           ),
         ],
       ),
-      _MenuCategory(
+      SettingsMenuCategory(
         title: l10n.settingsStoreTitle,
         subtitle: l10n.settingsStoreSubtitle,
         icon: Icons.storefront_rounded,
         allowedRoles: [AppRole.owner],
         subMenus: [
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.storeProfileMenu,
             view: const StoreProfileView(),
           ),
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.shiftConfigMenu,
             view: const ShiftConfigView(),
           ),
         ],
       ),
-      _MenuCategory(
+      SettingsMenuCategory(
         title: l10n.settingsPrinterTitle,
         subtitle: l10n.settingsPrinterSubtitle,
         icon: Icons.print_rounded,
         allowedRoles: [AppRole.owner],
         subMenus: [
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.printerListMenu,
             view: const PrinterListView(),
           ),
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.printerMappingMenu,
             view: const PrinterMappingView(),
           ),
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.printerTestMenu,
             view: const PrinterTestView(),
           ),
         ],
       ),
-      _MenuCategory(
+      SettingsMenuCategory(
         title: l10n.settingsSyncTitle,
         subtitle: l10n.settingsSyncSubtitle,
         icon: Icons.sync_rounded,
         allowedRoles: [AppRole.owner],
         subMenus: [
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.syncCenterMenu,
             view: const SyncCenterView(),
           ),
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.syncHistoryMenu,
             view: const SyncHistoryView(),
           ),
         ],
       ),
-      _MenuCategory(
+      SettingsMenuCategory(
         title: l10n.settingsDeviceTitle,
         subtitle: l10n.settingsDeviceSubtitle,
         icon: Icons.devices_rounded,
         allowedRoles: [AppRole.owner],
         subMenus: [
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.appUpdateMenu,
             view: const AppUpdateView(),
           ),
-          _SubMenuDefinition(
+          SettingsSubMenu(
             title: l10n.deviceStatusMenu,
             view: const DeviceStatusView(),
           ),
         ],
       ),
     ];
-  }
-
-  Color getCategoryBgColor(IconData icon) {
-    if (icon == Icons.settings_rounded) return const Color(0xFFEFF6FF);
-    if (icon == Icons.storefront_rounded) return const Color(0xFFF0FDF4);
-    if (icon == Icons.print_rounded) return const Color(0xFFF5F3FF);
-    if (icon == Icons.sync_rounded) return const Color(0xFFFFFBEB);
-    if (icon == Icons.devices_rounded) return const Color(0xFFF0FDFA);
-    return const Color(0xFFF1F5F9);
-  }
-
-  Color getCategoryIconColor(IconData icon) {
-    if (icon == Icons.settings_rounded) return const Color(0xFF1D4ED8);
-    if (icon == Icons.storefront_rounded) return const Color(0xFF16A34A);
-    if (icon == Icons.print_rounded) return const Color(0xFF7C3AED);
-    if (icon == Icons.sync_rounded) return const Color(0xFFD97706);
-    if (icon == Icons.devices_rounded) return const Color(0xFF0D9488);
-    return const Color(0xFF475569);
-  }
-
-  Widget _buildMobileSettings(
-    BuildContext context,
-    List<_MenuCategory> categories,
-  ) {
-    final l10n = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Text(
-          l10n.settings,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF1A1D2E),
-          ),
-        ),
-        centerTitle: false,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
-            child: Text(
-              'OPERASIONAL & PERANGKAT TOKO',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF8E8E93),
-                letterSpacing: 1.0,
-              ),
-            ),
-          ),
-          ...categories.map((category) {
-            final bgColor = getCategoryBgColor(category.icon);
-            final iconColor = getCategoryIconColor(category.icon);
-            final itemCount = category.subMenus.length;
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade100),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.02),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 6,
-                  ),
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(category.icon, color: iconColor, size: 22),
-                  ),
-                  title: Text(
-                    category.title,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1D2E),
-                    ),
-                  ),
-                  subtitle: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      category.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$itemCount menu',
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.grey.shade400,
-                      ),
-                    ],
-                  ),
-                  onTap: () => _openMobileCategory(context, category: category),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  void _openMobileCategory(
-    BuildContext context, {
-    required _MenuCategory category,
-  }) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (context) => Scaffold(
-          backgroundColor: const Color(0xFFF8F9FD),
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            scrolledUnderElevation: 0,
-            leading: IconButton(
-              tooltip: 'Kembali',
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
-              color: const Color(0xFF1A1D2E),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            title: Text(
-              category.title,
-              style: const TextStyle(
-                color: Color(0xFF1A1D2E),
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            centerTitle: true,
-          ),
-          body: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              const Padding(
-                padding: EdgeInsets.only(left: 4, bottom: 10, top: 4),
-                child: Text(
-                  'PILIH PENGATURAN',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF8E8E93),
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ),
-              ...category.subMenus.map(
-                (sub) => Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.shade100),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListTile(
-                      minTileHeight: 58,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                      ),
-                      title: Text(
-                        sub.title,
-                        style: const TextStyle(
-                          color: Color(0xFF1A1D2E),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.chevron_right_rounded,
-                        color: Colors.grey.shade400,
-                      ),
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => Scaffold(
-                            backgroundColor: const Color(0xFFF8F9FD),
-                            appBar: AppBar(
-                              backgroundColor: Colors.white,
-                              elevation: 0,
-                              scrolledUnderElevation: 0,
-                              title: Text(
-                                sub.title,
-                                style: const TextStyle(
-                                  color: Color(0xFF1A1D2E),
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              centerTitle: true,
-                            ),
-                            body: sub.view,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   @override
@@ -411,7 +140,7 @@ class _SettingsShellViewState extends State<SettingsShellView> {
           }
 
           if (isMobile) {
-            return _buildMobileSettings(context, filteredCategories);
+            return SettingsMobileView(categories: filteredCategories);
           }
 
           if (_selectedCategoryIndex >= filteredCategories.length) {
@@ -718,7 +447,7 @@ class _SettingsShellViewState extends State<SettingsShellView> {
   Widget _buildSidebar(
     ThemeData theme,
     Color primaryColor,
-    List<_MenuCategory> filteredCategories,
+    List<SettingsMenuCategory> filteredCategories,
     int safeIndex,
   ) {
     return SizedBox(

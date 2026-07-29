@@ -656,6 +656,72 @@ abstract class AppLocalizations {
   /// **'Choose an operations workspace from this panel.'**
   String get operationsSubtitle;
 
+  /// No description provided for @mobileSectionTransactionsAndShift.
+  ///
+  /// In en, this message translates to:
+  /// **'TRANSACTIONS & SHIFTS'**
+  String get mobileSectionTransactionsAndShift;
+
+  /// No description provided for @mobileSectionManagementAndMonitoring.
+  ///
+  /// In en, this message translates to:
+  /// **'MANAGEMENT & MONITORING'**
+  String get mobileSectionManagementAndMonitoring;
+
+  /// No description provided for @mobileSectionCatalogAndStore.
+  ///
+  /// In en, this message translates to:
+  /// **'CATALOG & STORE TOOLS'**
+  String get mobileSectionCatalogAndStore;
+
+  /// No description provided for @mobileSectionReportsAndAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'REPORTS & STORE ANALYTICS'**
+  String get mobileSectionReportsAndAnalytics;
+
+  /// No description provided for @mobileSectionSettingsAndDevices.
+  ///
+  /// In en, this message translates to:
+  /// **'STORE OPERATIONS & DEVICES'**
+  String get mobileSectionSettingsAndDevices;
+
+  /// No description provided for @mobileSectionChooseSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'CHOOSE A SETTING'**
+  String get mobileSectionChooseSettings;
+
+  /// No description provided for @menuCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} menu'**
+  String menuCount(int count);
+
+  /// No description provided for @expandMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand menu'**
+  String get expandMenu;
+
+  /// No description provided for @collapseMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse menu'**
+  String get collapseMenu;
+
+  /// No description provided for @expandNavigationMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Expand navigation menu'**
+  String get expandNavigationMenu;
+
+  /// No description provided for @collapseNavigationMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse navigation menu'**
+  String get collapseNavigationMenu;
+
   /// No description provided for @operationsUnavailableMessage.
   ///
   /// In en, this message translates to:

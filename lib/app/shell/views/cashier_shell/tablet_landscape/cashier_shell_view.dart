@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../modules/sales/pos/views/pos_workspace/tablet_landscape/view.dart';
-import '../../../../../modules/operations/views/tablet_landscape/view.dart';
+import '../../../../../modules/operations/views/operations_shell_view.dart';
 import '../../../widgets/sidebar_widget.dart';
 import '../../../../../l10n/app_localizations.dart';
 

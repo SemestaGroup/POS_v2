@@ -100,6 +100,25 @@
   "transactionsWithCount": "{count} Transaksi",
   "operationsHeader": "Operasional",
   "operationsSubtitle": "Pilih area kerja operasional di panel ini.",
+  "mobileSectionTransactionsAndShift": "TRANSAKSI & SHIFT",
+  "mobileSectionManagementAndMonitoring": "MANAJEMEN & MONITORING",
+  "mobileSectionCatalogAndStore": "KATALOG & PERANGKAT TOKO",
+  "mobileSectionReportsAndAnalytics": "IKHTISAR & ANALISIS TOKO",
+  "mobileSectionSettingsAndDevices": "OPERASIONAL & PERANGKAT TOKO",
+  "mobileSectionChooseSettings": "PILIH PENGATURAN",
+  "menuCount": "{count} menu",
+  "@menuCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "3"
+      }
+    }
+  },
+  "expandMenu": "Lebarkan menu",
+  "collapseMenu": "Ciutkan menu",
+  "expandNavigationMenu": "Lebarkan menu navigasi",
+  "collapseNavigationMenu": "Ciutkan menu navigasi",
   "operationsUnavailableMessage": "Tidak ada menu operasional untuk peran ini.",
   "shiftMenu": "Shift",
   "recapMenu": "Rekap",

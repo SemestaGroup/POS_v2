@@ -311,6 +311,41 @@ class AppLocalizationsId extends AppLocalizations {
   String get operationsSubtitle => 'Pilih area kerja operasional di panel ini.';
 
   @override
+  String get mobileSectionTransactionsAndShift => 'TRANSAKSI & SHIFT';
+
+  @override
+  String get mobileSectionManagementAndMonitoring => 'MANAJEMEN & MONITORING';
+
+  @override
+  String get mobileSectionCatalogAndStore => 'KATALOG & PERANGKAT TOKO';
+
+  @override
+  String get mobileSectionReportsAndAnalytics => 'IKHTISAR & ANALISIS TOKO';
+
+  @override
+  String get mobileSectionSettingsAndDevices => 'OPERASIONAL & PERANGKAT TOKO';
+
+  @override
+  String get mobileSectionChooseSettings => 'PILIH PENGATURAN';
+
+  @override
+  String menuCount(int count) {
+    return '$count menu';
+  }
+
+  @override
+  String get expandMenu => 'Lebarkan menu';
+
+  @override
+  String get collapseMenu => 'Ciutkan menu';
+
+  @override
+  String get expandNavigationMenu => 'Lebarkan menu navigasi';
+
+  @override
+  String get collapseNavigationMenu => 'Ciutkan menu navigasi';
+
+  @override
   String get operationsUnavailableMessage =>
       'Tidak ada menu operasional untuk peran ini.';
 

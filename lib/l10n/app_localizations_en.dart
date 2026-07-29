@@ -312,6 +312,41 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose an operations workspace from this panel.';
 
   @override
+  String get mobileSectionTransactionsAndShift => 'TRANSACTIONS & SHIFTS';
+
+  @override
+  String get mobileSectionManagementAndMonitoring => 'MANAGEMENT & MONITORING';
+
+  @override
+  String get mobileSectionCatalogAndStore => 'CATALOG & STORE TOOLS';
+
+  @override
+  String get mobileSectionReportsAndAnalytics => 'REPORTS & STORE ANALYTICS';
+
+  @override
+  String get mobileSectionSettingsAndDevices => 'STORE OPERATIONS & DEVICES';
+
+  @override
+  String get mobileSectionChooseSettings => 'CHOOSE A SETTING';
+
+  @override
+  String menuCount(int count) {
+    return '$count menu';
+  }
+
+  @override
+  String get expandMenu => 'Expand menu';
+
+  @override
+  String get collapseMenu => 'Collapse menu';
+
+  @override
+  String get expandNavigationMenu => 'Expand navigation menu';
+
+  @override
+  String get collapseNavigationMenu => 'Collapse navigation menu';
+
+  @override
   String get operationsUnavailableMessage =>
       'No operations available for this role.';
 
