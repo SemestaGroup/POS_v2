@@ -14,6 +14,16 @@ class KitchenShellView extends StatefulWidget {
 class _KitchenShellViewState extends State<KitchenShellView> {
   int _selectedIndex = 0;
   bool _isSidebarCollapsed = false;
+  bool _hasConfiguredInitialSidebar = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hasConfiguredInitialSidebar) return;
+
+    _isSidebarCollapsed = MediaQuery.sizeOf(context).shortestSide < 600;
+    _hasConfiguredInitialSidebar = true;
+  }
 
   List<SidebarItem> get _menuItems {
     final l10n = AppLocalizations.of(context)!;

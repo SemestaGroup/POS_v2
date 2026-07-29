@@ -158,7 +158,9 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                         ),
                       ),
                     ),
-                    ...shiftMenus.map((menu) => _buildMobileMenuCard(context, menu)),
+                    ...shiftMenus.map(
+                      (menu) => _buildMobileMenuCard(context, menu),
+                    ),
                     const SizedBox(height: 16),
                   ],
                   if (managementMenus.isNotEmpty) ...[
@@ -174,7 +176,9 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                         ),
                       ),
                     ),
-                    ...managementMenus.map((menu) => _buildMobileMenuCard(context, menu)),
+                    ...managementMenus.map(
+                      (menu) => _buildMobileMenuCard(context, menu),
+                    ),
                   ],
                 ],
               ),
@@ -193,7 +197,6 @@ class _OperationsShellViewState extends State<OperationsShellView> {
           final safeIndex = _selectedSubMenuIndex < filteredSubMenus.length
               ? _selectedSubMenuIndex
               : 0;
-
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -299,7 +302,9 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                                   Expanded(
                                     child: IndexedStack(
                                       index: safeIndex,
-                                      children: filteredSubMenus.map((m) => m.view).toList(),
+                                      children: filteredSubMenus
+                                          .map((m) => m.view)
+                                          .toList(),
                                     ),
                                   ),
                                 ],
@@ -357,66 +362,72 @@ class _OperationsShellViewState extends State<OperationsShellView> {
           ),
         ],
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: bgColor,
-            shape: BoxShape.circle,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 6,
           ),
-          child: Icon(menu.icon, color: iconColor, size: 22),
-        ),
-        title: Text(
-          menu.title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1D2E),
+          leading: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: bgColor, shape: BoxShape.circle),
+            child: Icon(menu.icon, color: iconColor, size: 22),
           ),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4.0),
-          child: Text(
-            menu.subtitle,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade500,
+          title: Text(
+            menu.title,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A1D2E),
             ),
           ),
-        ),
-        trailing: Icon(
-          Icons.chevron_right_rounded,
-          color: Colors.grey.shade400,
-        ),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => Scaffold(
-                appBar: AppBar(
-                  backgroundColor: Colors.white,
-                  elevation: 0,
-                  scrolledUnderElevation: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16, color: Color(0xFF1A1D2E)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  title: Text(
-                    menu.title,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A1D2E),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              menu.subtitle,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            ),
+          ),
+          trailing: Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.grey.shade400,
+          ),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => Scaffold(
+                  appBar: AppBar(
+                    backgroundColor: Colors.white,
+                    elevation: 0,
+                    scrolledUnderElevation: 0,
+                    leading: IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 16,
+                        color: Color(0xFF1A1D2E),
+                      ),
+                      onPressed: () => Navigator.pop(context),
                     ),
+                    title: Text(
+                      menu.title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1A1D2E),
+                      ),
+                    ),
+                    centerTitle: true,
                   ),
-                  centerTitle: true,
+                  body: menu.view,
                 ),
-                body: menu.view,
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

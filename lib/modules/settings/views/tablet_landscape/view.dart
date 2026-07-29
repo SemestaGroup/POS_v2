@@ -213,55 +213,63 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                   ),
                 ],
               ),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: bgColor,
-                    shape: BoxShape.circle,
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                clipBehavior: Clip.antiAlias,
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
                   ),
-                  child: Icon(category.icon, color: iconColor, size: 22),
-                ),
-                title: Text(
-                  category.title,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1D2E),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(category.icon, color: iconColor, size: 22),
                   ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    category.subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  title: Text(
+                    category.title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1A1D2E),
+                    ),
                   ),
-                ),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$itemCount menu',
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF94A3B8),
+                  subtitle: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      category.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade500,
                       ),
                     ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.grey.shade400,
-                    ),
-                  ],
+                  ),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$itemCount menu',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.grey.shade400,
+                      ),
+                    ],
+                  ),
+                  onTap: () => _openMobileCategory(context, category: category),
                 ),
-                onTap: () => _openMobileCategory(context, category: category),
               ),
             );
           }),
@@ -328,40 +336,47 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                       ),
                     ],
                   ),
-                  child: ListTile(
-                    minTileHeight: 58,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                    title: Text(
-                      sub.title,
-                      style: const TextStyle(
-                        color: Color(0xFF1A1D2E),
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListTile(
+                      minTileHeight: 58,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
                       ),
-                    ),
-                    trailing: Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.grey.shade400,
-                    ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => Scaffold(
-                          backgroundColor: const Color(0xFFF8F9FD),
-                          appBar: AppBar(
-                            backgroundColor: Colors.white,
-                            elevation: 0,
-                            scrolledUnderElevation: 0,
-                            title: Text(
-                              sub.title,
-                              style: const TextStyle(
-                                color: Color(0xFF1A1D2E),
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
+                      title: Text(
+                        sub.title,
+                        style: const TextStyle(
+                          color: Color(0xFF1A1D2E),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.chevron_right_rounded,
+                        color: Colors.grey.shade400,
+                      ),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => Scaffold(
+                            backgroundColor: const Color(0xFFF8F9FD),
+                            appBar: AppBar(
+                              backgroundColor: Colors.white,
+                              elevation: 0,
+                              scrolledUnderElevation: 0,
+                              title: Text(
+                                sub.title,
+                                style: const TextStyle(
+                                  color: Color(0xFF1A1D2E),
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
+                              centerTitle: true,
                             ),
-                            centerTitle: true,
+                            body: sub.view,
                           ),
-                          body: sub.view,
                         ),
                       ),
                     ),

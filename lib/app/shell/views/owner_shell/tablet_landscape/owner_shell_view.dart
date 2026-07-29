@@ -20,7 +20,17 @@ class OwnerShellView extends StatefulWidget {
 class _OwnerShellViewState extends State<OwnerShellView> {
   int _selectedIndex = 0;
   bool _isSidebarCollapsed = false;
+  bool _hasConfiguredInitialSidebar = false;
   double _maxScreenHeight = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hasConfiguredInitialSidebar) return;
+
+    _isSidebarCollapsed = MediaQuery.sizeOf(context).shortestSide < 600;
+    _hasConfiguredInitialSidebar = true;
+  }
 
   List<SidebarItem> get _menuItems {
     final l10n = AppLocalizations.of(context)!;
@@ -107,18 +117,13 @@ class _OwnerShellViewState extends State<OwnerShellView> {
 
   Widget _buildAnimatedBody() {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 120),
       switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            for (final child in previousChildren) IgnorePointer(child: child),
-            ...[currentChild].whereType<Widget>(),
-          ],
-        );
-      },
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: Tween<double>(begin: 0.9, end: 1).animate(animation),
+        child: child,
+      ),
+      layoutBuilder: (currentChild, _) => currentChild ?? const SizedBox(),
       child: _buildBody(),
     );
   }

@@ -39,7 +39,7 @@ class SidebarWidget extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
 
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       width: isCollapsed ? 80 : 160,
       decoration: const BoxDecoration(color: AppColors.primary),
@@ -74,34 +74,45 @@ class SidebarWidget extends StatelessWidget {
                 ],
               ),
             ),
-            Tooltip(
-              message: l10n.switchAccountAction,
-              child: InkWell(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SwitchStaffScreen()),
-                ),
-                child: _SidebarFooterActionLabel(
-                  isCollapsed: isCollapsed,
-                  icon: Icons.switch_account_rounded,
-                  label: l10n.switchAccountAction,
-                ),
-              ),
-            ),
-            InkWell(
-              onTap: onToggle,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: 12),
-                    child: Icon(
-                      isCollapsed
-                          ? Icons.keyboard_arrow_right_rounded
-                          : Icons.keyboard_arrow_left_rounded,
-                      color: Colors.white,
-                      size: 28,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 14),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.18),
                     ),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Column(
+                    children: [
+                      _SidebarFooterAction(
+                        isCollapsed: isCollapsed,
+                        icon: Icons.switch_account_rounded,
+                        label: l10n.switchAccountAction,
+                        tooltip: l10n.switchAccountAction,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SwitchStaffScreen(),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      _SidebarFooterAction(
+                        isCollapsed: isCollapsed,
+                        icon: isCollapsed
+                            ? Icons.keyboard_double_arrow_right_rounded
+                            : Icons.keyboard_double_arrow_left_rounded,
+                        label: isCollapsed ? 'Lebarkan menu' : 'Ciutkan menu',
+                        tooltip: isCollapsed
+                            ? 'Lebarkan menu navigasi'
+                            : 'Ciutkan menu navigasi',
+                        onTap: onToggle,
+                        isSubtle: true,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -150,7 +161,7 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
         _showText = false;
       } else {
         // Wait for sidebar to expand before showing text smoothly
-        Future.delayed(const Duration(milliseconds: 350), () {
+        Future.delayed(const Duration(milliseconds: 160), () {
           if (mounted && !widget.isCollapsed) {
             setState(() {
               _showText = true;
@@ -173,7 +184,7 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
           onTap: widget.onTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 420),
+            duration: const Duration(milliseconds: 180),
             curve: Curves.easeOutCubic,
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: Stack(
@@ -181,14 +192,14 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
               children: [
                 if (widget.isSelected)
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 520),
+                    duration: const Duration(milliseconds: 220),
                     curve: Curves.easeOutCubic,
                     right: 0,
                     top: widget.isCollapsed ? -14 : -10,
                     bottom: widget.isCollapsed ? -14 : -10,
                     width: widget.isCollapsed ? 55 : 150,
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
+                      duration: const Duration(milliseconds: 160),
                       child: Image.asset(
                         widget.isCollapsed
                             ? 'assets/aktif_2.webp'
@@ -213,7 +224,7 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
                         : MainAxisAlignment.start,
                     children: [
                       AnimatedScale(
-                        duration: const Duration(milliseconds: 360),
+                        duration: const Duration(milliseconds: 180),
                         scale: widget.isSelected ? 1.05 : 1,
                         curve: Curves.easeOutCubic,
                         child: Icon(
@@ -225,11 +236,11 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
                         ),
                       ),
                       AnimatedSize(
-                        duration: const Duration(milliseconds: 300),
+                        duration: const Duration(milliseconds: 180),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.centerLeft,
                         child: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 300),
+                          duration: const Duration(milliseconds: 180),
                           opacity: _showText ? 1.0 : 0.0,
                           child: _showText
                               ? Row(
@@ -238,7 +249,7 @@ class _SidebarMenuTileState extends State<_SidebarMenuTile> {
                                     const SizedBox(width: 14),
                                     AnimatedDefaultTextStyle(
                                       duration: const Duration(
-                                        milliseconds: 360,
+                                        milliseconds: 180,
                                       ),
                                       curve: Curves.easeOutCubic,
                                       style: TextStyle(
@@ -300,7 +311,7 @@ class _SidebarHeaderState extends State<_SidebarHeader> {
       if (widget.isCollapsed) {
         _showText = false;
       } else {
-        Future.delayed(const Duration(milliseconds: 350), () {
+        Future.delayed(const Duration(milliseconds: 160), () {
           if (mounted && !widget.isCollapsed) {
             setState(() {
               _showText = true;
@@ -314,7 +325,7 @@ class _SidebarHeaderState extends State<_SidebarHeader> {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 520),
+      duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       padding: EdgeInsets.only(
         left: widget.isCollapsed ? 12 : 24,
@@ -324,7 +335,7 @@ class _SidebarHeaderState extends State<_SidebarHeader> {
       ),
       alignment: widget.isCollapsed ? Alignment.center : Alignment.centerLeft,
       child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
+        duration: const Duration(milliseconds: 160),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeIn,
         transitionBuilder: (child, animation) {
@@ -371,92 +382,69 @@ class _SidebarHeaderState extends State<_SidebarHeader> {
   }
 }
 
-class _SidebarFooterActionLabel extends StatefulWidget {
-  const _SidebarFooterActionLabel({
+class _SidebarFooterAction extends StatelessWidget {
+  const _SidebarFooterAction({
     required this.isCollapsed,
     required this.icon,
     required this.label,
+    required this.tooltip,
+    required this.onTap,
+    this.isSubtle = false,
   });
 
   final bool isCollapsed;
   final IconData icon;
   final String label;
-
-  @override
-  State<_SidebarFooterActionLabel> createState() =>
-      _SidebarFooterActionLabelState();
-}
-
-class _SidebarFooterActionLabelState extends State<_SidebarFooterActionLabel> {
-  bool _showText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _showText = !widget.isCollapsed;
-  }
-
-  @override
-  void didUpdateWidget(covariant _SidebarFooterActionLabel oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isCollapsed != oldWidget.isCollapsed) {
-      if (widget.isCollapsed) {
-        setState(() {
-          _showText = false;
-        });
-      } else {
-        Future.delayed(const Duration(milliseconds: 350), () {
-          if (mounted && !widget.isCollapsed) {
-            setState(() {
-              _showText = true;
-            });
-          }
-        });
-      }
-    }
-  }
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool isSubtle;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 8, 18, 8),
-      child: Row(
-        mainAxisAlignment: widget.isCollapsed
-            ? MainAxisAlignment.center
-            : MainAxisAlignment.end,
-        children: [
-          Icon(widget.icon, color: Colors.white70, size: 20),
-          if (!widget.isCollapsed)
-            Expanded(
-              child: AnimatedSize(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.centerRight,
-                child: AnimatedOpacity(
-                  duration: const Duration(milliseconds: 300),
-                  opacity: _showText ? 1 : 0,
-                  child: !_showText
-                      ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.only(left: 8, right: 12),
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              widget.label,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              textAlign: TextAlign.right,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+    final foreground = Colors.white.withValues(alpha: isSubtle ? 0.74 : 0.92);
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              height: 44,
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 10),
+                child: Row(
+                  mainAxisAlignment: isCollapsed
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
+                  children: [
+                    Icon(icon, color: foreground, size: 19),
+                    if (!isCollapsed) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: foreground,
+                            fontSize: 12.5,
+                            fontWeight: isSubtle
+                                ? FontWeight.w600
+                                : FontWeight.w700,
                           ),
                         ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

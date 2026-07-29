@@ -91,21 +91,15 @@ class _CashierShellViewState extends State<CashierShellView> {
 
   Widget _buildAnimatedBody() {
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 180),
+      duration: const Duration(milliseconds: 120),
       switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
       transitionBuilder: (child, animation) {
-        return FadeTransition(opacity: animation, child: child);
-      },
-      layoutBuilder: (currentChild, previousChildren) {
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            for (final child in previousChildren) IgnorePointer(child: child),
-            ...[currentChild].whereType<Widget>(),
-          ],
+        return FadeTransition(
+          opacity: Tween<double>(begin: 0.9, end: 1).animate(animation),
+          child: child,
         );
       },
+      layoutBuilder: (currentChild, _) => currentChild ?? const SizedBox(),
       child: _buildBody(),
     );
   }
