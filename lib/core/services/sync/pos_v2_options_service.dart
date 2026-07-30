@@ -183,6 +183,60 @@ class PosV2OptionsService extends BaseV2SyncAdapter {
     }
   }
 
+  /// Eagerly update SQLite without making an API call (Optimistic update)
+  Future<void> updateOptionLocalOnly(String key, dynamic value) async {
+    try {
+      final session = PosV2RuntimeSessionStore.instance.currentSession;
+      if (session == null) return;
+
+      final parsedValue = value is String
+          ? V2SyncUtils.decodeLooseJson(value)
+          : value;
+
+      final optionJson = parsedValue is Map || parsedValue is List
+          ? V2SyncUtils.encodeJson(parsedValue)
+          : null;
+      final optionText = value is String
+          ? value
+          : V2SyncUtils.encodeJson(value) ?? '';
+
+      final valueKind = optionJson == null ? 'text' : 'json';
+      final now = V2SyncUtils.nowIso();
+
+      await databaseService.transaction((txn) async {
+        await databaseService.upsertByUnique(
+          txn,
+          'pos_option',
+          where: 'tenant_id = ? AND option_name = ?',
+          whereArgs: <Object?>[session.tenantId, key],
+          insertValues: <String, Object?>{
+            'tenant_id': session.tenantId,
+            'option_name': key,
+            'option_value_text': optionText,
+            'option_value_json': optionJson,
+            'value_kind': valueKind,
+            'autoload': 1,
+            'source_endpoint': 'pos-options',
+            'last_synced_at': now,
+            'created_at': now,
+            'updated_at': now,
+          },
+          updateValues: <String, Object?>{
+            'option_value_text': optionText,
+            'option_value_json': optionJson,
+            'value_kind': valueKind,
+            'source_endpoint': 'pos-options',
+            'last_synced_at': now,
+            'updated_at': now,
+            'deleted_at': null,
+          },
+        );
+      });
+    } catch (e, stack) {
+      debugPrint('Error updateOptionLocalOnly: $e\n$stack');
+    }
+  }
+
   /// Update multiple options via PUT and update SQLite in a single transaction
   Future<bool> updateMultipleOptions(Map<String, dynamic> options) async {
     try {

@@ -50,6 +50,10 @@ class PosPaymentFlowPage extends StatefulWidget {
     required this.totalPayAmount,
     required this.subtotalAmount,
     required this.discountAmount,
+    required this.taxAmount,
+    this.taxName,
+    this.taxPercentage = 0.0,
+    this.autoPrint = true,
     required this.totalQuantity,
     required this.reviewItems,
     required this.onConfirm,
@@ -62,6 +66,10 @@ class PosPaymentFlowPage extends StatefulWidget {
   final int totalPayAmount;
   final int subtotalAmount;
   final int discountAmount;
+  final int taxAmount;
+  final String? taxName;
+  final double taxPercentage;
+  final bool autoPrint;
   final int totalQuantity;
   final List<PaymentReviewItemData> reviewItems;
   final Future<String?> Function(
@@ -464,6 +472,8 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
             PrinterSummaryRow(label: 'Subtotal', value: _formatMoney(widget.subtotalAmount)),
             if (widget.discountAmount > 0)
               PrinterSummaryRow(label: 'Diskon Promo', value: '-${_formatMoney(widget.discountAmount)}'),
+            if (widget.taxAmount > 0)
+              PrinterSummaryRow(label: widget.taxName ?? 'Pajak', value: _formatMoney(widget.taxAmount)),
             PrinterSummaryRow(
               label: 'Total',
               value: _formatMoney(widget.totalPayAmount),
@@ -566,25 +576,9 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
   }
 
   Future<void> _showPaymentSuccessDialog({required int changeAmount}) async {
-    // Check auto_print setting before automatically printing receipt
-    try {
-      final options = await PosV2OptionsService.instance.getLocalOptions();
-      final raw = options['pos_app_settings'];
-      Map<String, dynamic> appSettings = {};
-      if (raw is Map) {
-        appSettings = Map<String, dynamic>.from(raw);
-      } else if (raw is String && raw.isNotEmpty) {
-        appSettings = jsonDecode(raw) as Map<String, dynamic>;
-      }
-      final printing = appSettings['printing'] is Map<String, dynamic>
-          ? appSettings['printing'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final bool autoPrint = printing['auto_print'] ?? false;
-
-      if (autoPrint) {
-        unawaited(_printReceipt());
-      }
-    } catch (_) {}
+    if (widget.autoPrint) {
+      unawaited(_printReceipt());
+    }
 
     if (!mounted) return;
 
@@ -1050,6 +1044,17 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
               valueColor: const Color(0xFFEF4444),
             ),
           ),
+          if (widget.taxAmount > 0)
+            Expanded(
+              child: _buildSummaryMetric(
+                icon: Icons.receipt_long_outlined,
+                iconColor: const Color(0xFFF59E0B),
+                iconBg: const Color(0xFFFEF3C7),
+                label: widget.taxName ?? 'Pajak',
+                value: '+${_formatMoney(widget.taxAmount)}',
+                valueColor: const Color(0xFFF59E0B),
+              ),
+            ),
           // Subtotal
           Expanded(
             child: _buildSummaryMetric(

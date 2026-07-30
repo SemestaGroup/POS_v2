@@ -110,6 +110,12 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
 
       if (!mounted) return;
       setState(() {
+        _loadingStatus = 'Memuat pengaturan pajak...'; // Fetching taxes
+      });
+      await _syncOrchestrator.syncTaxes(syncContext);
+
+      if (!mounted) return;
+      setState(() {
         _loadingStatus = 'Memuat pesanan aktif...'; // Fetching active orders
         _progress = 0.80;
       });

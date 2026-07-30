@@ -848,11 +848,13 @@ class _PrinterListViewState extends State<PrinterListView> {
       );
 
   Widget _toggleCard(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: value ? const Color(0xFFC7D2FE) : const Color(0xFFE5E7EB)),
+        side: BorderSide(
+          color: value ? const Color(0xFFC7D2FE) : const Color(0xFFE5E7EB),
+        ),
       ),
       child: SwitchListTile.adaptive(
         value: value,

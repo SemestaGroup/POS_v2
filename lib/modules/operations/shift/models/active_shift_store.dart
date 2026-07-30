@@ -441,7 +441,7 @@ class ActiveShiftStore {
 
     await _syncOrchestrator.closeShift(
       session.toSyncContext(),
-      shiftRemoteId: shift.id,
+      shiftLocalId: shift.id,
       actualCash: actualCash,
       expectedCash: expectedCash,
       totalNonCash: totalNonCash,

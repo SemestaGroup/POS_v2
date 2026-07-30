@@ -222,11 +222,11 @@ class OverviewStore {
       // 4. Recent Transactions
       final recentTrxResult = await db.rawQuery(
         '''
-        SELECT id_pos, created_at, total_amount, status_code as status
+        SELECT id_pos, created_at, order_date, total_amount, status_code as status
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL
-        ORDER BY REPLACE(created_at, 'T', ' ') DESC
+        ORDER BY COALESCE(NULLIF(order_date, ''), created_at) DESC, id DESC
         LIMIT 5
         ''',
         [tenantId],
@@ -234,7 +234,7 @@ class OverviewStore {
       final recentTransactions = recentTrxResult.map((row) {
         return RecentTransactionRecord(
           idPos: row['id_pos']?.toString() ?? '',
-          createdAt: DateTime.parse(row['created_at'].toString().replaceAll(' ', 'T')),
+          createdAt: _parseTrxDate(row['order_date'], row['created_at']),
           total: (row['total_amount'] as num?)?.toInt() ?? 0,
           status: row['status']?.toString() ?? '',
         );
@@ -332,6 +332,20 @@ class OverviewStore {
         isLoading: false,
         errorMessage: e.toString(),
       ));
+    }
+  }
+
+  DateTime _parseTrxDate(Object? orderDateVal, Object? createdAtVal) {
+    final raw = (orderDateVal ?? createdAtVal)?.toString().trim() ?? '';
+    if (raw.isEmpty) return DateTime.now();
+    try {
+      var str = raw.replaceAll(' ', 'T');
+      if (!str.endsWith('Z') && !str.contains('+') && RegExp(r'T\d{2}:\d{2}:\d{2}').hasMatch(str)) {
+        str = '${str}Z';
+      }
+      return DateTime.parse(str).toLocal();
+    } catch (_) {
+      return DateTime.tryParse(raw)?.toLocal() ?? DateTime.now();
     }
   }
 }

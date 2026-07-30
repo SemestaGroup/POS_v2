@@ -343,6 +343,8 @@ class PosPromotionService {
               final available = poolItem.qty - alreadyPlanned;
               if (available <= 0) continue;
               if (!targetIds.contains(poolItem.productRemoteId)) continue;
+              if (poolItem.isLocked) continue;
+              if (poolItem.appliedPromoIds.contains(promo.remoteId)) continue;
 
               final take = needed.clamp(0, available);
               currentPassPlanned[poolItem.refId] = (currentPassPlanned[poolItem.refId] ?? 0) + take;
@@ -360,7 +362,9 @@ class PosPromotionService {
             final currentPool = List<_AllocationPoolItem>.from(pool);
             for (final poolItem in currentPool) {
               if (needed <= 0) break;
-              if (poolItem.refId != entry.key || poolItem.isLocked) continue;
+              if (poolItem.refId != entry.key) continue;
+              if (poolItem.isLocked) continue;
+              if (poolItem.appliedPromoIds.contains(promo.remoteId)) continue;
               
               final take = needed.clamp(0, poolItem.qty);
               if (take <= 0) continue;

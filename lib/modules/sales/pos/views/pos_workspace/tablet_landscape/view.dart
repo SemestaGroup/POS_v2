@@ -16,6 +16,7 @@ import '../../../../shared/models/sales_order_store.dart';
 import '../../../../shared/widgets/customer_picker_dialog.dart';
 import '../../../../orders/shared/orders_history_sync_service.dart';
 import '../../../../../../core/services/sync/pos_v2_options_service.dart';
+import '../../../widgets/pos_settings_dialog.dart';
 import 'dart:convert';
 
 import '../../../../orders/views/tablet_landscape/view.dart';
@@ -171,8 +172,15 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   DateTime? _editingOrderCreatedAt;
 
   bool _showProductName = false;
+  bool _showProductImage = true;
   bool _showProductStock = false;
   bool _showProductPrice = false;
+
+  bool _autoTax = false;
+  double _taxPercentage = 0.0;
+  String? _taxName;
+  String? _selectedTaxId;
+  bool _autoPrint = true;
 
   String? _activeMenuId;
   String? _activeMenuName;
@@ -372,11 +380,42 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         ? appSettings['display'] as Map<String, dynamic>
         : <String, dynamic>{};
 
+    final taxSetting = appSettings['tax'] is Map<String, dynamic>
+        ? appSettings['tax'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    final printerSetting = appSettings['printer'] is Map<String, dynamic>
+        ? appSettings['printer'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
+    bool autoTax = taxSetting['auto_tax'] ?? false;
+    String? selectedTaxId = taxSetting['tax_id']?.toString();
+    double taxPercentage = 0.0;
+    String? taxName;
+
+    if (autoTax && selectedTaxId != null && selectedTaxId.isNotEmpty) {
+      final db = DatabaseService.instance;
+      final taxes = await db.rawQuery('SELECT * FROM pos_tax WHERE remote_id = ? LIMIT 1', [selectedTaxId]);
+      if (taxes.isNotEmpty) {
+        final tax = taxes.first;
+        taxName = tax['name']?.toString();
+        taxPercentage = double.tryParse(tax['taxrate']?.toString() ?? '0') ?? 0.0;
+      }
+    }
+
+    bool autoPrint = printerSetting['auto_print'] ?? true;
+
     if (mounted) {
       setState(() {
         _showProductName = display['show_name'] ?? true;
+        _showProductImage = display['show_image'] ?? true;
         _showProductStock = display['show_stock'] ?? true;
         _showProductPrice = display['show_price'] ?? true;
+        _autoTax = autoTax;
+        _selectedTaxId = selectedTaxId;
+        _taxPercentage = taxPercentage;
+        _taxName = taxName;
+        _autoPrint = autoPrint;
       });
     }
   }
@@ -466,8 +505,14 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     (sum, item) => sum + (item.activeUnitPrice * item.quantity),
   );
 
+  int get _taxAmount {
+    if (!_autoTax || _taxPercentage <= 0) return 0;
+    final base = (_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31);
+    return (base * (_taxPercentage / 100)).round();
+  }
+
   int get _totalPay =>
-      (_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31);
+      ((_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31)) + _taxAmount;
 
   int get _openOrdersCount => SalesOrderStore.instance.countForStatuses({1, 6});
 
@@ -706,6 +751,10 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         }
       }
 
+      // Build rawItems WITHOUT merging items that have different IDs.
+      // Items are only merged for promo matching purposes via matchItems.
+      // Preserving distinct IDs is critical so that open dialogs can still
+      // find their item by ID after recalculation.
       final rawItems = <_PosCartItem>[];
       for (final item in _cartItems) {
         final catalogProduct = item.productRemoteId != null
@@ -725,74 +774,89 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
           promoLabel: originalPromoLabel,
           isDiscountEnabled: originalDiscountedPrice != null,
         );
-        final index = rawItems.indexWhere(
-          (r) =>
-              r.name == cleanItem.name &&
-              r.productRemoteId == cleanItem.productRemoteId &&
-              r.orderType == cleanItem.orderType &&
-              r.note == cleanItem.note &&
-              r.isDiscountEnabled == cleanItem.isDiscountEnabled,
-        );
-        if (index >= 0) {
-          rawItems[index] = rawItems[index].copyWith(
-            quantity: rawItems[index].quantity + cleanItem.quantity,
+        // Do NOT merge items with same name — every cart line keeps its own ID
+        // so that split dialogs stay valid across recalculations.
+        rawItems.add(cleanItem);
+      }
+
+      // For promo engine, build aggregated matchItems grouped by product.
+      // Use a virtual refId that maps back to the first rawItem with that product.
+      final Map<String, _PosCartItem> productRefMap = {};
+      final aggregatedMatchItems = <PosPromotionMatchItem>[];
+      for (final item in rawItems) {
+        if (item.productRemoteId == null || item.productRemoteId!.isEmpty) continue;
+        final existing = productRefMap[item.productRemoteId!];
+        if (existing != null) {
+          // Remove old entry and re-add with combined qty
+          aggregatedMatchItems.removeWhere((m) => m.refId == existing.id);
+          final combined = existing.copyWith(
+            quantity: existing.quantity + item.quantity,
           );
+          productRefMap[item.productRemoteId!] = combined;
+          final metadata = productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
+          aggregatedMatchItems.add(PosPromotionMatchItem(
+            refId: combined.id,
+            productRemoteId: combined.productRemoteId!,
+            productName: combined.name,
+            categoryRemoteId: metadata['categoryRemoteId']?.toString(),
+            brandRemoteId: metadata['brandRemoteId']?.toString(),
+            activeUnitPrice: combined.activeUnitPrice,
+            quantity: combined.quantity,
+          ));
         } else {
-          rawItems.add(cleanItem);
+          productRefMap[item.productRemoteId!] = item;
+          final metadata = productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
+          aggregatedMatchItems.add(PosPromotionMatchItem(
+            refId: item.id,
+            productRemoteId: item.productRemoteId!,
+            productName: item.name,
+            categoryRemoteId: metadata['categoryRemoteId']?.toString(),
+            brandRemoteId: metadata['brandRemoteId']?.toString(),
+            activeUnitPrice: item.activeUnitPrice,
+            quantity: item.quantity,
+          ));
         }
       }
 
-      // Don't return early here, because we want to clear the label if _selectedPromotions becomes empty during validation!
-
-      final matchItems = rawItems
-          .where(
-            (item) =>
-                item.productRemoteId != null &&
-                item.productRemoteId!.isNotEmpty,
-          )
-          .map((item) {
-            final metadata =
-                productIndex[item.productRemoteId!] ??
-                const <String, dynamic>{};
-            return PosPromotionMatchItem(
-              refId: item.id,
-              productRemoteId: item.productRemoteId!,
-              productName: item.name,
-              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
-              brandRemoteId: metadata['brandRemoteId']?.toString(),
-              activeUnitPrice: item.activeUnitPrice,
-              quantity: item.quantity,
-            );
-          })
-          .toList();
-
       // Promos stay selected until user explicitly clears them.
-      // Items matching the promo formula will show promo labels.
-      // Price changes only apply when conditions are met (bundling: all slots filled; discount: item in target list).
-
       final allocation = PosPromotionService.instance.allocatePromotions(
-        items: matchItems,
+        items: aggregatedMatchItems,
         selectedPromotions: _selectedPromotions,
       );
 
-      final nextCartItems = <_PosCartItem>[];
+      // Build a map: productRemoteId -> promo result from allocation
+      final Map<String, Map<String, dynamic>> promoByProduct = {};
       for (final allocated in allocation.allocatedItems) {
-        final rawItem = rawItems.firstWhere((r) => r.id == allocated.refId);
-        nextCartItems.add(
-          rawItem.copyWith(
-            id: _newLineId(),
-            quantity: allocated.quantity,
-            appliedPromoId: allocated.appliedPromoId,
-            appliedPromoName: allocated.appliedPromoName,
-            overriddenUnitPrice: allocated.overriddenUnitPrice,
-          ),
-        );
+        // Find the productRemoteId via refId (first rawItem of that product)
+        final refItem = rawItems.cast<_PosCartItem?>().firstWhere(
+              (r) => r?.id == allocated.refId,
+              orElse: () => null,
+            );
+        final productId = refItem?.productRemoteId ?? allocated.refId;
+        promoByProduct[productId] = {
+          'appliedPromoId': allocated.appliedPromoId,
+          'appliedPromoName': allocated.appliedPromoName,
+          'overriddenUnitPrice': allocated.overriddenUnitPrice,
+        };
       }
 
-      for (final item in rawItems.where(
-        (i) => i.productRemoteId == null || i.productRemoteId!.isEmpty,
-      )) {
-        nextCartItems.add(item.copyWith(id: _newLineId()));
+      // Apply promo results back to each rawItem by productRemoteId,
+      // preserving the original item IDs.
+      final nextCartItems = <_PosCartItem>[];
+      for (final item in rawItems) {
+        final promoData = item.productRemoteId != null
+            ? promoByProduct[item.productRemoteId!]
+            : null;
+        nextCartItems.add(
+          item.copyWith(
+            appliedPromoId: promoData?['appliedPromoId'] as String?,
+            appliedPromoName: promoData?['appliedPromoName'] as String?,
+            overriddenUnitPrice: promoData?['overriddenUnitPrice'] as int?,
+            clearAppliedPromoId: promoData == null,
+            clearAppliedPromoName: promoData == null,
+            clearOverriddenUnitPrice: promoData == null,
+          ),
+        );
       }
 
       final withPromo = nextCartItems
@@ -1801,6 +1865,10 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             totalPayAmount: _totalPay,
             subtotalAmount: _subtotalAmount,
             discountAmount: _orderLevelDiscountAmount,
+            taxAmount: _taxAmount,
+            taxName: _taxName,
+            taxPercentage: _taxPercentage,
+            autoPrint: _autoPrint,
             totalQuantity: _cartItems.fold<int>(
               0,
               (sum, item) => sum + item.quantity,
@@ -1948,6 +2016,9 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             orderType: _selectedOrderType,
             note: _orderNote,
             orderLevelDiscountAmount: _orderLevelDiscountAmount,
+            taxAmount: _taxAmount,
+            taxName: _taxName,
+            taxPercentage: _taxPercentage,
           )
           .timeout(const Duration(seconds: 15));
 
@@ -2225,24 +2296,54 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     final orchestrator = PosV2SyncOrchestrator();
     final contextSync = session.toSyncContext();
     try {
-      await orchestrator.syncCategories(contextSync);
-      await orchestrator.syncBrands(contextSync);
-      await orchestrator.syncItemsPaged(
-        contextSync,
-        baseQuery: <String, dynamic>{'status': 'active'},
-        itemPerPage: 500,
-        startPage: 1,
-        maxPages: 25,
-      );
-      await orchestrator.syncPromotions(
-        contextSync,
-        query: <String, dynamic>{
-          'status': '1',
-          if (session.locationId.isNotEmpty) 'id_location': session.locationId,
-        },
-        allowNotFoundEmpty: true,
-      );
-      await orchestrator.syncCustomers(contextSync);
+      try {
+        await orchestrator.syncCategories(contextSync);
+      } catch (e) {
+        debugPrint('Failed to sync categories: $e');
+      }
+      
+      try {
+        await orchestrator.syncBrands(contextSync);
+      } catch (e) {
+        debugPrint('Failed to sync brands: $e');
+      }
+      
+      try {
+        await orchestrator.syncTaxes(contextSync);
+      } catch (e) {
+        debugPrint('Failed to sync taxes: $e');
+      }
+      
+      try {
+        await orchestrator.syncItemsPaged(
+          contextSync,
+          baseQuery: <String, dynamic>{'status': 'active'},
+          itemPerPage: 500,
+          startPage: 1,
+          maxPages: 25,
+        );
+      } catch (e) {
+        debugPrint('Failed to sync items: $e');
+      }
+      
+      try {
+        await orchestrator.syncPromotions(
+          contextSync,
+          query: <String, dynamic>{
+            'status': '1',
+            if (session.locationId.isNotEmpty) 'id_location': session.locationId,
+          },
+          allowNotFoundEmpty: true,
+        );
+      } catch (e) {
+        debugPrint('Failed to sync promotions: $e');
+      }
+      
+      try {
+        await orchestrator.syncCustomers(contextSync);
+      } catch (e) {
+        debugPrint('Failed to sync customers: $e');
+      }
 
       await PosCatalogStore.instance.refresh();
       await SalesOrderStore.instance.refreshFromPersistence();
@@ -2273,7 +2374,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     }
   }
 
-  void _handleQuickAction(_PosQuickAction action) {
+  void _handleQuickAction(_PosQuickAction action) async {
     final l10n = AppLocalizations.of(context)!;
 
     switch (action) {
@@ -2317,6 +2418,20 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         }
         _showCashOutDialog();
         return;
+      case _PosQuickAction.settings:
+        final changed = await showDialog<dynamic>(
+          context: context,
+          builder: (context) => const PosSettingsDialog(),
+        );
+        if (changed is Map<String, dynamic>) {
+          setState(() {
+            _showProductName = changed['show_name'] ?? true;
+            _showProductImage = changed['show_image'] ?? true;
+            _showProductStock = changed['show_stock'] ?? false;
+            _showProductPrice = changed['show_price'] ?? true;
+          });
+        }
+        return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -2326,9 +2441,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
               _PosQuickAction.closeOutlet => l10n.featureNotWiredMessage(
                 l10n.closeOutletAction,
               ),
-              _PosQuickAction.settings => l10n.featureNotWiredMessage(
-                l10n.settings,
-              ),
+              _PosQuickAction.settings => '',
               _PosQuickAction.discount => '',
               _PosQuickAction.clearOrder => '',
               _PosQuickAction.cancelOrder => '',
@@ -2367,17 +2480,19 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       final tenantId = session?.tenantId;
       final locationId = session?.locationId;
       final staffId = session?.staffId;
+      final shiftSessionId = ActiveShiftStore.instance.activeShiftNotifier.value?.id;
 
       if (tenantId != null) {
         await DatabaseService.instance.rawInsert(
           '''
           INSERT INTO pos_cash_flow (
-            tenant_id, location_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
-          ) VALUES (?, ?, 'in', ?, ?, ?, 'dirty_create', ?, ?)
+            tenant_id, location_id, shift_session_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
+          ) VALUES (?, ?, ?, 'in', ?, ?, ?, 'dirty_create', ?, ?)
           ''',
           [
             tenantId,
             locationId,
+            shiftSessionId,
             inputData.amount,
             inputData.catatan.isNotEmpty ? '${inputData.nama} - ${inputData.catatan}' : inputData.nama,
             staffId,
@@ -2436,17 +2551,19 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       final tenantId = session?.tenantId;
       final locationId = session?.locationId;
       final staffId = session?.staffId;
+      final shiftSessionId = ActiveShiftStore.instance.activeShiftNotifier.value?.id;
 
       if (tenantId != null) {
         await DatabaseService.instance.rawInsert(
           '''
           INSERT INTO pos_cash_flow (
-            tenant_id, location_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
-          ) VALUES (?, ?, 'out', ?, ?, ?, 'dirty_create', ?, ?)
+            tenant_id, location_id, shift_session_id, type, amount, note, staff_id_snapshot, sync_state, created_at, updated_at
+          ) VALUES (?, ?, ?, 'out', ?, ?, ?, 'dirty_create', ?, ?)
           ''',
           [
             tenantId,
             locationId,
+            shiftSessionId,
             inputData.amount,
             inputData.catatan.isNotEmpty ? '${inputData.nama} - ${inputData.catatan}' : inputData.nama,
             staffId,
@@ -4331,38 +4448,40 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        width: 54,
-                        height: double.infinity,
-                        color: Colors.grey.shade100,
-                        child:
-                            _isPlaceholderImage(
-                              product['image']?.toString() ?? '',
-                            )
-                            ? const Center(
-                                child: Icon(
-                                  Icons.image_not_supported_rounded,
-                                  color: Colors.black26,
-                                  size: 20,
-                                ),
+                    if (_showProductImage) ...[
+                      const SizedBox(width: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          width: 54,
+                          height: double.infinity,
+                          color: Colors.grey.shade100,
+                          child:
+                              _isPlaceholderImage(
+                                product['image']?.toString() ?? '',
                               )
-                            : CachedNetworkImage(
-                                imageUrl: product['image']! as String,
-                                fit: BoxFit.cover,
-                                errorWidget: (context, url, error) =>
-                                    const Center(
-                                      child: Icon(
-                                        Icons.image_not_supported_rounded,
-                                        color: Colors.black26,
-                                        size: 20,
+                              ? const Center(
+                                  child: Icon(
+                                    Icons.image_not_supported_rounded,
+                                    color: Colors.black26,
+                                    size: 20,
+                                  ),
+                                )
+                              : CachedNetworkImage(
+                                  imageUrl: product['image']! as String,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (context, url, error) =>
+                                      const Center(
+                                        child: Icon(
+                                          Icons.image_not_supported_rounded,
+                                          color: Colors.black26,
+                                          size: 20,
+                                        ),
                                       ),
-                                    ),
-                              ),
+                                ),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -4576,13 +4695,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                                 label: AppLocalizations.of(
                                   context,
                                 )!.syncDataAction,
-                              ),
-                              _buildQuickActionItem(
-                                value: _PosQuickAction.closeOutlet,
-                                icon: Icons.store_mall_directory_outlined,
-                                label: AppLocalizations.of(
-                                  context,
-                                )!.closeOutletAction,
                               ),
                               const PopupMenuDivider(),
                               _buildQuickActionItem(

@@ -3,6 +3,10 @@ import 'package:intl/intl.dart';
 
 import '../../../../../../core/services/local/database_service.dart';
 import '../../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../../../../core/printing/services/printer_rendering_service.dart';
+import '../../../../../../core/printing/services/printer_transport_service.dart';
+import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
+import '../../../services/shift_report_builder.dart';
 
 class _ShiftRow {
   final int id;
@@ -847,6 +851,40 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
               ),
             ),
           ),
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                final document = await ShiftReportBuilder.instance.buildReport(
+                  tenantId: session.tenantId,
+                  shiftSessionId: shift.id,
+                  isEod: false,
+                );
+                await PrinterSettingsController.instance.refresh(silent: true);
+                if (document != null && ctx.mounted) {
+                  final state = PrinterSettingsController.instance.stateNotifier.value;
+                  final printer = state.printers.where((p) => p.isActive && p.roles.contains('cashier')).firstOrNull ?? 
+                                  state.printers.where((p) => p.isActive).firstOrNull;
+                  if (printer != null) {
+                    final renderResult = await PrinterRenderingService.instance.render(printer, document);
+                    final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderResult);
+                    if (!dispatchResult.success && ctx.mounted) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                        content: Text('Gagal mencetak: ${dispatchResult.message}'),
+                        backgroundColor: Colors.red.shade600,
+                      ));
+                    }
+                  } else {
+                    ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(
+                      content: Text('Printer belum diatur.'),
+                      backgroundColor: Colors.orange,
+                    ));
+                  }
+                }
+              },
+              icon: const Icon(Icons.print_rounded, size: 16),
+              label: const Text('Print Report Shift'),
+            ),
+          ],
         );
       },
     );

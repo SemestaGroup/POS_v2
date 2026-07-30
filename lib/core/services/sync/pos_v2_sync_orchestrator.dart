@@ -14,6 +14,7 @@ import 'self_order_sync_adapter.dart';
 import 'service_tables_sync_adapter.dart';
 import 'shift_sync_adapter.dart';
 import 'staff_sync_adapter.dart';
+import 'taxes_sync_adapter.dart';
 import 'v2_sync_context.dart';
 import 'v2_sync_result.dart';
 
@@ -37,7 +38,8 @@ class PosV2SyncOrchestrator {
       ),
       _approvals = ApprovalRequestsSyncAdapter(
         databaseService: databaseService,
-      );
+      ),
+      _taxes = TaxesSyncAdapter(databaseService: databaseService);
 
   final DatabaseService databaseService;
   final BootstrapSyncAdapter _bootstrap;
@@ -54,12 +56,18 @@ class PosV2SyncOrchestrator {
   final PromotionsSyncAdapter _promotions;
   final ServiceTablesSyncAdapter _serviceTables;
   final ApprovalRequestsSyncAdapter _approvals;
+  final TaxesSyncAdapter _taxes;
 
   Future<V2SyncResult> syncBootstrap(V2SyncContext context) async {
     final result = await _bootstrap.sync(context);
     try {
       await PosV2OptionsService.instance.fetchAndSaveOptions();
     } catch (_) {}
+    try {
+      await syncTaxes(context);
+    } catch (e) {
+      // Ignore if taxes fail during bootstrap
+    }
     return result;
   }
 
@@ -76,6 +84,10 @@ class PosV2SyncOrchestrator {
 
   Future<V2SyncResult> syncCategories(V2SyncContext context) {
     return _categories.sync(context);
+  }
+
+  Future<V2SyncResult> syncTaxes(V2SyncContext context) {
+    return _taxes.sync(context);
   }
 
   Future<V2SyncResult> syncCustomers(
@@ -160,7 +172,7 @@ class PosV2SyncOrchestrator {
 
   Future<V2SyncResult> closeShift(
     V2SyncContext context, {
-    required int shiftRemoteId,
+    required int shiftLocalId,
     required int actualCash,
     int? expectedCash,
     int? totalNonCash,
@@ -168,7 +180,7 @@ class PosV2SyncOrchestrator {
   }) {
     return _shift.closeShift(
       context,
-      shiftRemoteId: shiftRemoteId,
+      shiftLocalId: shiftLocalId,
       actualCash: actualCash,
       expectedCash: expectedCash,
       totalNonCash: totalNonCash,
