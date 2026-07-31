@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/widgets/responsive/responsive_context.dart';
 import '../../../../../modules/overview/views/supervisor_overview/tablet_landscape/view.dart';
-import '../../../../../modules/sales/pos/views/pos_workspace/tablet_landscape/view.dart';
+import '../../../../../modules/sales/pos/views/pos_workspace/pos_workspace_view.dart';
 import '../../../../../modules/operations/views/operations_shell_view.dart';
 import '../../../../../modules/reports/views/reports_shell_view.dart';
 import '../../../../../modules/master_data/views/master_data_shell_view.dart';
@@ -27,7 +28,7 @@ class _SupervisorShellViewState extends State<SupervisorShellView> {
     super.didChangeDependencies();
     if (_hasConfiguredInitialSidebar) return;
 
-    _isSidebarCollapsed = MediaQuery.sizeOf(context).shortestSide < 600;
+    _isSidebarCollapsed = context.isMobile;
     _hasConfiguredInitialSidebar = true;
   }
 

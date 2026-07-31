@@ -9,6 +9,23 @@ class OrderStatusPresentation {
   final Color color;
 }
 
+class OrderStatusPresenter {
+  static String getLocalizedOrderType(BuildContext context, String orderType) {
+    switch (orderType.toLowerCase()) {
+      case 'dine_in':
+        return 'Dine In';
+      case 'take_away':
+        return 'Take Away';
+      default:
+        return orderType.toUpperCase();
+    }
+  }
+
+  static String getLocalizedStatusCode(BuildContext context, int statusCode) {
+    return presentOrderStatus(context, statusCode).label;
+  }
+}
+
 OrderStatusPresentation presentOrderStatus(
   BuildContext context,
   int statusCode,

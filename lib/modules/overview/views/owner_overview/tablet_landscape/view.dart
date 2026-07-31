@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../stores/overview_store.dart';
@@ -118,7 +119,7 @@ class _OwnerOverviewViewState extends State<OwnerOverviewView> {
   Widget _buildHeader(BuildContext context, ThemeData theme) {
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final lastModifiedAt = DateTime(2026, 6, 4, 11, 35);
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     if (isMobile) {
       return Column(

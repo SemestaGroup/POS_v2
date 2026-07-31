@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/widgets/responsive/responsive_context.dart';
 import '../../../../../core/network/v2_api_client.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/services/sync/pos_v2_auth_service.dart';
@@ -225,7 +226,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     Widget bodyContent = Column(
       mainAxisSize: MainAxisSize.min,

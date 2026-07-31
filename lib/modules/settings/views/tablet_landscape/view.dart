@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../general/views/general_settings/tablet_landscape/view.dart'
     show GeneralSettingsSaveAction, GeneralSettingsView;
@@ -124,7 +125,7 @@ class _SettingsShellViewState extends State<SettingsShellView> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return Scaffold(
       backgroundColor: Colors.white,

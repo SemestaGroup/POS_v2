@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 
 import '../../../stores/report_read_stores.dart';
@@ -22,7 +23,7 @@ class _CashierReportLiteViewState extends State<CashierReportLiteView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isMobile = MediaQuery.sizeOf(context).shortestSide < 600;
+    final isMobile = context.isMobile;
     final currencyFmt = NumberFormat('#,###', 'id_ID');
     final dateFmt = DateFormat('dd MMM yyyy, HH:mm', 'id_ID');
 

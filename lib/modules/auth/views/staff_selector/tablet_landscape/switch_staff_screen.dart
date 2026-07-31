@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/services/local/database_service.dart';
@@ -295,7 +296,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));

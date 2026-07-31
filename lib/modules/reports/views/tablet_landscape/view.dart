@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../../core/widgets/navigation/mobile_section_menu_page.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -117,7 +118,7 @@ class _ReportsShellViewState extends State<ReportsShellView> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,

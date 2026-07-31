@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../core/widgets/responsive/responsive_context.dart';
 import '../../../../../modules/operations/views/operations_shell_view.dart';
 import '../../../widgets/sidebar_widget.dart';
 import '../../../../../l10n/app_localizations.dart';
@@ -21,7 +22,7 @@ class _KitchenShellViewState extends State<KitchenShellView> {
     super.didChangeDependencies();
     if (_hasConfiguredInitialSidebar) return;
 
-    _isSidebarCollapsed = MediaQuery.sizeOf(context).shortestSide < 600;
+    _isSidebarCollapsed = context.isMobile;
     _hasConfiguredInitialSidebar = true;
   }
 

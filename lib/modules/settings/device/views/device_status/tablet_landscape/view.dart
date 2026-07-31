@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../controllers/register_provisioning_controller.dart';
 import '../../../models/register_provisioning_models.dart';
@@ -32,7 +33,7 @@ class _DeviceStatusViewState extends State<DeviceStatusView> {
       valueListenable: _store.snapshotNotifier,
       builder: (context, snapshot, _) {
         final session = snapshot.session;
-        final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+        final isMobile = context.isMobile;
         return Container(
           color: const Color(0xFFF8FAFC),
           child: CustomScrollView(
@@ -839,7 +840,7 @@ class _RegisterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     final detailContent = Column(
       crossAxisAlignment: CrossAxisAlignment.start,

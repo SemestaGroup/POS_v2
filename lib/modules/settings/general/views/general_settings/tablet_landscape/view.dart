@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import '../../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../../../../app/role_access/role_manager.dart';
 import '../../../../../../app/shell/controllers/main_shell_sync_controller.dart';
@@ -87,7 +88,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final l10n = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
@@ -529,7 +530,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
   Widget _buildOptionTile(
       String title, String value, IconData icon, Function(String) onSave) {
     final l10n = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
     return InkWell(
       onTap: () async {
         final ctrl = TextEditingController(text: value);
@@ -637,7 +638,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     required String Function(T) labelBuilder,
     required ValueChanged<T?> onChanged,
   }) {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 4 : 2),
       decoration: BoxDecoration(
@@ -702,7 +703,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     required String subtitle,
     required VoidCallback onTap,
   }) {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -768,7 +769,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
     required bool value,
     required ValueChanged<bool>? onChanged,
   }) {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 10 : 8),
       decoration: BoxDecoration(

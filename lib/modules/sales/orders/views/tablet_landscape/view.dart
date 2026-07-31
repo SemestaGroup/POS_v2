@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import '../../../../../app/shell/widgets/sub_menu_sidebar_widget.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../shared/orders_history_sync_service.dart';
-import '../active_orders/tablet_landscape/view.dart';
-import '../history_lite/tablet_landscape/view.dart';
-import '../parked_orders/tablet_landscape/view.dart';
+import '../active_orders/active_orders_view.dart';
+import '../history_lite/history_lite_view.dart';
+import '../parked_orders/parked_orders_view.dart';
 
 class OrdersShellView extends StatefulWidget {
   const OrdersShellView({super.key, this.initialIndex = 1});

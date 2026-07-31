@@ -18,7 +18,6 @@ import '../../../../orders/shared/orders_history_sync_service.dart';
 import '../../../../../../core/services/sync/pos_v2_options_service.dart';
 import 'dart:convert';
 
-import '../mobile_portrait/view.dart';
 import '../../../../orders/views/tablet_landscape/view.dart';
 import '../../checkout/tablet_landscape/payment_flow_page.dart';
 import '../../../../../../core/printing/models/printer_render_models.dart';
@@ -139,8 +138,8 @@ class _PosCartItem {
   }
 }
 
-class PosWorkspaceView extends StatefulWidget {
-  const PosWorkspaceView({
+class PosWorkspaceTabletLandscapeView extends StatefulWidget {
+  const PosWorkspaceTabletLandscapeView({
     super.key,
     this.embedded = false,
     this.onSectionSelected,
@@ -154,10 +153,12 @@ class PosWorkspaceView extends StatefulWidget {
   final bool isReadOnly;
 
   @override
-  State<PosWorkspaceView> createState() => _PosWorkspaceViewState();
+  State<PosWorkspaceTabletLandscapeView> createState() =>
+      _PosWorkspaceTabletLandscapeViewState();
 }
 
-class _PosWorkspaceViewState extends State<PosWorkspaceView> {
+class _PosWorkspaceTabletLandscapeViewState
+    extends State<PosWorkspaceTabletLandscapeView> {
   final TextEditingController _searchController = TextEditingController();
   bool _isPromoFilterActive = false;
   List<_PosCartItem> _cartItems = [];
@@ -257,7 +258,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
             productName: item.name,
             categoryRemoteId: categoryId,
             brandRemoteId: brandId,
-            activeUnitPrice: parsedDiscounted ?? item.regularUnitPrice ?? 0,
+            activeUnitPrice: parsedDiscounted ?? item.regularUnitPrice,
             quantity: item.quantity,
           );
         })
@@ -266,7 +267,7 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
     final applicablePromos = await PosPromotionService.instance
         .getApplicablePromotions(
           items: matchItems,
-          orderTypeCode: _toBackendOrderTypeCode(pendingOrder.orderType ?? ''),
+          orderTypeCode: _toBackendOrderTypeCode(pendingOrder.orderType),
         );
 
     PosPromotionResult? actualPromo;
@@ -818,31 +819,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
 
   int _findCartItemIndex(String itemId) =>
       _cartItems.indexWhere((item) => item.id == itemId);
-
-  void _onChangeQuantity(String itemId, int qty) {
-    if (qty <= 0) {
-      _removeCartItem(itemId);
-      return;
-    }
-    final index = _findCartItemIndex(itemId);
-    if (index < 0) {
-      return;
-    }
-    _cartItems[index] = _cartItems[index].copyWith(quantity: qty);
-    _recalculateCartPromotions();
-  }
-
-  void _onUpdateNote(String itemId, String? note) {
-    final index = _findCartItemIndex(itemId);
-    if (index < 0) {
-      return;
-    }
-    _cartItems[index] = _cartItems[index].copyWith(
-      note: note,
-      clearNote: note == null || note.isEmpty,
-    );
-    _recalculateCartPromotions();
-  }
 
   void _replaceCartItem(String itemId, _PosCartItem item) {
     final index = _findCartItemIndex(itemId);
@@ -1748,12 +1724,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
       return orderTypes;
     }
     return <String>[_selectedOrderType];
-  }
-
-  void _onClearCart() {
-    _cartItems.clear();
-    _selectedPromotions.clear();
-    _recalculateCartPromotions();
   }
 
   void _resetCurrentOrder() {
@@ -3396,11 +3366,6 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
-    if (isMobile) {
-      return PosWorkspaceMobileView(isReadOnly: widget.isReadOnly);
-    }
 
     final content = Row(
       children: [

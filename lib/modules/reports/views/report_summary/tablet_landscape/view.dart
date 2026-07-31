@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 
 import '../../../stores/report_read_stores.dart';
@@ -29,7 +30,7 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
       Localizations.localeOf(context).toString(),
     );
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return ValueListenableBuilder<ReportSummarySnapshot>(
       valueListenable: _store.snapshotNotifier,

@@ -1,5 +1,6 @@
 import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
+import '../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../controllers/sync_settings_controller.dart';
 import '../../../models/sync_settings_state.dart';
@@ -24,7 +25,7 @@ class _SyncHistoryViewState extends State<SyncHistoryView> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return ValueListenableBuilder<SyncHistoryState>(
       valueListenable: _controller.stateNotifier,

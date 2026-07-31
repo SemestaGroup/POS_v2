@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/responsive/responsive_context.dart';
 import '../../../../app/role_access/role_manager.dart';
 import '../../../../core/widgets/navigation/mobile_section_menu_page.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../catalog/views/brands/tablet_landscape/view.dart';
-import '../../catalog/views/categories/tablet_landscape/view.dart';
-import '../../catalog/views/products/tablet_landscape/view.dart';
-import '../../catalog/views/promos/tablet_landscape/view.dart';
-import '../../customers/views/customer_list/tablet_landscape/view.dart';
-import '../../staff/views/staff_list/tablet_landscape/view.dart';
-import '../../staff/views/staff_roles/tablet_landscape/view.dart';
+import '../../catalog/views/brands/brands_view.dart';
+import '../../catalog/views/categories/categories_view.dart';
+import '../../catalog/views/products/products_view.dart';
+import '../../catalog/views/promos/promos_view.dart';
+import '../../customers/views/customer_list/customer_list_view.dart';
+import '../../staff/views/staff_list/staff_list_view.dart';
+import '../../staff/views/staff_roles/staff_roles_view.dart';
 import '../mobile_portrait/view.dart';
 
 class _SubMenuDefinition {
@@ -137,7 +138,7 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 
 import '../../../stores/operations_read_stores.dart';
@@ -109,7 +110,7 @@ class _RecapViewState extends State<RecapView> {
     final primaryColor = theme.colorScheme.primary;
     final currencyFmt = NumberFormat('#,###', 'id_ID');
 
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return DefaultTabController(
       length: 2,

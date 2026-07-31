@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../controllers/profile_settings_controller.dart';
 import '../../../models/profile_settings_state.dart';
@@ -26,7 +27,7 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primary = theme.colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return ValueListenableBuilder<ProfileSettingsState>(
       valueListenable: _controller.stateNotifier,

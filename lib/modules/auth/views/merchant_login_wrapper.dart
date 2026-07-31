@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/widgets/responsive/responsive_context.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'merchant_login/tablet_landscape/view.dart';
 import 'merchant_login/mobile_portrait/view.dart';
 
 /// Wrapper widget that allows switching between tablet and smartphone
-/// login layouts. By default it detects the layout from the screen size,
+/// login layouts. By default it detects the layout from context.isTablet,
 /// but the user can manually toggle via a button.
 class MerchantLoginWrapper extends StatefulWidget {
   const MerchantLoginWrapper({super.key});
@@ -16,7 +17,7 @@ class MerchantLoginWrapper extends StatefulWidget {
 }
 
 class _MerchantLoginWrapperState extends State<MerchantLoginWrapper> {
-  /// null means "auto-detect based on screen width"
+  /// null means "auto-detect based on context.isTablet"
   bool? _forceTabletLayout;
 
   @override
@@ -111,8 +112,7 @@ class _MerchantLoginWrapperState extends State<MerchantLoginWrapper> {
   }
 
   void _toggleLayout() {
-    final isCurrentlyTablet = _forceTabletLayout ??
-        MediaQuery.of(context).size.width >= 600;
+    final isCurrentlyTablet = _forceTabletLayout ?? context.isTablet;
     setState(() {
       _forceTabletLayout = !isCurrentlyTablet;
     });
@@ -120,8 +120,7 @@ class _MerchantLoginWrapperState extends State<MerchantLoginWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final useTabletLayout = _forceTabletLayout ?? (screenWidth >= 600);
+    final useTabletLayout = _forceTabletLayout ?? context.isTablet;
 
     if (useTabletLayout) {
       return MerchantLoginTabletView(onToggleLayout: _toggleLayout);

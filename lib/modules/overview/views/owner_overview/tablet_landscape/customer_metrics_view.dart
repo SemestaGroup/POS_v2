@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import '../../../../../../l10n/app_localizations.dart';
 
 class CustomerMetricsView extends StatelessWidget {
@@ -8,7 +9,7 @@ class CustomerMetricsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l10n = AppLocalizations.of(context)!;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     if (isMobile) {
       return SingleChildScrollView(

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../../../core/services/sync/pos_v2_options_service.dart';
@@ -127,7 +128,7 @@ class _StoreProfileViewState extends State<StoreProfileView> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return ValueListenableBuilder<StoreProfileState>(
       valueListenable: _controller.stateNotifier,

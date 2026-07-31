@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../../../../../l10n/app_localizations.dart';
@@ -13,7 +14,7 @@ class SalesMetricsView extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final currencyFormatter = NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0);
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     if (isMobile) {
       return SingleChildScrollView(
@@ -860,7 +861,7 @@ class SalesMetricsView extends StatelessWidget {
   Widget _buildStatusPanel(BuildContext context, ThemeData theme) {
     final hasPendingSync = snapshot.pendingSyncCount > 0;
     final isShiftOpen = snapshot.isShiftOpen;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     Widget syncCard = _buildThemedCard(
       theme: theme,

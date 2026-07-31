@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../controllers/store_settings_controller.dart';
 import '../../../models/store_settings_state.dart';
@@ -42,7 +43,7 @@ class _ShiftConfigViewState extends State<ShiftConfigView> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return ValueListenableBuilder<ShiftConfigState>(
       valueListenable: _controller.stateNotifier,

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../../core/widgets/navigation/mobile_section_menu_page.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../master_data/customers/views/customer_list/tablet_landscape/view.dart';
+import '../../../master_data/customers/views/customer_list/customer_list_view.dart';
 import '../../shift/views/shift_open/tablet_landscape/view.dart';
 import '../../shift/views/shift_close/tablet_landscape/view.dart';
 import '../../recap/views/tablet_landscape/view.dart';
@@ -104,7 +105,7 @@ class _OperationsShellViewState extends State<OperationsShellView> {
       body: ValueListenableBuilder<AppRole>(
         valueListenable: RoleManager.roleNotifier,
         builder: (context, activeRole, _) {
-          final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+          final isMobile = context.isMobile;
           final filteredSubMenus = _allSubMenus
               .where((menu) => menu.allowedRoles.contains(activeRole))
               .toList();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../../controllers/app_update_controller.dart';
 import '../../../models/app_update_state.dart';
@@ -25,7 +26,7 @@ class _AppUpdateViewState extends State<AppUpdateView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final isMobile = MediaQuery.of(context).size.shortestSide < 600;
+    final isMobile = context.isMobile;
 
     return ValueListenableBuilder<AppUpdateState>(
       valueListenable: _controller.stateNotifier,
