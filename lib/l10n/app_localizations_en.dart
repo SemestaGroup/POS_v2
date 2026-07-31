@@ -116,6 +116,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get discount => 'Discount';
 
   @override
+  String get cashIn => 'Cash In';
+
+  @override
+  String get posQuickActions => 'Sales actions';
+
+  @override
+  String get posQuickActionsOrdersSection => 'ORDER';
+
+  @override
+  String get posQuickActionsCashSection => 'CASH';
+
+  @override
+  String get posQuickActionsSystemSection => 'SYSTEM';
+
+  @override
+  String get discountActionSubtitle =>
+      'Choose an applicable promotion or apply a manual discount.';
+
+  @override
+  String promoAppliedCount(int count) {
+    return '$count promotion applied';
+  }
+
+  @override
   String get totalPay => 'Total Pay';
 
   @override
@@ -281,6 +305,51 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get avgSalesPerTransaction => 'Avg. Sales/Transaction';
+
+  @override
+  String get reportTodaySales => 'Today\'s sales';
+
+  @override
+  String get reportSalesAccumulation => 'Sales accumulated';
+
+  @override
+  String get reportLastSevenDays => 'Last 7 days';
+
+  @override
+  String get reportCurrentMonth => 'This month';
+
+  @override
+  String get reportAverage => 'Average';
+
+  @override
+  String reportTransactionsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count transactions',
+      one: '1 transaction',
+      zero: '0 transactions',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String reportItemsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items',
+      one: '1 item',
+      zero: '0 items',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get reportTopProductsCurrentMonth => 'Top products this month';
+
+  @override
+  String get reportNoTopProducts => 'No top-product data yet.';
 
   @override
   String get transactions => 'Transactions';

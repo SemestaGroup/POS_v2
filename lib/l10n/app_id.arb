@@ -32,6 +32,21 @@
   "subtotal": "Subtotal",
   "tax": "Pajak",
   "discount": "Diskon",
+  "cashIn": "Kas Masuk",
+  "posQuickActions": "Tindakan penjualan",
+  "posQuickActionsOrdersSection": "PESANAN",
+  "posQuickActionsCashSection": "KAS",
+  "posQuickActionsSystemSection": "SISTEM",
+  "discountActionSubtitle": "Pilih promo yang berlaku atau terapkan diskon manual.",
+  "promoAppliedCount": "{count} promo diterapkan",
+  "@promoAppliedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "totalPay": "Total Bayar",
   "sendToKitchen": "Kirim ke Dapur",
   "save": "Simpan",
@@ -92,6 +107,31 @@
   "saveDetails": "Simpan Detail",
   "totalSales": "Total Penjualan",
   "avgSalesPerTransaction": "Rata-Rata Penjualan/Transaksi",
+  "reportTodaySales": "Penjualan hari ini",
+  "reportSalesAccumulation": "Akumulasi penjualan",
+  "reportLastSevenDays": "7 hari terakhir",
+  "reportCurrentMonth": "Bulan ini",
+  "reportAverage": "Rata-rata",
+  "reportTransactionsCount": "{count} transaksi",
+  "@reportTransactionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "13"
+      }
+    }
+  },
+  "reportItemsCount": "{count} item",
+  "@reportItemsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
+  "reportTopProductsCurrentMonth": "Produk terlaris bulan ini",
+  "reportNoTopProducts": "Belum ada data produk terlaris.",
   "transactions": "Transaksi",
   "totalDiscount": "Total Diskon",
   "applyFilter": "Terapkan Filter",

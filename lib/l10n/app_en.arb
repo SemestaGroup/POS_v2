@@ -56,6 +56,21 @@
   "subtotal": "Subtotal",
   "tax": "Tax",
   "discount": "Discount",
+  "cashIn": "Cash In",
+  "posQuickActions": "Sales actions",
+  "posQuickActionsOrdersSection": "ORDER",
+  "posQuickActionsCashSection": "CASH",
+  "posQuickActionsSystemSection": "SYSTEM",
+  "discountActionSubtitle": "Choose an applicable promotion or apply a manual discount.",
+  "promoAppliedCount": "{count} promotion applied",
+  "@promoAppliedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
+      }
+    }
+  },
   "totalPay": "Total Pay",
   "sendToKitchen": "Send to Kitchen",
   "save": "Save",
@@ -116,6 +131,31 @@
   "saveDetails": "Save Details",
   "totalSales": "Total Sales",
   "avgSalesPerTransaction": "Avg. Sales/Transaction",
+  "reportTodaySales": "Today's sales",
+  "reportSalesAccumulation": "Sales accumulated",
+  "reportLastSevenDays": "Last 7 days",
+  "reportCurrentMonth": "This month",
+  "reportAverage": "Average",
+  "reportTransactionsCount": "{count, plural, =0{0 transactions} =1{1 transaction} other{{count} transactions}}",
+  "@reportTransactionsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "13"
+      }
+    }
+  },
+  "reportItemsCount": "{count, plural, =0{0 items} =1{1 item} other{{count} items}}",
+  "@reportItemsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "4"
+      }
+    }
+  },
+  "reportTopProductsCurrentMonth": "Top products this month",
+  "reportNoTopProducts": "No top-product data yet.",
   "transactions": "Transactions",
   "totalDiscount": "Total Discount",
   "applyFilter": "Apply Filter",

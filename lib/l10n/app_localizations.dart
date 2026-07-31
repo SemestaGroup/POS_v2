@@ -296,6 +296,48 @@ abstract class AppLocalizations {
   /// **'Discount'**
   String get discount;
 
+  /// No description provided for @cashIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Cash In'**
+  String get cashIn;
+
+  /// No description provided for @posQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales actions'**
+  String get posQuickActions;
+
+  /// No description provided for @posQuickActionsOrdersSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ORDER'**
+  String get posQuickActionsOrdersSection;
+
+  /// No description provided for @posQuickActionsCashSection.
+  ///
+  /// In en, this message translates to:
+  /// **'CASH'**
+  String get posQuickActionsCashSection;
+
+  /// No description provided for @posQuickActionsSystemSection.
+  ///
+  /// In en, this message translates to:
+  /// **'SYSTEM'**
+  String get posQuickActionsSystemSection;
+
+  /// No description provided for @discountActionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an applicable promotion or apply a manual discount.'**
+  String get discountActionSubtitle;
+
+  /// No description provided for @promoAppliedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} promotion applied'**
+  String promoAppliedCount(int count);
+
   /// No description provided for @totalPay.
   ///
   /// In en, this message translates to:
@@ -607,6 +649,60 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Avg. Sales/Transaction'**
   String get avgSalesPerTransaction;
+
+  /// No description provided for @reportTodaySales.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s sales'**
+  String get reportTodaySales;
+
+  /// No description provided for @reportSalesAccumulation.
+  ///
+  /// In en, this message translates to:
+  /// **'Sales accumulated'**
+  String get reportSalesAccumulation;
+
+  /// No description provided for @reportLastSevenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Last 7 days'**
+  String get reportLastSevenDays;
+
+  /// No description provided for @reportCurrentMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'This month'**
+  String get reportCurrentMonth;
+
+  /// No description provided for @reportAverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Average'**
+  String get reportAverage;
+
+  /// No description provided for @reportTransactionsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{0 transactions} =1{1 transaction} other{{count} transactions}}'**
+  String reportTransactionsCount(int count);
+
+  /// No description provided for @reportItemsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{0 items} =1{1 item} other{{count} items}}'**
+  String reportItemsCount(int count);
+
+  /// No description provided for @reportTopProductsCurrentMonth.
+  ///
+  /// In en, this message translates to:
+  /// **'Top products this month'**
+  String get reportTopProductsCurrentMonth;
+
+  /// No description provided for @reportNoTopProducts.
+  ///
+  /// In en, this message translates to:
+  /// **'No top-product data yet.'**
+  String get reportNoTopProducts;
 
   /// No description provided for @transactions.
   ///

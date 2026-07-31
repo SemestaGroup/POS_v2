@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../stores/report_read_stores.dart';
+import '../mobile_portrait/view.dart';
 
 class ReportSummaryView extends StatefulWidget {
   const ReportSummaryView({super.key});
@@ -23,9 +24,11 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFmt = NumberFormat('#,###', 'id_ID');
-    final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
+    final currencyFmt = NumberFormat(
+      '#,###',
+      Localizations.localeOf(context).toString(),
+    );
+    final primaryColor = Theme.of(context).colorScheme.primary;
     final isMobile = MediaQuery.of(context).size.shortestSide < 600;
 
     return ValueListenableBuilder<ReportSummarySnapshot>(
@@ -41,6 +44,15 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
               snapshot.errorMessage!,
               style: TextStyle(color: Colors.red.shade600),
             ),
+          );
+        }
+
+        if (isMobile) {
+          return ReportSummaryMobileView(
+            snapshot: snapshot,
+            primaryColor: primaryColor,
+            currencyFmt: currencyFmt,
+            onRefresh: _store.refresh,
           );
         }
 
@@ -99,45 +111,25 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              isMobile
-                  ? Column(
-                      children: [
-                        periodCards[0],
-                        const SizedBox(height: 10),
-                        periodCards[1],
-                        const SizedBox(height: 10),
-                        periodCards[2],
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(child: periodCards[0]),
-                        const SizedBox(width: 10),
-                        Expanded(child: periodCards[1]),
-                        const SizedBox(width: 10),
-                        Expanded(child: periodCards[2]),
-                      ],
-                    ),
+              Row(
+                children: [
+                  Expanded(child: periodCards[0]),
+                  const SizedBox(width: 10),
+                  Expanded(child: periodCards[1]),
+                  const SizedBox(width: 10),
+                  Expanded(child: periodCards[2]),
+                ],
+              ),
               const SizedBox(height: 14),
-              isMobile
-                  ? Column(
-                      children: [
-                        statCards[0],
-                        const SizedBox(height: 10),
-                        statCards[1],
-                        const SizedBox(height: 10),
-                        statCards[2],
-                      ],
-                    )
-                  : Row(
-                      children: [
-                        Expanded(child: statCards[0]),
-                        const SizedBox(width: 10),
-                        Expanded(child: statCards[1]),
-                        const SizedBox(width: 10),
-                        Expanded(child: statCards[2]),
-                      ],
-                    ),
+              Row(
+                children: [
+                  Expanded(child: statCards[0]),
+                  const SizedBox(width: 10),
+                  Expanded(child: statCards[1]),
+                  const SizedBox(width: 10),
+                  Expanded(child: statCards[2]),
+                ],
+              ),
               const SizedBox(height: 18),
               _buildTopProductsCard(primaryColor, currencyFmt, snapshot),
             ],
@@ -302,7 +294,9 @@ class _ReportSummaryViewState extends State<ReportSummaryView> {
               final index = entry.key;
               final product = entry.value;
               return Padding(
-                padding: EdgeInsets.only(bottom: index == snapshot.topProducts.length - 1 ? 0 : 10),
+                padding: EdgeInsets.only(
+                  bottom: index == snapshot.topProducts.length - 1 ? 0 : 10,
+                ),
                 child: Row(
                   children: [
                     Container(

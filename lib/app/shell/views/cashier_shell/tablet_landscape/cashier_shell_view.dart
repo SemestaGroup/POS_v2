@@ -35,7 +35,7 @@ class _CashierShellViewState extends State<CashierShellView> {
 
   @override
   Widget build(BuildContext context) {
-    final currentHeight = MediaQuery.of(context).size.height;
+    final currentHeight = MediaQuery.sizeOf(context).height;
     if (currentHeight > _maxScreenHeight) {
       _maxScreenHeight = currentHeight;
     }

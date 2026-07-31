@@ -116,6 +116,30 @@ class AppLocalizationsId extends AppLocalizations {
   String get discount => 'Diskon';
 
   @override
+  String get cashIn => 'Kas Masuk';
+
+  @override
+  String get posQuickActions => 'Tindakan penjualan';
+
+  @override
+  String get posQuickActionsOrdersSection => 'PESANAN';
+
+  @override
+  String get posQuickActionsCashSection => 'KAS';
+
+  @override
+  String get posQuickActionsSystemSection => 'SISTEM';
+
+  @override
+  String get discountActionSubtitle =>
+      'Pilih promo yang berlaku atau terapkan diskon manual.';
+
+  @override
+  String promoAppliedCount(int count) {
+    return '$count promo diterapkan';
+  }
+
+  @override
   String get totalPay => 'Total Bayar';
 
   @override
@@ -281,6 +305,37 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get avgSalesPerTransaction => 'Rata-Rata Penjualan/Transaksi';
+
+  @override
+  String get reportTodaySales => 'Penjualan hari ini';
+
+  @override
+  String get reportSalesAccumulation => 'Akumulasi penjualan';
+
+  @override
+  String get reportLastSevenDays => '7 hari terakhir';
+
+  @override
+  String get reportCurrentMonth => 'Bulan ini';
+
+  @override
+  String get reportAverage => 'Rata-rata';
+
+  @override
+  String reportTransactionsCount(int count) {
+    return '$count transaksi';
+  }
+
+  @override
+  String reportItemsCount(int count) {
+    return '$count item';
+  }
+
+  @override
+  String get reportTopProductsCurrentMonth => 'Produk terlaris bulan ini';
+
+  @override
+  String get reportNoTopProducts => 'Belum ada data produk terlaris.';
 
   @override
   String get transactions => 'Transaksi';

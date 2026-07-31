@@ -38,12 +38,14 @@ class KasKeluarDialog extends StatefulWidget {
   final KasKeluarInputData? initialData;
   final List<Map<String, dynamic>>? paymentModes;
   final ValueChanged<KasKeluarInputData>? onSubmit;
+  final bool optimizeForMobileKeyboard;
 
   const KasKeluarDialog({
     super.key,
     this.initialData,
     this.paymentModes,
     this.onSubmit,
+    this.optimizeForMobileKeyboard = false,
   });
 
   /// Helper statis untuk menampilkan dialog Kas Keluar dari mana saja
@@ -52,6 +54,7 @@ class KasKeluarDialog extends StatefulWidget {
     KasKeluarInputData? initialData,
     List<Map<String, dynamic>>? paymentModes,
     ValueChanged<KasKeluarInputData>? onSubmit,
+    bool optimizeForMobileKeyboard = false,
   }) {
     return showDialog<KasKeluarInputData>(
       context: context,
@@ -60,6 +63,7 @@ class KasKeluarDialog extends StatefulWidget {
         initialData: initialData,
         paymentModes: paymentModes,
         onSubmit: onSubmit,
+        optimizeForMobileKeyboard: optimizeForMobileKeyboard,
       ),
     );
   }
@@ -146,6 +150,7 @@ class _KasKeluarDialogState extends State<KasKeluarDialog> {
   }
 
   void _onAmountChanged(String val) {
+    if (widget.optimizeForMobileKeyboard) return;
     final numeric = _parseAmount(val);
     if (numeric == 0) {
       _amountController.value = const TextEditingValue(
@@ -242,6 +247,7 @@ class _KasKeluarDialogState extends State<KasKeluarDialog> {
     final dateFormat = DateFormat('dd MMMM yyyy', 'id_ID');
 
     return Dialog(
+      insetAnimationDuration: widget.optimizeForMobileKeyboard ? Duration.zero : const Duration(milliseconds: 100),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       elevation: 12,
       clipBehavior: Clip.antiAlias,
@@ -332,6 +338,9 @@ class _KasKeluarDialogState extends State<KasKeluarDialog> {
             // Form Body
             Flexible(
               child: SingleChildScrollView(
+                keyboardDismissBehavior: widget.optimizeForMobileKeyboard
+                    ? ScrollViewKeyboardDismissBehavior.onDrag
+                    : ScrollViewKeyboardDismissBehavior.manual,
                 padding: const EdgeInsets.all(20),
                 child: Form(
                   key: _formKey,
@@ -396,7 +405,9 @@ class _KasKeluarDialogState extends State<KasKeluarDialog> {
                             TextFormField(
                               controller: _amountController,
                               keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                              inputFormatters: widget.optimizeForMobileKeyboard
+                                  ? [FilteringTextInputFormatter.digitsOnly, _CurrencyInputFormatter()]
+                                  : [FilteringTextInputFormatter.digitsOnly],
                               onChanged: _onAmountChanged,
                               style: const TextStyle(
                                 fontSize: 22,
@@ -720,5 +731,18 @@ class _KasKeluarDialogState extends State<KasKeluarDialog> {
         ),
       ),
     );
+  }
+}
+
+class _CurrencyInputFormatter extends TextInputFormatter {
+  final NumberFormat _formatter = NumberFormat('#,###', 'id_ID');
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) return newValue;
+    final value = int.tryParse(newValue.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    if (value == 0) return const TextEditingValue();
+    final text = _formatter.format(value);
+    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
   }
 }
