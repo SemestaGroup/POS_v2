@@ -175,7 +175,7 @@ class _PrinterListViewState extends State<PrinterListView> {
   void _openEditorWithDevice(BuildContext context, BluetoothDevice device) {
     final newPrinter = PrinterDeviceConfig(
       id: 0,
-      printerKey: '',
+      printerKey: 'printer-${DateTime.now().microsecondsSinceEpoch}',
       displayName: device.name ?? 'Bluetooth Printer',
       connectionType: 'bluetooth',
       connectionTarget: device.address,

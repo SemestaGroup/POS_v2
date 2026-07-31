@@ -58,48 +58,57 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
   }
 
   Future<void> _loadSettings() async {
-    final options = await PosV2OptionsService.instance.getLocalOptions();
-    final raw = options['pos_app_settings'];
     try {
-      if (raw is Map) {
-        _appSettings = Map<String, dynamic>.from(raw);
-      } else if (raw is String && raw.isNotEmpty) {
-        _appSettings = jsonDecode(raw) as Map<String, dynamic>;
+      final options = await PosV2OptionsService.instance.getLocalOptions();
+      final raw = options['pos_app_settings'];
+      try {
+        if (raw is Map) {
+          _appSettings = Map<String, dynamic>.from(raw);
+        } else if (raw is String && raw.isNotEmpty) {
+          _appSettings = jsonDecode(raw) as Map<String, dynamic>;
+        }
+      } catch (_) {}
+
+      final display = _appSettings['display'] is Map<String, dynamic>
+          ? _appSettings['display'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      final taxSetting = _appSettings['tax'] is Map<String, dynamic>
+          ? _appSettings['tax'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      final printerSetting = _appSettings['printer'] is Map<String, dynamic>
+          ? _appSettings['printer'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      List<Map<String, dynamic>> taxesList = [];
+      try {
+        final db = await DatabaseService.instance.database;
+        taxesList = await db.query('pos_tax');
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _showImage = display['show_image'] ?? true;
+          _showName = display['show_name'] ?? true;
+          _showPrice = display['show_price'] ?? true;
+          _showStock = display['show_stock'] ?? false;
+          _compactGrid = display['compact_grid'] ?? false;
+          _darkMode = display['dark_mode'] ?? false;
+          _selectedTaxId = taxSetting['tax_id']?.toString();
+          _autoTax = taxSetting['auto_tax'] ?? false;
+          _autoPrint = printerSetting['auto_print'] ?? true;
+          _taxesList = taxesList;
+        });
       }
-    } catch (_) {}
-
-    final display = _appSettings['display'] is Map<String, dynamic>
-        ? _appSettings['display'] as Map<String, dynamic>
-        : <String, dynamic>{};
-
-    final taxSetting = _appSettings['tax'] is Map<String, dynamic>
-        ? _appSettings['tax'] as Map<String, dynamic>
-        : <String, dynamic>{};
-
-    final printerSetting = _appSettings['printer'] is Map<String, dynamic>
-        ? _appSettings['printer'] as Map<String, dynamic>
-        : <String, dynamic>{};
-
-    List<Map<String, dynamic>> taxesList = [];
-    try {
-      final db = await DatabaseService.instance.database;
-      taxesList = await db.query('pos_tax');
-    } catch (_) {}
-
-    if (mounted) {
-      setState(() {
-        _showImage = display['show_image'] ?? true;
-        _showName = display['show_name'] ?? true;
-        _showPrice = display['show_price'] ?? true;
-        _showStock = display['show_stock'] ?? false;
-        _compactGrid = display['compact_grid'] ?? false;
-        _darkMode = display['dark_mode'] ?? false;
-        _selectedTaxId = taxSetting['tax_id']?.toString();
-        _autoTax = taxSetting['auto_tax'] ?? false;
-        _autoPrint = printerSetting['auto_print'] ?? true;
-        _taxesList = taxesList;
-        _isLoading = false;
-      });
+    } catch (e, st) {
+      debugPrint('Error _loadSettings: $e\n$st');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

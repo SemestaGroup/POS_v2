@@ -192,6 +192,10 @@ class PosV2SyncOrchestrator {
     return _shift.sync(context, path: 'api/v2/pos-shift-sessions/active');
   }
 
+  Future<void> syncPendingLocalShifts(V2SyncContext context) {
+    return _shift.syncPendingLocalShifts(context);
+  }
+
   Future<V2SyncResult> syncRoles(V2SyncContext context) {
     return _roles.sync(context);
   }

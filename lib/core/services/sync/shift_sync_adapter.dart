@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'base_v2_sync_adapter.dart';
 import 'v2_sync_context.dart';
 import 'v2_sync_result.dart';
@@ -323,5 +325,54 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
       },
     );
     return 1;
+  }
+
+  Future<void> syncPendingLocalShifts(V2SyncContext context) async {
+    await databaseService.transaction((txn) async {
+      final tenantId = await ensureTenantId(txn, context);
+      final rows = await txn.query(
+        'shift_session',
+        where: 'tenant_id = ? AND sync_state = ?',
+        whereArgs: [tenantId, 'pending'],
+      );
+      if (rows.isEmpty) return;
+
+      for (final row in rows) {
+        final status = row['status']?.toString();
+        final localId = V2SyncUtils.asInt(row['id']);
+
+        if (status == 'closed') {
+          final remoteId = row['remote_id']?.toString();
+          if (remoteId != null && remoteId.isNotEmpty) {
+            try {
+              await closeShift(
+                context,
+                shiftLocalId: localId,
+                actualCash: V2SyncUtils.asInt(row['actual_cash']),
+                expectedCash: V2SyncUtils.asInt(row['expected_cash']),
+                totalNonCash: V2SyncUtils.asInt(row['total_non_cash']),
+                reconciliationJson: V2SyncUtils.asMap(row['reconciliation_json'] != null ? jsonDecode(row['reconciliation_json'].toString()) : null),
+              );
+            } catch (_) {}
+          }
+        } else if (status == 'open') {
+          final remoteId = row['remote_id']?.toString();
+          if (remoteId == null || remoteId.isEmpty) {
+            try {
+              await openShift(
+                context,
+                locationId: V2SyncUtils.asInt(row['location_id']),
+                staffId: V2SyncUtils.asInt(row['pos_staff_remote_id']),
+                staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
+                shiftName: row['shift_name']?.toString() ?? '',
+                openingBalance: V2SyncUtils.asInt(row['opening_balance']),
+                deviceId: row['source_device_id']?.toString(),
+                registerId: row['register_id']?.toString(),
+              );
+            } catch (_) {}
+          }
+        }
+      }
+    });
   }
 }

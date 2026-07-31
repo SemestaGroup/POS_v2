@@ -2419,18 +2419,11 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
         _showCashOutDialog();
         return;
       case _PosQuickAction.settings:
-        final changed = await showDialog<dynamic>(
+        await showDialog<dynamic>(
           context: context,
           builder: (context) => const PosSettingsDialog(),
         );
-        if (changed is Map<String, dynamic>) {
-          setState(() {
-            _showProductName = changed['show_name'] ?? true;
-            _showProductImage = changed['show_image'] ?? true;
-            _showProductStock = changed['show_stock'] ?? false;
-            _showProductPrice = changed['show_price'] ?? true;
-          });
-        }
+        await _loadDisplaySettings();
         return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
@@ -5018,15 +5011,15 @@ class _PosWorkspaceViewState extends State<PosWorkspaceView> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        l10n.tax,
+                        _taxName ?? l10n.tax,
                         style: TextStyle(
                           color: Colors.grey.shade600,
                           fontSize: 10,
                         ),
                       ),
-                      const Text(
-                        'Rp. 0',
-                        style: TextStyle(
+                      Text(
+                        _formatCurrency(_taxAmount),
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 10,
                         ),

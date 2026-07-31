@@ -168,10 +168,9 @@ class ShiftReportBuilder {
       for (final row in paymentBreakdown) {
         final name = row['name']?.toString() ?? 'Lainnya';
         final total = _asInt(row['total']);
-        final qty = _asInt(row['qty']);
         items.add(
           PrinterLineItem(
-            label: '${qty}x $name',
+            label: name,
             quantity: 0,
             amount: total,
             note: ' ',
@@ -204,10 +203,9 @@ class ShiftReportBuilder {
       );
       for (final row in itemsBreakdown) {
         final name = row['name']?.toString() ?? 'Produk';
-        final qty = _asDouble(row['qty']).round();
         items.add(
           PrinterLineItem(
-            label: '${qty}x $name',
+            label: name,
             quantity: 0,
             amount: null,
             note: ' ',
@@ -239,7 +237,7 @@ class ShiftReportBuilder {
         final amount = _asInt(row['amount']);
         items.add(
           PrinterLineItem(
-            label: '1x $note',
+            label: note,
             quantity: 0,
             amount: amount,
             note: ' ',
