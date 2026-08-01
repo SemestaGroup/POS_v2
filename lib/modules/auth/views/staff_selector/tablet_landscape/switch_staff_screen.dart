@@ -67,8 +67,9 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       whereArgs: <Object?>[session.tenantId],
       orderBy: 'full_name ASC, email ASC',
     );
-    
-    final pendingCount = await PosV2SyncQueueProcessor.instance.getPendingSyncCount();
+
+    final pendingCount = await PosV2SyncQueueProcessor.instance
+        .getPendingSyncCount();
 
     if (mounted) {
       setState(() {
@@ -131,7 +132,8 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       return;
     }
 
-    final pendingCount = await PosV2SyncQueueProcessor.instance.getPendingSyncCount();
+    final pendingCount = await PosV2SyncQueueProcessor.instance
+        .getPendingSyncCount();
 
     if (!mounted) return;
 
@@ -175,7 +177,10 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                 if (pendingCount > 0)
                   Container(
                     margin: const EdgeInsets.only(bottom: 24),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.orange.shade50,
                       borderRadius: BorderRadius.circular(12),
@@ -184,7 +189,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.sync_problem_rounded, color: Colors.orange.shade700, size: 24),
+                        Icon(
+                          Icons.sync_problem_rounded,
+                          color: Colors.orange.shade700,
+                          size: 24,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
@@ -243,9 +252,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                         ),
                         child: const Text(
                           'Ya, Keluar Lokasi',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -309,7 +316,12 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
         resizeToAvoidBottomInset: false,
         body: SafeArea(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(isMobile ? 12.0 : 24.0, isMobile ? 12.0 : 20.0, isMobile ? 12.0 : 24.0, 0),
+            padding: EdgeInsets.fromLTRB(
+              isMobile ? 12.0 : 24.0,
+              isMobile ? 12.0 : 20.0,
+              isMobile ? 12.0 : 24.0,
+              0,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -346,7 +358,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
     final lockButton = !widget.lockedMode
         ? OutlinedButton.icon(
             onPressed: _lockApp,
-            icon: const Icon(Icons.lock_outline, color: Colors.orange, size: 16),
+            icon: const Icon(
+              Icons.lock_outline,
+              color: Colors.orange,
+              size: 16,
+            ),
             label: Text(
               l10n.switchStaffLockAppAction,
               style: const TextStyle(color: Colors.orange, fontSize: 12),
@@ -398,13 +414,14 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               ),
             )
           : const Icon(Icons.sync, size: 16),
-      label: Text(l10n.switchStaffSyncAction, style: const TextStyle(fontSize: 12)),
+      label: Text(
+        l10n.switchStaffSyncAction,
+        style: const TextStyle(fontSize: 12),
+      ),
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 38),
         backgroundColor: AppColors.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
 
@@ -420,13 +437,14 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               ),
             )
           : const Icon(Icons.power_settings_new, size: 16),
-      label: Text(l10n.switchStaffLogoutLocationAction, style: const TextStyle(fontSize: 12)),
+      label: Text(
+        l10n.switchStaffLogoutLocationAction,
+        style: const TextStyle(fontSize: 12),
+      ),
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 38),
         backgroundColor: AppColors.error,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
 
@@ -473,7 +491,10 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
                     const SizedBox(height: 1),
                     Text(
                       l10n.switchStaffSubtitle,
-                      style: const TextStyle(fontSize: 11, color: Colors.black54),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black54,
+                      ),
                     ),
                   ],
                 ),
@@ -491,7 +512,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.sync_problem_rounded, color: Colors.orange.shade700, size: 16),
+                  Icon(
+                    Icons.sync_problem_rounded,
+                    color: Colors.orange.shade700,
+                    size: 16,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     '$_pendingSyncCount belum sinkron',
@@ -516,10 +541,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: logoutButton,
-          ),
+          SizedBox(width: double.infinity, child: logoutButton),
         ],
       );
     }
@@ -565,9 +587,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
           ],
         ),
         const Spacer(),
-        if (!widget.lockedMode) ...[
-          lockButton,
-        ],
+        if (!widget.lockedMode) ...[lockButton],
         const SizedBox(width: 12),
         if (_pendingSyncCount > 0)
           Container(
@@ -580,7 +600,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.sync_problem_rounded, color: Colors.orange.shade700, size: 16),
+                Icon(
+                  Icons.sync_problem_rounded,
+                  color: Colors.orange.shade700,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   '$_pendingSyncCount belum sinkron',
@@ -601,7 +625,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
     );
   }
 
-  Widget _buildCurrentSessionBanner(ThemeData theme, AppLocalizations l10n, [bool isMobile = false]) {
+  Widget _buildCurrentSessionBanner(
+    ThemeData theme,
+    AppLocalizations l10n, [
+    bool isMobile = false,
+  ]) {
     final currentStaffName =
         _session?.staffFullName ?? l10n.switchStaffNoCurrentSession;
 
@@ -757,7 +785,11 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
     );
   }
 
-  Widget _buildStaffGrid(ThemeData theme, AppLocalizations l10n, [bool isMobile = false]) {
+  Widget _buildStaffGrid(
+    ThemeData theme,
+    AppLocalizations l10n, [
+    bool isMobile = false,
+  ]) {
     if (isMobile) {
       return _buildMobileStaffList(theme, l10n);
     }
@@ -832,49 +864,71 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade100),
             ),
-            child: ListTile(
-              onTap: () {
-                if (_session == null) return;
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (ctx) => AddStaffDialog(
-                    session: _session!,
-                    authService: _authService,
-                    onSuccess: () async {
-                      Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Staf berhasil ditambahkan! Mengsinkronkan data...')),
-                      );
-                      setState(() => _isLoading = true);
-                      try {
-                        await PosV2SyncOrchestrator().syncStaff(_session!.toSyncContext());
-                        await _loadData();
-                      } finally {
-                        if (mounted) setState(() => _isLoading = false);
-                      }
-                    },
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                onTap: () {
+                  if (_session == null) return;
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (ctx) => AddStaffDialog(
+                      session: _session!,
+                      authService: _authService,
+                      onSuccess: () async {
+                        Navigator.of(ctx).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Staf berhasil ditambahkan! Mengsinkronkan data...',
+                            ),
+                          ),
+                        );
+                        setState(() => _isLoading = true);
+                        try {
+                          await PosV2SyncOrchestrator().syncStaff(
+                            _session!.toSyncContext(),
+                          );
+                          await _loadData();
+                        } finally {
+                          if (mounted) setState(() => _isLoading = false);
+                        }
+                      },
+                    ),
+                  );
+                },
+                leading: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-                );
-              },
-              leading: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.1),
-                  shape: BoxShape.circle,
+                  child: const Icon(
+                    Icons.person_add_alt_1_rounded,
+                    color: AppColors.primary,
+                    size: 18,
+                  ),
                 ),
-                child: const Icon(Icons.person_add_alt_1_rounded, color: AppColors.primary, size: 18),
+                title: Text(
+                  l10n.switchStaffAddStaffAction,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+                subtitle: Text(
+                  l10n.switchStaffOwnerOnly,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                ),
+                trailing: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.grey,
+                ),
               ),
-              title: Text(
-                l10n.switchStaffAddStaffAction,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-              subtitle: Text(
-                l10n.switchStaffOwnerOnly,
-                style: const TextStyle(fontSize: 10, color: Colors.grey),
-              ),
-              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
             ),
           );
         }
@@ -930,41 +984,48 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
               width: isCurrentStaff ? 1.5 : 1,
             ),
           ),
-          child: ListTile(
-            onTap: isCurrentStaff ? null : () => _showPinDialog(staffInfo),
-            leading: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: bgRoleColor,
-                shape: BoxShape.circle,
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              onTap: isCurrentStaff ? null : () => _showPinDialog(staffInfo),
+              leading: Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: bgRoleColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.person_rounded, color: roleColor, size: 20),
               ),
-              child: Icon(Icons.person_rounded, color: roleColor, size: 20),
-            ),
-            title: Text(
-              name,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: isCurrentStaff ? Colors.grey.shade600 : const Color(0xFF111827),
-              ),
-            ),
-            subtitle: Text(
-              email,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: isCurrentStaff ? AppColors.primary : bgRoleColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                isCurrentStaff ? 'AKTIF' : roleName,
+              title: Text(
+                name,
                 style: TextStyle(
-                  color: isCurrentStaff ? Colors.white : roleColor,
+                  fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  fontSize: 8.5,
+                  color: isCurrentStaff
+                      ? Colors.grey.shade600
+                      : const Color(0xFF111827),
+                ),
+              ),
+              subtitle: Text(
+                email,
+                style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+              ),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isCurrentStaff ? AppColors.primary : bgRoleColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isCurrentStaff ? 'AKTIF' : roleName,
+                  style: TextStyle(
+                    color: isCurrentStaff ? Colors.white : roleColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 8.5,
+                  ),
                 ),
               ),
             ),

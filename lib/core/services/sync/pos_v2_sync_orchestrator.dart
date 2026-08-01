@@ -17,6 +17,7 @@ import 'staff_sync_adapter.dart';
 import 'taxes_sync_adapter.dart';
 import 'v2_sync_context.dart';
 import 'v2_sync_result.dart';
+import 'v2_sync_utils.dart';
 
 class PosV2SyncOrchestrator {
   PosV2SyncOrchestrator({DatabaseService? databaseService})
@@ -120,6 +121,88 @@ class PosV2SyncOrchestrator {
     Map<String, dynamic>? query,
   }) {
     return _payments.sync(context, query: query);
+  }
+
+  Future<List<V2SyncResult>> syncOrdersPaged(
+    V2SyncContext context, {
+    Map<String, dynamic>? baseQuery,
+    int limit = 500,
+    int startPage = 1,
+    int maxPages = 100,
+    bool pullDetails = false,
+    int detailLimit = 0,
+  }) async {
+    final results = <V2SyncResult>[];
+    var fetchedTotal = 0;
+    final endPage = startPage + maxPages - 1;
+
+    for (var page = startPage; page <= endPage; page++) {
+      try {
+        final result = await syncOrders(
+          context,
+          query: <String, dynamic>{...?baseQuery, 'limit': limit, 'page': page},
+          pullDetails: pullDetails,
+          detailLimit: detailLimit,
+        );
+        results.add(result);
+        fetchedTotal += result.fetchedCount;
+
+        final remoteTotal = V2SyncUtils.asInt(result.meta['total']);
+        final effectivePageSize = V2SyncUtils.asInt(result.meta['limit']) > 0
+            ? V2SyncUtils.asInt(result.meta['limit'])
+            : limit;
+        if (result.fetchedCount < effectivePageSize ||
+            (remoteTotal > 0 && fetchedTotal >= remoteTotal)) {
+          break;
+        }
+      } catch (_) {
+        if (page == startPage) {
+          rethrow;
+        }
+        break;
+      }
+    }
+
+    return results;
+  }
+
+  Future<List<V2SyncResult>> syncPaymentsPaged(
+    V2SyncContext context, {
+    Map<String, dynamic>? baseQuery,
+    int limit = 500,
+    int startPage = 1,
+    int maxPages = 100,
+  }) async {
+    final results = <V2SyncResult>[];
+    var fetchedTotal = 0;
+    final endPage = startPage + maxPages - 1;
+
+    for (var page = startPage; page <= endPage; page++) {
+      try {
+        final result = await syncPayments(
+          context,
+          query: <String, dynamic>{...?baseQuery, 'limit': limit, 'page': page},
+        );
+        results.add(result);
+        fetchedTotal += result.fetchedCount;
+
+        final remoteTotal = V2SyncUtils.asInt(result.meta['total']);
+        final effectivePageSize = V2SyncUtils.asInt(result.meta['limit']) > 0
+            ? V2SyncUtils.asInt(result.meta['limit'])
+            : limit;
+        if (result.fetchedCount < effectivePageSize ||
+            (remoteTotal > 0 && fetchedTotal >= remoteTotal)) {
+          break;
+        }
+      } catch (_) {
+        if (page == startPage) {
+          rethrow;
+        }
+        break;
+      }
+    }
+
+    return results;
   }
 
   Future<V2SyncResult> syncShiftSessions(
@@ -377,13 +460,15 @@ class PosV2SyncOrchestrator {
     final results = <V2SyncResult>[];
     results.add(await syncBootstrap(context));
 
-    // Partial startup: Options, Active Shift, Categories, Promotions, Active Orders, Staff and Products.
+    // Partial startup: the customer cache is essential because POS and master
+    // data screens must not fall back to the synthetic Walk-in customer.
     results.addAll(
       await Future.wait<V2SyncResult>([
         syncActiveShiftForContext(context),
         syncCategories(context),
         syncStaff(context),
         syncRoles(context),
+        syncCustomers(context),
       ]),
     );
 
@@ -440,10 +525,10 @@ class PosV2SyncOrchestrator {
     );
 
     // History Orders
-    results.add(
-      await syncOrders(
+    results.addAll(
+      await syncOrdersPaged(
         context,
-        query: <String, dynamic>{'limit': 500, 'page': 1},
+        limit: 500,
         pullDetails: false,
         detailLimit: 12,
       ),
@@ -469,16 +554,13 @@ class PosV2SyncOrchestrator {
   }) async {
     return <V2SyncResult>[
       await syncCustomers(context),
-      await syncOrders(
+      ...await syncOrdersPaged(
         context,
-        query: <String, dynamic>{'limit': orderLimit, 'page': 1},
+        limit: orderLimit,
         pullDetails: false,
         detailLimit: 12,
       ),
-      await syncPayments(
-        context,
-        query: <String, dynamic>{'limit': paymentLimit, 'page': 1},
-      ),
+      ...await syncPaymentsPaged(context, limit: paymentLimit),
     ];
   }
 

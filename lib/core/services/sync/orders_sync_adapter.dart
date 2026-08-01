@@ -18,6 +18,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
       context,
     ).getEnvelope('api/v2/pos-order', query: query);
     final rows = V2SyncUtils.asMapList((envelope['data'] as Object?));
+    final responseMeta =
+        V2SyncUtils.asMap(envelope['meta']) ?? const <String, dynamic>{};
     final scopeKey = query == null || query.isEmpty
         ? 'default'
         : query.toString();
@@ -73,7 +75,16 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
       fetchedCount: rows.length,
       upsertedCount: upsertedCount,
       replacedChildCount: replacedChildCount,
-      meta: <String, Object?>{'scopeKey': scopeKey, 'pullDetails': pullDetails},
+      meta: <String, Object?>{
+        'scopeKey': scopeKey,
+        'pullDetails': pullDetails,
+        if (V2SyncUtils.asInt(responseMeta['page']) != 0)
+          'page': V2SyncUtils.asInt(responseMeta['page']),
+        if (V2SyncUtils.asInt(responseMeta['limit']) != 0)
+          'limit': V2SyncUtils.asInt(responseMeta['limit']),
+        if (V2SyncUtils.asInt(responseMeta['total']) != 0)
+          'total': V2SyncUtils.asInt(responseMeta['total']),
+      },
     );
   }
 
@@ -355,7 +366,8 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     final now = V2SyncUtils.nowIso();
 
     final rawStatus = V2SyncUtils.asString(row['status']);
-    final resolvedStatusCode = (preservedStatusCode == '6' && rawStatus != '2' && rawStatus != '5')
+    final resolvedStatusCode =
+        (preservedStatusCode == '6' && rawStatus != '2' && rawStatus != '5')
         ? '6'
         : rawStatus;
 
@@ -381,10 +393,11 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
-        'order_date': V2SyncUtils.asString(row['datecreated']) ??
-                      V2SyncUtils.asString(row['dateadded']) ??
-                      V2SyncUtils.asString(row['daterecorded']) ??
-                      V2SyncUtils.asString(row['date']),
+        'order_date':
+            V2SyncUtils.asString(row['datecreated']) ??
+            V2SyncUtils.asString(row['dateadded']) ??
+            V2SyncUtils.asString(row['daterecorded']) ??
+            V2SyncUtils.asString(row['date']),
         'due_date': V2SyncUtils.asString(row['duedate']),
         'business_date': V2SyncUtils.asString(row['date']),
         'currency_remote_id': V2SyncUtils.asString(
@@ -456,10 +469,11 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'invoice_number': V2SyncUtils.asString(row['number']),
         'formatted_number': _formattedNumber(row),
         'prefix': V2SyncUtils.asString(row['prefix']),
-        'order_date': V2SyncUtils.asString(row['datecreated']) ??
-                      V2SyncUtils.asString(row['dateadded']) ??
-                      V2SyncUtils.asString(row['daterecorded']) ??
-                      V2SyncUtils.asString(row['date']),
+        'order_date':
+            V2SyncUtils.asString(row['datecreated']) ??
+            V2SyncUtils.asString(row['dateadded']) ??
+            V2SyncUtils.asString(row['daterecorded']) ??
+            V2SyncUtils.asString(row['date']),
         'due_date': V2SyncUtils.asString(row['duedate']),
         'business_date': V2SyncUtils.asString(row['date']),
         'currency_remote_id': V2SyncUtils.asString(

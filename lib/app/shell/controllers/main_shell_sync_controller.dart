@@ -19,11 +19,11 @@ class MainShellSyncController {
 
   final ValueNotifier<MainShellSyncState> stateNotifier =
       ValueNotifier<MainShellSyncState>(
-    const MainShellSyncState(
-      started: false,
-      didStartForCurrentSession: false,
-    ),
-  );
+        const MainShellSyncState(
+          started: false,
+          didStartForCurrentSession: false,
+        ),
+      );
 
   bool _isRunning = false;
 
@@ -90,12 +90,18 @@ class MainShellSyncController {
                 DateTime.now().toUtc().subtract(const Duration(minutes: 2)),
               ) ==
               true;
-              
+
       if (!isRecentBootstrap) {
-        // Only run partial startup (settings, active orders, active products, promos, categories)
+        // Only run partial startup (settings, active orders, active products,
+        // promos, categories, and the required customer cache).
         await _syncOrchestrator.syncPartialStartup(syncContext);
+      } else {
+        // Login helpers can persist a bootstrap timestamp before the shell is
+        // shown. Bootstrap itself does not include customers, so still refresh
+        // this essential cache even when another bootstrap just completed.
+        await _syncOrchestrator.syncCustomers(syncContext);
       }
-      
+
       PosV2SyncStatusStore.instance.update(
         stage: 'refresh_cache',
         progress: 0.6,
@@ -103,10 +109,10 @@ class MainShellSyncController {
       await PosCatalogStore.instance.refresh();
       await SalesOrderStore.instance.refreshFromPersistence();
       await Future<void>.delayed(const Duration(milliseconds: 400));
-      
+
       PosV2SyncStatusStore.instance.update(stage: 'flush_queue', progress: 0.9);
       await PosV2SyncQueueProcessor.instance.flushPending();
-      
+
       // Mark as partial synced if we didn't just bootstrap
       if (!isRecentBootstrap) {
         PosV2SyncStatusStore.instance.succeed(stage: 'partial_synced');
@@ -135,22 +141,28 @@ class MainShellSyncController {
         stage: 'syncing_master',
         progress: 0.1,
       );
-      
+
       // Optional: fast check for essentials just in case
-      await _syncOrchestrator.syncPartialStartup(syncContext, initialCatalogPages: 1);
-      
+      await _syncOrchestrator.syncPartialStartup(
+        syncContext,
+        initialCatalogPages: 1,
+      );
+
       PosV2SyncStatusStore.instance.update(
         stage: 'syncing_master_data',
         progress: 0.5,
       );
-      
+
       // Pull remaining heavy master data (brands, customers, staff, history, etc)
       await _syncOrchestrator.syncRemainingMasterData(syncContext);
 
-      PosV2SyncStatusStore.instance.update(stage: 'refresh_cache', progress: 0.9);
+      PosV2SyncStatusStore.instance.update(
+        stage: 'refresh_cache',
+        progress: 0.9,
+      );
       await PosCatalogStore.instance.refresh();
       await SalesOrderStore.instance.refreshFromPersistence();
-      
+
       PosV2SyncStatusStore.instance.succeed(stage: 'synced');
     } catch (_) {
       PosV2SyncStatusStore.instance.fail('Manual sync failed');

@@ -81,6 +81,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
       );
       await _syncOrchestrator.syncCategories(syncContext);
       await _syncOrchestrator.syncBrands(syncContext);
+      await _syncOrchestrator.syncCustomers(syncContext);
       if (!mounted) return;
       setState(() {
         _loadingStatus = l10n.syncPreparingCatalog;
@@ -157,7 +158,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
             try {
               final provider = CachedNetworkImageProvider(url!);
               await precacheImage(
-                provider, 
+                provider,
                 context,
                 onError: (exception, stackTrace) {
                   // Silently ignore 404 or missing image errors during precaching
@@ -197,10 +198,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              _primaryColor.withValues(alpha: 0.05),
-              _scaffoldBg,
-            ],
+            colors: [_primaryColor.withValues(alpha: 0.05), _scaffoldBg],
           ),
         ),
         child: Column(
@@ -260,8 +258,11 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.error_outline,
-                              color: Color(0xFFEF4444), size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: Color(0xFFEF4444),
+                            size: 20,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(

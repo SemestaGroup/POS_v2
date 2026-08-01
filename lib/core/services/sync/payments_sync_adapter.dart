@@ -16,6 +16,8 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
       context,
     ).getEnvelope('api/v2/pos-transaction', query: query);
     final rows = V2SyncUtils.asMapList((envelope['data'] as Object?));
+    final responseMeta =
+        V2SyncUtils.asMap(envelope['meta']) ?? const <String, dynamic>{};
     final scopeKey = query == null || query.isEmpty
         ? 'default'
         : query.toString();
@@ -64,7 +66,15 @@ class PaymentsSyncAdapter extends BaseV2SyncAdapter {
       endpointName: 'pos-transaction',
       fetchedCount: rows.length,
       upsertedCount: upsertedCount,
-      meta: <String, Object?>{'scopeKey': scopeKey},
+      meta: <String, Object?>{
+        'scopeKey': scopeKey,
+        if (V2SyncUtils.asInt(responseMeta['page']) != 0)
+          'page': V2SyncUtils.asInt(responseMeta['page']),
+        if (V2SyncUtils.asInt(responseMeta['limit']) != 0)
+          'limit': V2SyncUtils.asInt(responseMeta['limit']),
+        if (V2SyncUtils.asInt(responseMeta['total']) != 0)
+          'total': V2SyncUtils.asInt(responseMeta['total']),
+      },
     );
   }
 
