@@ -1,163 +1,32 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/responsive/responsive_context.dart';
-import '../../../../app/role_access/role_manager.dart';
-import '../../../../core/widgets/navigation/mobile_section_menu_page.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../catalog/views/brands/brands_view.dart';
-import '../../catalog/views/categories/categories_view.dart';
-import '../../catalog/views/products/products_view.dart';
-import '../../catalog/views/promos/promos_view.dart';
-import '../../customers/views/customer_list/customer_list_view.dart';
-import '../../staff/views/staff_list/staff_list_view.dart';
-import '../../staff/views/staff_roles/staff_roles_view.dart';
-import '../mobile_portrait/view.dart';
+import '../master_data_menu.dart';
 
-class _SubMenuDefinition {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Widget view;
-  final List<AppRole> allowedRoles;
+class MasterDataTabletLandscapeView extends StatefulWidget {
+  const MasterDataTabletLandscapeView({required this.subMenus, super.key});
 
-  _SubMenuDefinition({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.view,
-    required this.allowedRoles,
-  });
-}
-
-class MasterDataShellView extends StatefulWidget {
-  const MasterDataShellView({super.key});
+  final List<MasterDataMenuDefinition> subMenus;
 
   @override
-  State<MasterDataShellView> createState() => _MasterDataShellViewState();
+  State<MasterDataTabletLandscapeView> createState() =>
+      _MasterDataTabletLandscapeViewState();
 }
 
-class _MasterDataShellViewState extends State<MasterDataShellView> {
+class _MasterDataTabletLandscapeViewState
+    extends State<MasterDataTabletLandscapeView> {
   int _selectedSubMenuIndex = 0;
-
-  List<_SubMenuDefinition> get _allSubMenus {
-    final l10n = AppLocalizations.of(context)!;
-    return [
-      _SubMenuDefinition(
-        title: l10n.productsMenu,
-        subtitle: 'Kelola daftar produk & varian harga',
-        icon: Icons.shopping_bag_rounded,
-        view: const ProductsView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: l10n.categoriesMenu,
-        subtitle: 'Pengelompokan kategori produk katalog',
-        icon: Icons.category_rounded,
-        view: const CategoriesView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: l10n.brandsMenu,
-        subtitle: 'Kelola merek dagang produk toko',
-        icon: Icons.branding_watermark_rounded,
-        view: const BrandsView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: l10n.promosMenu,
-        subtitle: 'Pengaturan diskon & bundling promo',
-        icon: Icons.local_offer_rounded,
-        view: const PromosView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: l10n.customerListMenu,
-        subtitle: 'Database informasi pelanggan setia',
-        icon: Icons.people_rounded,
-        view: const CustomerListView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: l10n.staffListMenu,
-        subtitle: 'Kelola akun kasir & otorisasi staf',
-        icon: Icons.badge_rounded,
-        view: const StaffListView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: l10n.staffRolesMenu,
-        subtitle: 'Pengaturan hak akses peran (role)',
-        icon: Icons.admin_panel_settings_rounded,
-        view: const StaffRolesView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-    ];
-  }
-
-  Color getMasterDataBgColor(Type viewType) {
-    if (viewType == ProductsView) return const Color(0xFFEFF6FF);
-    if (viewType == CategoriesView) return const Color(0xFFF5F3FF);
-    if (viewType == BrandsView) return const Color(0xFFF0FDF4);
-    if (viewType == PromosView) return const Color(0xFFFFFBEB);
-    if (viewType == CustomerListView) return const Color(0xFFFDF2F8);
-    if (viewType == StaffListView) return const Color(0xFFECFDF5);
-    if (viewType == StaffRolesView) return const Color(0xFFFAF5FF);
-    return const Color(0xFFF1F5F9);
-  }
-
-  Color getMasterDataIconColor(Type viewType) {
-    if (viewType == ProductsView) return const Color(0xFF1D4ED8);
-    if (viewType == CategoriesView) return const Color(0xFF7C3AED);
-    if (viewType == BrandsView) return const Color(0xFF16A34A);
-    if (viewType == PromosView) return const Color(0xFFD97706);
-    if (viewType == CustomerListView) return const Color(0xFFDB2777);
-    if (viewType == StaffListView) return const Color(0xFF059669);
-    if (viewType == StaffRolesView) return const Color(0xFF8B5CF6);
-    return const Color(0xFF475569);
-  }
-
-  Widget _buildMobileMasterData(List<_SubMenuDefinition> subMenus) {
-    return MasterDataMobileView(
-      items: subMenus
-          .map(
-            (menu) => MobileMenuItem(
-              title: menu.title,
-              subtitle: menu.subtitle,
-              icon: menu.icon,
-              iconBackground: getMasterDataBgColor(menu.view.runtimeType),
-              iconColor: getMasterDataIconColor(menu.view.runtimeType),
-              view: menu.view,
-            ),
-          )
-          .toList(),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final isMobile = context.isMobile;
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: ValueListenableBuilder<AppRole>(
-        valueListenable: RoleManager.roleNotifier,
-        builder: (context, activeRole, _) {
-          final filteredSubMenus = _allSubMenus
-              .where((menu) => menu.allowedRoles.contains(activeRole))
-              .toList();
-
-          if (filteredSubMenus.isEmpty) {
-            return Center(child: Text(l10n.masterDataUnavailableMessage));
-          }
-
-          if (isMobile) {
-            return _buildMobileMasterData(filteredSubMenus);
-          }
-
-          if (_selectedSubMenuIndex >= filteredSubMenus.length) {
+      body: Builder(
+        builder: (context) {
+          if (_selectedSubMenuIndex >= widget.subMenus.length) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() {
@@ -166,7 +35,7 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
               }
             });
           }
-          final safeIndex = _selectedSubMenuIndex < filteredSubMenus.length
+          final safeIndex = _selectedSubMenuIndex < widget.subMenus.length
               ? _selectedSubMenuIndex
               : 0;
 
@@ -176,14 +45,14 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
               _buildSidebar(
                 theme,
                 primaryColor,
-                filteredSubMenus,
+                widget.subMenus,
                 safeIndex,
                 l10n,
               ),
               Expanded(
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
-                  child: filteredSubMenus[safeIndex].view,
+                  child: widget.subMenus[safeIndex].view,
                 ),
               ),
             ],
@@ -196,7 +65,7 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
   Widget _buildSidebar(
     ThemeData theme,
     Color primaryColor,
-    List<_SubMenuDefinition> filteredSubMenus,
+    List<MasterDataMenuDefinition> filteredSubMenus,
     int safeIndex,
     AppLocalizations l10n,
   ) {
