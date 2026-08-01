@@ -118,15 +118,18 @@ class PrinterDeviceConfig {
   final bool isActive;
   final String? lastTestedAt;
 
-  PrinterPaperProfile get paperProfile =>
-      kPrinterPaperProfiles.firstWhere((profile) => profile.id == paperProfileId,
-          orElse: () => kPrinterPaperProfiles[1]);
+  PrinterPaperProfile get paperProfile => kPrinterPaperProfiles.firstWhere(
+    (profile) => profile.id == paperProfileId,
+    orElse: () => kPrinterPaperProfiles[1],
+  );
 
-  double get effectiveWidthMm =>
-      paperProfileId == 'custom_roll' ? (customWidthMm ?? paperProfile.widthMm) : paperProfile.widthMm;
+  double get effectiveWidthMm => paperProfileId == 'custom_roll'
+      ? (customWidthMm ?? paperProfile.widthMm)
+      : paperProfile.widthMm;
 
-  int get effectiveCharsPerLine =>
-      (charsPerLine != null && charsPerLine! > 0) ? charsPerLine! : paperProfile.defaultCharsPerLine;
+  int get effectiveCharsPerLine => (charsPerLine != null && charsPerLine! > 0)
+      ? charsPerLine!
+      : paperProfile.defaultCharsPerLine;
 
   factory PrinterDeviceConfig.fromRow(Map<String, Object?> row) {
     return PrinterDeviceConfig(
@@ -248,7 +251,10 @@ bool _asBool(Object? value, {bool defaultValue = false}) {
   if (value is int) return value == 1;
   final normalized = value.toString().trim().toLowerCase();
   if (normalized.isEmpty) return defaultValue;
-  return normalized == '1' || normalized == 'true' || normalized == 'yes' || normalized == 'on';
+  return normalized == '1' ||
+      normalized == 'true' ||
+      normalized == 'yes' ||
+      normalized == 'on';
 }
 
 List<String> _decodeStringList(Object? raw) {

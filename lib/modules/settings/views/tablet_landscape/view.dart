@@ -1,150 +1,35 @@
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/responsive/responsive_context.dart';
 
 import '../../general/views/general_settings/tablet_landscape/view.dart'
-    show GeneralSettingsSaveAction, GeneralSettingsView;
+    show GeneralSettingsSaveAction;
 
-import '../../../../app/role_access/role_manager.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../device/views/app_update/tablet_landscape/view.dart';
-import '../../device/views/device_status/tablet_landscape/view.dart';
-import '../../general/views/general_settings/tablet_landscape/view.dart';
-import '../../general/views/profile_settings/tablet_landscape/view.dart';
-import '../../printers/views/printer_list/printer_list_view.dart';
-import '../../printers/views/printer_mapping/printer_mapping_view.dart';
-import '../../printers/views/printer_test/tablet_landscape/view.dart';
-import '../../store/views/shift_config/tablet_landscape/view.dart';
-import '../../store/views/store_profile/tablet_landscape/view.dart';
-import '../../sync/views/sync_center/tablet_landscape/view.dart';
-import '../../sync/views/sync_history/tablet_landscape/view.dart';
-import '../mobile_portrait/view.dart';
 import '../models/settings_menu.dart';
 
-class SettingsShellView extends StatefulWidget {
-  const SettingsShellView({super.key});
+class SettingsTabletLandscapeView extends StatefulWidget {
+  const SettingsTabletLandscapeView({required this.categories, super.key});
+
+  final List<SettingsMenuCategory> categories;
 
   @override
-  State<SettingsShellView> createState() => _SettingsShellViewState();
+  State<SettingsTabletLandscapeView> createState() =>
+      _SettingsTabletLandscapeViewState();
 }
 
-class _SettingsShellViewState extends State<SettingsShellView> {
+class _SettingsTabletLandscapeViewState
+    extends State<SettingsTabletLandscapeView> {
   int _selectedCategoryIndex = 0;
-
-  List<SettingsMenuCategory> get _allCategories {
-    final l10n = AppLocalizations.of(context)!;
-    return [
-      SettingsMenuCategory(
-        title: l10n.settingsGeneralTitle,
-        subtitle: l10n.settingsGeneralSubtitle,
-        icon: Icons.settings_rounded,
-        allowedRoles: [AppRole.owner],
-        subMenus: [
-          SettingsSubMenu(
-            title: l10n.generalSettingsMenu,
-            view: const GeneralSettingsView(),
-          ),
-          SettingsSubMenu(
-            title: l10n.profileSettingsMenu,
-            view: const ProfileSettingsView(),
-          ),
-        ],
-      ),
-      SettingsMenuCategory(
-        title: l10n.settingsStoreTitle,
-        subtitle: l10n.settingsStoreSubtitle,
-        icon: Icons.storefront_rounded,
-        allowedRoles: [AppRole.owner],
-        subMenus: [
-          SettingsSubMenu(
-            title: l10n.storeProfileMenu,
-            view: const StoreProfileView(),
-          ),
-          SettingsSubMenu(
-            title: l10n.shiftConfigMenu,
-            view: const ShiftConfigView(),
-          ),
-        ],
-      ),
-      SettingsMenuCategory(
-        title: l10n.settingsPrinterTitle,
-        subtitle: l10n.settingsPrinterSubtitle,
-        icon: Icons.print_rounded,
-        allowedRoles: [AppRole.owner],
-        subMenus: [
-          SettingsSubMenu(
-            title: l10n.printerListMenu,
-            view: const PrinterListView(),
-          ),
-          SettingsSubMenu(
-            title: l10n.printerMappingMenu,
-            view: const PrinterMappingView(),
-          ),
-          SettingsSubMenu(
-            title: l10n.printerTestMenu,
-            view: const PrinterTestView(),
-          ),
-        ],
-      ),
-      SettingsMenuCategory(
-        title: l10n.settingsSyncTitle,
-        subtitle: l10n.settingsSyncSubtitle,
-        icon: Icons.sync_rounded,
-        allowedRoles: [AppRole.owner],
-        subMenus: [
-          SettingsSubMenu(
-            title: l10n.syncCenterMenu,
-            view: const SyncCenterView(),
-          ),
-          SettingsSubMenu(
-            title: l10n.syncHistoryMenu,
-            view: const SyncHistoryView(),
-          ),
-        ],
-      ),
-      SettingsMenuCategory(
-        title: l10n.settingsDeviceTitle,
-        subtitle: l10n.settingsDeviceSubtitle,
-        icon: Icons.devices_rounded,
-        allowedRoles: [AppRole.owner],
-        subMenus: [
-          SettingsSubMenu(
-            title: l10n.appUpdateMenu,
-            view: const AppUpdateView(),
-          ),
-          SettingsSubMenu(
-            title: l10n.deviceStatusMenu,
-            view: const DeviceStatusView(),
-          ),
-        ],
-      ),
-    ];
-  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
-    final isMobile = context.isMobile;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: ValueListenableBuilder<AppRole>(
-        valueListenable: RoleManager.roleNotifier,
-        builder: (context, activeRole, _) {
-          final filteredCategories = _allCategories
-              .where((menu) => menu.allowedRoles.contains(activeRole))
-              .toList();
-
-          if (filteredCategories.isEmpty) {
-            return Center(child: Text(l10n.settingsUnavailableMessage));
-          }
-
-          if (isMobile) {
-            return SettingsMobileView(categories: filteredCategories);
-          }
-
-          if (_selectedCategoryIndex >= filteredCategories.length) {
+      body: Builder(
+        builder: (context) {
+          if (_selectedCategoryIndex >= widget.categories.length) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 setState(() {
@@ -153,11 +38,11 @@ class _SettingsShellViewState extends State<SettingsShellView> {
               }
             });
           }
-          final safeIndex = _selectedCategoryIndex < filteredCategories.length
+          final safeIndex = _selectedCategoryIndex < widget.categories.length
               ? _selectedCategoryIndex
               : 0;
 
-          final selectedCategory = filteredCategories[safeIndex];
+          final selectedCategory = widget.categories[safeIndex];
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -244,7 +129,7 @@ class _SettingsShellViewState extends State<SettingsShellView> {
                             _buildSidebar(
                               theme,
                               primaryColor,
-                              filteredCategories,
+                              widget.categories,
                               safeIndex,
                             ),
 

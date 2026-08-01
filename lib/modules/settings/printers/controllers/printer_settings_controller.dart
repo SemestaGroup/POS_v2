@@ -16,17 +16,18 @@ class PrinterSettingsController {
     );
   }
 
-  static final PrinterSettingsController instance = PrinterSettingsController._();
+  static final PrinterSettingsController instance =
+      PrinterSettingsController._();
 
   final ValueNotifier<PrinterSettingsState> stateNotifier =
       ValueNotifier<PrinterSettingsState>(
-    const PrinterSettingsState(
-      isLoading: false,
-      isSaving: false,
-      printers: <PrinterDeviceConfig>[],
-      availableBrands: <String>[],
-    ),
-  );
+        const PrinterSettingsState(
+          isLoading: false,
+          isSaving: false,
+          printers: <PrinterDeviceConfig>[],
+          availableBrands: <String>[],
+        ),
+      );
 
   void _handleSessionChanged() {
     refresh(silent: true);
@@ -136,8 +137,10 @@ class PrinterSettingsController {
       printer,
       document,
     );
-    final dispatchResult =
-        await PrinterTransportService.instance.dispatch(printer, renderOutput);
+    final dispatchResult = await PrinterTransportService.instance.dispatch(
+      printer,
+      renderOutput,
+    );
 
     if (printer.id > 0) {
       final now = DateTime.now().toUtc().toIso8601String();
@@ -180,7 +183,8 @@ class PrinterSettingsController {
   }
 
   Future<PosV2RuntimeSession> _requireSession() async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (session == null) {
       throw Exception('No active session found.');

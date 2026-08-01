@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../sync_history_content.dart';
 
-class SyncHistoryTabletLandscapeView extends StatelessWidget {
-  const SyncHistoryTabletLandscapeView({super.key});
+class SyncHistoryMobileView extends StatelessWidget {
+  const SyncHistoryMobileView({super.key});
   @override
   Widget build(BuildContext context) => const SyncHistoryContent();
 }

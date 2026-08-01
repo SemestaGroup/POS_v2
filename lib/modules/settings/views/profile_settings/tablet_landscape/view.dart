@@ -34,7 +34,8 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
       _errorMessage = null;
     });
     try {
-      final session = PosV2RuntimeSessionStore.instance.currentSession ??
+      final session =
+          PosV2RuntimeSessionStore.instance.currentSession ??
           await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
 
       if (session == null) {
@@ -71,11 +72,11 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(AppLocalizations.of(context)!.logoutConfirmTitle,
-            style: const TextStyle(fontWeight: FontWeight.w700)),
-        content: Text(
-          AppLocalizations.of(context)!.logoutConfirmMessage,
+        title: Text(
+          AppLocalizations.of(context)!.logoutConfirmTitle,
+          style: const TextStyle(fontWeight: FontWeight.w700),
         ),
+        content: Text(AppLocalizations.of(context)!.logoutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -116,7 +117,10 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
 
     if (_errorMessage != null) {
       return Center(
-        child: Text(_errorMessage!, style: TextStyle(color: Colors.red.shade600)),
+        child: Text(
+          _errorMessage!,
+          style: TextStyle(color: Colors.red.shade600),
+        ),
       );
     }
 
@@ -180,7 +184,9 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
                           const SizedBox(height: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 3),
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: primaryColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
@@ -204,7 +210,9 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.red.shade600,
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 14),
+                          horizontal: 20,
+                          vertical: 14,
+                        ),
                       ),
                     ),
                   ],
@@ -219,10 +227,23 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildInfoRow(AppLocalizations.of(context)!.profileInfoEmail, _staffEmail),
-                _buildInfoRow(AppLocalizations.of(context)!.profileInfoActiveDevice, _deviceName),
-                _buildInfoRow(AppLocalizations.of(context)!.profileInfoDeviceId, _deviceId),
-                _buildInfoRow(AppLocalizations.of(context)!.profileInfoRegisterId, _registerId, isLast: true),
+                _buildInfoRow(
+                  AppLocalizations.of(context)!.profileInfoEmail,
+                  _staffEmail,
+                ),
+                _buildInfoRow(
+                  AppLocalizations.of(context)!.profileInfoActiveDevice,
+                  _deviceName,
+                ),
+                _buildInfoRow(
+                  AppLocalizations.of(context)!.profileInfoDeviceId,
+                  _deviceId,
+                ),
+                _buildInfoRow(
+                  AppLocalizations.of(context)!.profileInfoRegisterId,
+                  _registerId,
+                  isLast: true,
+                ),
               ],
             ),
           ),
@@ -257,10 +278,7 @@ class _ProfileSettingsViewState extends State<ProfileSettingsView> {
             flex: 3,
             child: Text(
               value,
-              style: const TextStyle(
-                fontSize: 13,
-                color: Color(0xFF1A1D2E),
-              ),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF1A1D2E)),
             ),
           ),
         ],

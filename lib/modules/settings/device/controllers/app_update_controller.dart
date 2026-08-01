@@ -12,8 +12,8 @@ class AppUpdateController {
 
   final ValueNotifier<AppUpdateState> stateNotifier =
       ValueNotifier<AppUpdateState>(
-    const AppUpdateState(isLoading: false, isRefreshing: false),
-  );
+        const AppUpdateState(isLoading: false, isRefreshing: false),
+      );
 
   Future<void> refresh() async {
     stateNotifier.value = stateNotifier.value.copyWith(
@@ -23,7 +23,8 @@ class AppUpdateController {
     try {
       await PosV2OptionsService.instance.fetchAndSaveOptions();
       final options = await PosV2OptionsService.instance.getLocalOptions();
-      final session = PosV2RuntimeSessionStore.instance.currentSession ??
+      final session =
+          PosV2RuntimeSessionStore.instance.currentSession ??
           await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
       stateNotifier.value = stateNotifier.value.copyWith(
         isLoading: false,
@@ -42,7 +43,8 @@ class AppUpdateController {
   }
 
   Future<void> refreshBootstrap() async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (session == null) {
       throw Exception('No active session found.');

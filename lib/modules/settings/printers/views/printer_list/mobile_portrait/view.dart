@@ -417,202 +417,208 @@ class _PrinterListMobileViewState extends State<PrinterListMobileView> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
-                  child: Column(
-                    children: [
-                      SwitchListTile.adaptive(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 2,
-                        ),
-                        secondary: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      children: [
+                        SwitchListTile.adaptive(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 2,
                           ),
-                          child: Icon(
-                            Icons.print_outlined,
-                            color: primary,
-                            size: 20,
+                          secondary: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: primary.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.print_outlined,
+                              color: primary,
+                              size: 20,
+                            ),
                           ),
-                        ),
-                        title: const Text(
-                          'Auto-Print Struk',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F2937),
+                          title: const Text(
+                            'Auto-Print Struk',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1F2937),
+                            ),
                           ),
-                        ),
-                        subtitle: const Text(
-                          'Cetak struk otomatis saat checkout',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF6B7280),
+                          subtitle: const Text(
+                            'Cetak struk otomatis saat checkout',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
+                          value: _autoPrint,
+                          activeTrackColor: primary,
+                          onChanged: _updateAutoPrint,
                         ),
-                        value: _autoPrint,
-                        activeTrackColor: primary,
-                        onChanged: _updateAutoPrint,
-                      ),
-                      const Divider(
-                        height: 1,
-                        indent: 14,
-                        endIndent: 14,
-                        color: Color(0xFFF3F4F6),
-                      ),
+                        const Divider(
+                          height: 1,
+                          indent: 14,
+                          endIndent: 14,
+                          color: Color(0xFFF3F4F6),
+                        ),
 
-                      ListTile(
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 2,
-                        ),
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEFF6FF),
-                            borderRadius: BorderRadius.circular(8),
+                        ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 2,
                           ),
-                          child: const Icon(
-                            Icons.bluetooth_rounded,
-                            color: Color(0xFF2563EB),
-                            size: 20,
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(
+                              Icons.bluetooth_rounded,
+                              color: Color(0xFF2563EB),
+                              size: 20,
+                            ),
                           ),
-                        ),
-                        title: const Text(
-                          'Perangkat Bluetooth Paired',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1F2937),
+                          title: const Text(
+                            'Perangkat Bluetooth Paired',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1F2937),
+                            ),
                           ),
-                        ),
-                        subtitle: Text(
-                          _isLoadingBluetooth
-                              ? 'Mencari perangkat...'
-                              : '${_bluetoothDevices.length} printer paired terdeteksi',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF6B7280),
+                          subtitle: Text(
+                            _isLoadingBluetooth
+                                ? 'Mencari perangkat...'
+                                : '${_bluetoothDevices.length} printer paired terdeteksi',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF6B7280),
+                            ),
                           ),
+                          trailing: Icon(
+                            _showBluetoothSection
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: const Color(0xFF6B7280),
+                          ),
+                          onTap: () {
+                            setState(() {
+                              _showBluetoothSection = !_showBluetoothSection;
+                            });
+                            if (_showBluetoothSection &&
+                                _bluetoothDevices.isEmpty) {
+                              _loadBluetoothDevices();
+                            }
+                          },
                         ),
-                        trailing: Icon(
-                          _showBluetoothSection
-                              ? Icons.keyboard_arrow_up_rounded
-                              : Icons.keyboard_arrow_down_rounded,
-                          color: const Color(0xFF6B7280),
-                        ),
-                        onTap: () {
-                          setState(() {
-                            _showBluetoothSection = !_showBluetoothSection;
-                          });
-                          if (_showBluetoothSection &&
-                              _bluetoothDevices.isEmpty) {
-                            _loadBluetoothDevices();
-                          }
-                        },
-                      ),
 
-                      if (_showBluetoothSection) ...[
-                        const Divider(height: 1, color: Color(0xFFF3F4F6)),
-                        if (_bluetoothError != null)
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.info_outline_rounded,
-                                  size: 16,
-                                  color: Color(0xFFD97706),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    _bluetoothError!,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      color: Color(0xFF92400E),
+                        if (_showBluetoothSection) ...[
+                          const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                          if (_bluetoothError != null)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.info_outline_rounded,
+                                    size: 16,
+                                    color: Color(0xFFD97706),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _bluetoothError!,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF92400E),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.refresh_rounded,
-                                    size: 18,
-                                  ),
-                                  onPressed: _loadBluetoothDevices,
-                                  visualDensity: VisualDensity.compact,
-                                ),
-                              ],
-                            ),
-                          )
-                        else if (_bluetoothDevices.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'Belum ada printer Bluetooth dipasangkan.',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade500,
-                              ),
-                            ),
-                          )
-                        else
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _bluetoothDevices.length,
-                            separatorBuilder: (context, index) => const Divider(
-                              height: 1,
-                              indent: 14,
-                              endIndent: 14,
-                              color: Color(0xFFF3F4F6),
-                            ),
-                            itemBuilder: (context, index) {
-                              final dev = _bluetoothDevices[index];
-                              return ListTile(
-                                dense: true,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 0,
-                                ),
-                                title: Text(
-                                  dev.name ?? 'Bluetooth Printer',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  dev.address ?? '-',
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFF9CA3AF),
-                                  ),
-                                ),
-                                trailing: TextButton(
-                                  onPressed: () => _openEditorWithDevice(dev),
-                                  style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 4,
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.refresh_rounded,
+                                      size: 18,
                                     ),
+                                    onPressed: _loadBluetoothDevices,
                                     visualDensity: VisualDensity.compact,
-                                    foregroundColor: primary,
                                   ),
-                                  child: const Text(
-                                    'Gunakan',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                                ],
+                              ),
+                            )
+                          else if (_bluetoothDevices.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Text(
+                                'Belum ada printer Bluetooth dipasangkan.',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade500,
+                                ),
+                              ),
+                            )
+                          else
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _bluetoothDevices.length,
+                              separatorBuilder: (context, index) =>
+                                  const Divider(
+                                    height: 1,
+                                    indent: 14,
+                                    endIndent: 14,
+                                    color: Color(0xFFF3F4F6),
+                                  ),
+                              itemBuilder: (context, index) {
+                                final dev = _bluetoothDevices[index];
+                                return ListTile(
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 0,
+                                  ),
+                                  title: Text(
+                                    dev.name ?? 'Bluetooth Printer',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
-                              );
-                            },
-                          ),
+                                  subtitle: Text(
+                                    dev.address ?? '-',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFF9CA3AF),
+                                    ),
+                                  ),
+                                  trailing: TextButton(
+                                    onPressed: () => _openEditorWithDevice(dev),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      visualDensity: VisualDensity.compact,
+                                      foregroundColor: primary,
+                                    ),
+                                    child: const Text(
+                                      'Gunakan',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
 

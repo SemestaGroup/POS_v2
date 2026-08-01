@@ -8,11 +8,14 @@ class PrinterMappingTabletLandscapeView extends StatefulWidget {
   const PrinterMappingTabletLandscapeView({super.key});
 
   @override
-  State<PrinterMappingTabletLandscapeView> createState() => _PrinterMappingTabletLandscapeViewState();
+  State<PrinterMappingTabletLandscapeView> createState() =>
+      _PrinterMappingTabletLandscapeViewState();
 }
 
-class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTabletLandscapeView> {
-  final PrinterSettingsController _controller = PrinterSettingsController.instance;
+class _PrinterMappingTabletLandscapeViewState
+    extends State<PrinterMappingTabletLandscapeView> {
+  final PrinterSettingsController _controller =
+      PrinterSettingsController.instance;
   String? _selectedPrinterKey;
 
   @override
@@ -34,7 +37,9 @@ class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTablet
         final printers = state.printers;
         if (printers.isNotEmpty &&
             (_selectedPrinterKey == null ||
-                printers.every((printer) => printer.printerKey != _selectedPrinterKey))) {
+                printers.every(
+                  (printer) => printer.printerKey != _selectedPrinterKey,
+                ))) {
           _selectedPrinterKey = printers.first.printerKey;
         }
         PrinterDeviceConfig? selected;
@@ -50,7 +55,13 @@ class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTablet
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppLocalizations.of(context)!.printerMappingTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(
+                AppLocalizations.of(context)!.printerMappingTitle,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: 3),
               const Text(
                 'Map cashier, kitchen, label, and report roles to each printer. Brand filters are optional; empty means print all for that role.',
@@ -68,19 +79,31 @@ class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTablet
                   decoration: InputDecoration(
                     labelText: 'Selected Printer',
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: printers
-                      .map((printer) => DropdownMenuItem(
-                            value: printer.printerKey,
-                            child: Text(printer.displayName, style: const TextStyle(fontSize: 12)),
-                          ))
+                      .map(
+                        (printer) => DropdownMenuItem(
+                          value: printer.printerKey,
+                          child: Text(
+                            printer.displayName,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      )
                       .toList(growable: false),
-                  onChanged: (value) => setState(() => _selectedPrinterKey = value),
+                  onChanged: (value) =>
+                      setState(() => _selectedPrinterKey = value),
                 ),
                 const SizedBox(height: 14),
-                if (selected != null) _mappingCard(selected, state.availableBrands, primary),
+                if (selected != null)
+                  _mappingCard(selected, state.availableBrands, primary),
               ],
             ],
           ),
@@ -89,7 +112,11 @@ class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTablet
     );
   }
 
-  Widget _mappingCard(PrinterDeviceConfig printer, List<String> availableBrands, Color primary) {
+  Widget _mappingCard(
+    PrinterDeviceConfig printer,
+    List<String> availableBrands,
+    Color primary,
+  ) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -100,66 +127,101 @@ class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTablet
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(printer.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+          Text(
+            printer.displayName,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: kPrinterRoles.map((role) {
-              final active = printer.roles.contains(role);
-              return FilterChip(
-                label: Text(_roleLabel(role), style: const TextStyle(fontSize: 11)),
-                selected: active,
-                onSelected: (selected) async {
-                  final roles = List<String>.from(printer.roles);
-                  if (selected) {
-                    roles.add(role);
-                  } else {
-                    roles.remove(role);
-                  }
-                  await _controller.savePrinter(printer.copyWith(roles: roles));
-                },
-                selectedColor: primary.withValues(alpha: 0.12),
-                checkmarkColor: primary,
-              );
-            }).toList(growable: false),
+            children: kPrinterRoles
+                .map((role) {
+                  final active = printer.roles.contains(role);
+                  return FilterChip(
+                    label: Text(
+                      _roleLabel(role),
+                      style: const TextStyle(fontSize: 11),
+                    ),
+                    selected: active,
+                    onSelected: (selected) async {
+                      final roles = List<String>.from(printer.roles);
+                      if (selected) {
+                        roles.add(role);
+                      } else {
+                        roles.remove(role);
+                      }
+                      await _controller.savePrinter(
+                        printer.copyWith(roles: roles),
+                      );
+                    },
+                    selectedColor: primary.withValues(alpha: 0.12),
+                    checkmarkColor: primary,
+                  );
+                })
+                .toList(growable: false),
           ),
           const SizedBox(height: 14),
           ...printer.roles.map((role) {
-            final selectedBrands = printer.roleBrandFilters[role] ?? const <String>[];
+            final selectedBrands =
+                printer.roleBrandFilters[role] ?? const <String>[];
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(AppLocalizations.of(context)!.printerBrandFilter(_roleLabel(role)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                  Text(
+                    AppLocalizations.of(
+                      context,
+                    )!.printerBrandFilter(_roleLabel(role)),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   Text(
-                    selectedBrands.isEmpty ? 'Empty means print all brands for this role.' : 'Only selected brands will be routed here for this role.',
-                    style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                    selectedBrands.isEmpty
+                        ? 'Empty means print all brands for this role.'
+                        : 'Only selected brands will be routed here for this role.',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Color(0xFF6B7280),
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: availableBrands.map((brand) {
-                      final active = selectedBrands.contains(brand);
-                      return FilterChip(
-                        label: Text(brand, style: const TextStyle(fontSize: 11)),
-                        selected: active,
-                        onSelected: (selected) async {
-                          final next = Map<String, List<String>>.from(printer.roleBrandFilters);
-                          final brands = List<String>.from(next[role] ?? const <String>[]);
-                          if (selected) {
-                            brands.add(brand);
-                          } else {
-                            brands.remove(brand);
-                          }
-                          next[role] = brands;
-                          await _controller.savePrinter(printer.copyWith(roleBrandFilters: next));
-                        },
-                      );
-                    }).toList(growable: false),
+                    children: availableBrands
+                        .map((brand) {
+                          final active = selectedBrands.contains(brand);
+                          return FilterChip(
+                            label: Text(
+                              brand,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            selected: active,
+                            onSelected: (selected) async {
+                              final next = Map<String, List<String>>.from(
+                                printer.roleBrandFilters,
+                              );
+                              final brands = List<String>.from(
+                                next[role] ?? const <String>[],
+                              );
+                              if (selected) {
+                                brands.add(brand);
+                              } else {
+                                brands.remove(brand);
+                              }
+                              next[role] = brands;
+                              await _controller.savePrinter(
+                                printer.copyWith(roleBrandFilters: next),
+                              );
+                            },
+                          );
+                        })
+                        .toList(growable: false),
                   ),
                 ],
               ),

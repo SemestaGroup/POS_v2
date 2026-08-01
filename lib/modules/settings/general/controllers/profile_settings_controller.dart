@@ -14,8 +14,8 @@ class ProfileSettingsController {
 
   final ValueNotifier<ProfileSettingsState> stateNotifier =
       ValueNotifier<ProfileSettingsState>(
-    const ProfileSettingsState(isLoading: false, isLoggingOut: false),
-  );
+        const ProfileSettingsState(isLoading: false, isLoggingOut: false),
+      );
 
   Future<void> refresh() async {
     stateNotifier.value = stateNotifier.value.copyWith(
@@ -23,14 +23,17 @@ class ProfileSettingsController {
       clearError: true,
     );
     try {
-      final session = PosV2RuntimeSessionStore.instance.currentSession ??
+      final session =
+          PosV2RuntimeSessionStore.instance.currentSession ??
           await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
       stateNotifier.value = stateNotifier.value.copyWith(
         isLoading: false,
         session: session,
         roleLabel: session == null
             ? null
-            : RoleManager.roleToString(RoleManager.fromCode(session.staffRoleCode)),
+            : RoleManager.roleToString(
+                RoleManager.fromCode(session.staffRoleCode),
+              ),
       );
     } catch (error) {
       stateNotifier.value = stateNotifier.value.copyWith(
@@ -41,7 +44,8 @@ class ProfileSettingsController {
   }
 
   Future<void> logoutCurrentDevice() async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (session == null) {
       throw Exception('No active session found.');
@@ -52,8 +56,10 @@ class ProfileSettingsController {
       clearError: true,
     );
     try {
-      await V2ApiClient(baseUrl: session.baseUrl, authToken: session.authToken)
-          .postEnvelope(
+      await V2ApiClient(
+        baseUrl: session.baseUrl,
+        authToken: session.authToken,
+      ).postEnvelope(
         'api/v2/pos-auth/logout',
         body: <String, dynamic>{
           'staff_id': int.tryParse(session.staffId ?? ''),
@@ -77,10 +83,7 @@ class ProfileSettingsController {
       );
       await txn.update(
         'device_session',
-        <String, Object?>{
-          'status': 'logged_out',
-          'updated_at': now,
-        },
+        <String, Object?>{'status': 'logged_out', 'updated_at': now},
         where: 'tenant_id = ? AND device_id = ? AND status = ?',
         whereArgs: <Object?>[session.tenantId, session.deviceId, 'active'],
       );

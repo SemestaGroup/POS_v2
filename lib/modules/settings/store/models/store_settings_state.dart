@@ -82,8 +82,10 @@ class ShiftConfigState {
   final bool requireDeviceId;
   final bool selfOrderEnabled;
   final String operatingMode;
+
   /// If true, only staff registered in shiftScheduleJson can open shifts
   final bool shiftScheduleEnabled;
+
   /// Raw JSON string from pos_shift_config option
   final String? shiftScheduleJson;
   final String? errorMessage;
@@ -106,10 +108,8 @@ class ShiftConfigState {
       isLoading: isLoading ?? this.isLoading,
       requireOpeningBalance:
           requireOpeningBalance ?? this.requireOpeningBalance,
-      autoPrintShiftRecap:
-          autoPrintShiftRecap ?? this.autoPrintShiftRecap,
-      allowEditActualCash:
-          allowEditActualCash ?? this.allowEditActualCash,
+      autoPrintShiftRecap: autoPrintShiftRecap ?? this.autoPrintShiftRecap,
+      allowEditActualCash: allowEditActualCash ?? this.allowEditActualCash,
       enforceSingleDevicePerStaff:
           enforceSingleDevicePerStaff ?? this.enforceSingleDevicePerStaff,
       requireDeviceId: requireDeviceId ?? this.requireDeviceId,

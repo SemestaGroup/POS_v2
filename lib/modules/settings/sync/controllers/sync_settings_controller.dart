@@ -9,22 +9,24 @@ import '../models/sync_settings_state.dart';
 
 class SyncCenterController {
   SyncCenterController._() {
-    PosV2SyncStatusStore.instance.statusNotifier.addListener(_handleStatusChanged);
+    PosV2SyncStatusStore.instance.statusNotifier.addListener(
+      _handleStatusChanged,
+    );
   }
 
   static final SyncCenterController instance = SyncCenterController._();
 
   final ValueNotifier<SyncCenterState> stateNotifier =
       ValueNotifier<SyncCenterState>(
-    SyncCenterState(
-      isLoading: false,
-      pendingCount: 0,
-      failedCount: 0,
-      processedCount: 0,
-      errorCount: 0,
-      status: PosV2SyncStatusStore.instance.statusNotifier.value,
-    ),
-  );
+        SyncCenterState(
+          isLoading: false,
+          pendingCount: 0,
+          failedCount: 0,
+          processedCount: 0,
+          errorCount: 0,
+          status: PosV2SyncStatusStore.instance.statusNotifier.value,
+        ),
+      );
 
   void _handleStatusChanged() {
     stateNotifier.value = stateNotifier.value.copyWith(
@@ -91,12 +93,12 @@ class SyncHistoryController {
 
   final ValueNotifier<SyncHistoryState> stateNotifier =
       ValueNotifier<SyncHistoryState>(
-    const SyncHistoryState(
-      isLoading: false,
-      queueEntries: <SyncHistoryEntry>[],
-      errorEntries: <SyncErrorEntry>[],
-    ),
-  );
+        const SyncHistoryState(
+          isLoading: false,
+          queueEntries: <SyncHistoryEntry>[],
+          errorEntries: <SyncErrorEntry>[],
+        ),
+      );
 
   Future<void> refresh() async {
     stateNotifier.value = stateNotifier.value.copyWith(
@@ -166,7 +168,8 @@ class SyncHistoryController {
 }
 
 Future<PosV2RuntimeSession> _requireSession() async {
-  final session = PosV2RuntimeSessionStore.instance.currentSession ??
+  final session =
+      PosV2RuntimeSessionStore.instance.currentSession ??
       await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
   if (session == null) {
     throw Exception('No active session found.');

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../store_profile_content.dart';
 
-class StoreProfileTabletLandscapeView extends StatelessWidget {
-  const StoreProfileTabletLandscapeView({super.key});
+class StoreProfileMobileView extends StatelessWidget {
+  const StoreProfileMobileView({super.key});
   @override
   Widget build(BuildContext context) => const StoreProfileContent();
 }

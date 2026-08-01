@@ -17,19 +17,20 @@ class RegisterProvisioningController {
 
   final ValueNotifier<RegisterProvisioningSnapshot> snapshotNotifier =
       ValueNotifier<RegisterProvisioningSnapshot>(
-    const RegisterProvisioningSnapshot(
-      isLoading: false,
-      isSaving: false,
-      registers: <RegisterProvisioningRecord>[],
-    ),
-  );
+        const RegisterProvisioningSnapshot(
+          isLoading: false,
+          isSaving: false,
+          registers: <RegisterProvisioningRecord>[],
+        ),
+      );
 
   void _onSessionChanged() {
     refresh(silent: true);
   }
 
   Future<void> refresh({bool silent = false}) async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
 
     if (session == null) {
@@ -229,7 +230,8 @@ class RegisterProvisioningController {
   }
 
   Future<PosV2RuntimeSession> _requireSession() async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (session == null) {
       throw Exception('No active session found.');

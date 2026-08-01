@@ -14,7 +14,8 @@ class PrinterTestView extends StatefulWidget {
 }
 
 class _PrinterTestViewState extends State<PrinterTestView> {
-  final PrinterSettingsController _controller = PrinterSettingsController.instance;
+  final PrinterSettingsController _controller =
+      PrinterSettingsController.instance;
   String? _selectedPrinterKey;
   PrinterDocumentType _selectedType = PrinterDocumentType.test;
 
@@ -31,9 +32,14 @@ class _PrinterTestViewState extends State<PrinterTestView> {
     return ValueListenableBuilder<PrinterSettingsState>(
       valueListenable: _controller.stateNotifier,
       builder: (context, state, _) {
-        final printers = state.printers.where((printer) => printer.isActive).toList(growable: false);
+        final printers = state.printers
+            .where((printer) => printer.isActive)
+            .toList(growable: false);
         if (printers.isNotEmpty &&
-            (_selectedPrinterKey == null || printers.every((printer) => printer.printerKey != _selectedPrinterKey))) {
+            (_selectedPrinterKey == null ||
+                printers.every(
+                  (printer) => printer.printerKey != _selectedPrinterKey,
+                ))) {
           _selectedPrinterKey = printers.first.printerKey;
         }
         PrinterDeviceConfig? selected;
@@ -49,7 +55,13 @@ class _PrinterTestViewState extends State<PrinterTestView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(AppLocalizations.of(context)!.printerTestTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+              Text(
+                AppLocalizations.of(context)!.printerTestTitle,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
               const SizedBox(height: 3),
               const Text(
                 'Preview a sample receipt with the selected paper profile. This is where 50mm vs 80mm should visibly differ.',
@@ -57,23 +69,40 @@ class _PrinterTestViewState extends State<PrinterTestView> {
               ),
               const SizedBox(height: 14),
               if (printers.isEmpty)
-                Text(AppLocalizations.of(context)!.printerTestNoActiveProfile, style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)))
+                Text(
+                  AppLocalizations.of(context)!.printerTestNoActiveProfile,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
+                )
               else ...[
                 DropdownButtonFormField<String>(
                   initialValue: _selectedPrinterKey,
                   decoration: InputDecoration(
                     labelText: 'Selected Printer',
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: printers
-                      .map((printer) => DropdownMenuItem(
-                            value: printer.printerKey,
-                            child: Text(printer.displayName, style: const TextStyle(fontSize: 12)),
-                          ))
+                      .map(
+                        (printer) => DropdownMenuItem(
+                          value: printer.printerKey,
+                          child: Text(
+                            printer.displayName,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      )
                       .toList(growable: false),
-                  onChanged: (value) => setState(() => _selectedPrinterKey = value),
+                  onChanged: (value) =>
+                      setState(() => _selectedPrinterKey = value),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<PrinterDocumentType>(
@@ -81,16 +110,28 @@ class _PrinterTestViewState extends State<PrinterTestView> {
                   decoration: InputDecoration(
                     labelText: 'Document Type',
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   items: PrinterDocumentType.values
-                      .map((type) => DropdownMenuItem(
-                            value: type,
-                            child: Text(_typeLabel(type), style: const TextStyle(fontSize: 12)),
-                          ))
+                      .map(
+                        (type) => DropdownMenuItem(
+                          value: type,
+                          child: Text(
+                            _typeLabel(type),
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      )
                       .toList(growable: false),
-                  onChanged: (value) => setState(() => _selectedType = value ?? PrinterDocumentType.test),
+                  onChanged: (value) => setState(
+                    () => _selectedType = value ?? PrinterDocumentType.test,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 if (selected != null) _previewCard(selected),
@@ -103,7 +144,10 @@ class _PrinterTestViewState extends State<PrinterTestView> {
   }
 
   Widget _previewCard(PrinterDeviceConfig printer) {
-    final sample = PrinterRenderingService.instance.buildSampleDocument(printer, _selectedType);
+    final sample = PrinterRenderingService.instance.buildSampleDocument(
+      printer,
+      _selectedType,
+    );
     final lines = PrinterRenderingService.instance
         .render(printer, sample)
         .then((output) => output.previewText.split('\n'));
@@ -117,7 +161,10 @@ class _PrinterTestViewState extends State<PrinterTestView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(printer.displayName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+          Text(
+            printer.displayName,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 4),
           Text(
             '${printer.paperProfile.label} • ${printer.effectiveWidthMm.toStringAsFixed(0)}mm • ${printer.effectiveCharsPerLine} chars/line',
@@ -153,14 +200,21 @@ class _PrinterTestViewState extends State<PrinterTestView> {
               Expanded(
                 child: Text(
                   'If this preview still looks identical after changing paper profile, chars-per-line is wrong.',
-                  style: const TextStyle(fontSize: 10, color: Color(0xFF6B7280)),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
               FilledButton.icon(
-                onPressed: () => _controller.printTest(printer, type: _selectedType),
+                onPressed: () =>
+                    _controller.printTest(printer, type: _selectedType),
                 icon: const Icon(Icons.print_rounded, size: 16),
-                label: Text(AppLocalizations.of(context)!.printerTestPreviewPrint, style: const TextStyle(fontSize: 11)),
+                label: Text(
+                  AppLocalizations.of(context)!.printerTestPreviewPrint,
+                  style: const TextStyle(fontSize: 11),
+                ),
               ),
             ],
           ),

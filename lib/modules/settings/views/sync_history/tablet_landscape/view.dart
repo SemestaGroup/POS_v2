@@ -64,7 +64,8 @@ class SyncHistoryView extends StatelessWidget {
                 context,
                 title: 'Sinkronisasi Transaksi Selesai',
                 date: 'Hari ini, 12:45',
-                details: 'Berhasil mengunggah 5 transaksi penjualan dan 2 arus kas.',
+                details:
+                    'Berhasil mengunggah 5 transaksi penjualan dan 2 arus kas.',
                 isSuccess: true,
               ),
               const Divider(height: 32),
@@ -72,7 +73,8 @@ class SyncHistoryView extends StatelessWidget {
                 context,
                 title: 'Sinkronisasi Data Master Selesai',
                 date: 'Hari ini, 10:30',
-                details: 'Berhasil mengunduh pembaruan untuk 10 produk dan 2 kategori.',
+                details:
+                    'Berhasil mengunduh pembaruan untuk 10 produk dan 2 kategori.',
                 isSuccess: true,
               ),
               const Divider(height: 32),
@@ -80,7 +82,8 @@ class SyncHistoryView extends StatelessWidget {
                 context,
                 title: 'Gagal Sinkronisasi',
                 date: 'Kemarin, 21:00',
-                details: 'Koneksi ke server terputus saat mencoba sinkronisasi penutupan shift.',
+                details:
+                    'Koneksi ke server terputus saat mencoba sinkronisasi penutupan shift.',
                 isSuccess: false,
               ),
             ],
@@ -122,20 +125,14 @@ class SyncHistoryView extends StatelessWidget {
                   ),
                   Text(
                     date,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
                   ),
                 ],
               ),
               const SizedBox(height: 6),
               Text(
                 details,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.grey.shade700,
-                ),
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
               ),
             ],
           ),

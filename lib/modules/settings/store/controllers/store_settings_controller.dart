@@ -12,8 +12,8 @@ class StoreProfileController {
 
   final ValueNotifier<StoreProfileState> stateNotifier =
       ValueNotifier<StoreProfileState>(
-    const StoreProfileState(isLoading: false),
-  );
+        const StoreProfileState(isLoading: false),
+      );
 
   Future<void> refresh() async {
     stateNotifier.value = stateNotifier.value.copyWith(
@@ -23,21 +23,31 @@ class StoreProfileController {
     try {
       // Do not auto-fetch from API to respect offline-first and reduce unnecessary background syncs.
       // await PosV2OptionsService.instance.fetchAndSaveOptions();
-      
+
       final options = await PosV2OptionsService.instance.getLocalOptions();
-      
-      final session = PosV2RuntimeSessionStore.instance.currentSession ??
+
+      final session =
+          PosV2RuntimeSessionStore.instance.currentSession ??
           await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
 
       // Ensure we extract business info from pos_options as requested by user
       final appSettings = _asMap(options['pos_app_settings']);
-      
+
       stateNotifier.value = stateNotifier.value.copyWith(
         isLoading: false,
-        tenantName: options['tenant_name']?.toString() ?? appSettings['tenant_name']?.toString() ?? session?.tenantName,
-        tenantCode: options['tenant_code']?.toString() ?? appSettings['tenant_code']?.toString() ?? session?.tenantCode,
+        tenantName:
+            options['tenant_name']?.toString() ??
+            appSettings['tenant_name']?.toString() ??
+            session?.tenantName,
+        tenantCode:
+            options['tenant_code']?.toString() ??
+            appSettings['tenant_code']?.toString() ??
+            session?.tenantCode,
         baseUrl: options['base_url']?.toString() ?? session?.baseUrl,
-        locationId: options['location_id']?.toString() ?? appSettings['location_id']?.toString() ?? session?.locationId,
+        locationId:
+            options['location_id']?.toString() ??
+            appSettings['location_id']?.toString() ??
+            session?.locationId,
         deviceId: options['device_id']?.toString() ?? session?.deviceId,
         registerId: options['register_id']?.toString() ?? session?.registerId,
         feedbackUrl: options['pos_feedback_url']?.toString(),
@@ -61,19 +71,19 @@ class ShiftConfigController {
 
   final ValueNotifier<ShiftConfigState> stateNotifier =
       ValueNotifier<ShiftConfigState>(
-    const ShiftConfigState(
-      isLoading: false,
-      requireOpeningBalance: true,
-      autoPrintShiftRecap: false,
-      allowEditActualCash: true,
-      enforceSingleDevicePerStaff: true,
-      requireDeviceId: true,
-      selfOrderEnabled: false,
-      operatingMode: 'classic_pos',
-      shiftScheduleEnabled: false,
-      shiftScheduleJson: null,
-    ),
-  );
+        const ShiftConfigState(
+          isLoading: false,
+          requireOpeningBalance: true,
+          autoPrintShiftRecap: false,
+          allowEditActualCash: true,
+          enforceSingleDevicePerStaff: true,
+          requireDeviceId: true,
+          selfOrderEnabled: false,
+          operatingMode: 'classic_pos',
+          shiftScheduleEnabled: false,
+          shiftScheduleJson: null,
+        ),
+      );
 
   Future<void> refresh() async {
     stateNotifier.value = stateNotifier.value.copyWith(
@@ -83,7 +93,7 @@ class ShiftConfigController {
     try {
       // Do not auto-fetch from API to respect offline-first and reduce unnecessary background syncs.
       // await PosV2OptionsService.instance.fetchAndSaveOptions();
-      
+
       final options = await PosV2OptionsService.instance.getLocalOptions();
       final appSettings = _asMap(options['pos_app_settings']);
       final devicePolicy = _asMap(options['pos_device_session_policy']);
@@ -94,8 +104,10 @@ class ShiftConfigController {
       String? shiftConfigJson;
       bool shiftScheduleEnabled = false;
       if (shiftConfig is Map) {
-        shiftScheduleEnabled =
-            _asBool(shiftConfig['schedule_enabled'], fallback: false);
+        shiftScheduleEnabled = _asBool(
+          shiftConfig['schedule_enabled'],
+          fallback: false,
+        );
         shiftConfigJson = _asMap(shiftConfig).isNotEmpty
             ? jsonEncode(shiftConfig)
             : null;
@@ -103,26 +115,37 @@ class ShiftConfigController {
         shiftConfigJson = shiftConfig;
         try {
           final parsed = Map<String, dynamic>.from(
-              (shiftConfig.startsWith('{') ? {} : {}));
-          shiftScheduleEnabled =
-              _asBool(parsed['schedule_enabled'], fallback: false);
+            (shiftConfig.startsWith('{') ? {} : {}),
+          );
+          shiftScheduleEnabled = _asBool(
+            parsed['schedule_enabled'],
+            fallback: false,
+          );
         } catch (_) {}
       }
 
       stateNotifier.value = stateNotifier.value.copyWith(
         isLoading: false,
-        requireOpeningBalance:
-            _asBool(appSettings['require_opening_balance'], fallback: true),
-        autoPrintShiftRecap:
-            _asBool(appSettings['auto_print_shift_recap'], fallback: false),
-        allowEditActualCash:
-            _asBool(appSettings['allow_edit_actual_cash'], fallback: true),
+        requireOpeningBalance: _asBool(
+          appSettings['require_opening_balance'],
+          fallback: true,
+        ),
+        autoPrintShiftRecap: _asBool(
+          appSettings['auto_print_shift_recap'],
+          fallback: false,
+        ),
+        allowEditActualCash: _asBool(
+          appSettings['allow_edit_actual_cash'],
+          fallback: true,
+        ),
         enforceSingleDevicePerStaff: _asBool(
           devicePolicy['enforce_single_device_per_staff'],
           fallback: true,
         ),
-        requireDeviceId:
-            _asBool(devicePolicy['require_device_id'], fallback: true),
+        requireDeviceId: _asBool(
+          devicePolicy['require_device_id'],
+          fallback: true,
+        ),
         selfOrderEnabled: _asBool(selfOrder['enabled'], fallback: false),
         operatingMode: operatingMode['mode']?.toString() ?? 'classic_pos',
         shiftScheduleEnabled: shiftScheduleEnabled,
@@ -152,7 +175,10 @@ class ShiftConfigController {
     if (allowEditActualCash != null) {
       appSettings['allow_edit_actual_cash'] = allowEditActualCash;
     }
-    await PosV2OptionsService.instance.updateOption('pos_app_settings', appSettings);
+    await PosV2OptionsService.instance.updateOption(
+      'pos_app_settings',
+      appSettings,
+    );
     await refresh();
   }
 
@@ -164,7 +190,10 @@ class ShiftConfigController {
       'schedule_enabled': enabled,
       'schedules': schedules,
     };
-    await PosV2OptionsService.instance.updateOption('pos_shift_config', payload);
+    await PosV2OptionsService.instance.updateOption(
+      'pos_shift_config',
+      payload,
+    );
     await refresh();
   }
 }
@@ -184,5 +213,8 @@ bool _asBool(Object? value, {required bool fallback}) {
   if (value is bool) return value;
   final normalized = value.toString().trim().toLowerCase();
   if (normalized.isEmpty) return fallback;
-  return normalized == '1' || normalized == 'true' || normalized == 'yes' || normalized == 'on';
+  return normalized == '1' ||
+      normalized == 'true' ||
+      normalized == 'yes' ||
+      normalized == 'on';
 }
