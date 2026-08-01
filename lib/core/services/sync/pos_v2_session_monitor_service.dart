@@ -4,6 +4,7 @@ import '../../network/v2_api_client.dart';
 import 'pos_v2_auth_service.dart';
 import 'pos_v2_runtime_session_store.dart';
 import 'pos_v2_sync_queue_processor.dart';
+import 'pos_v2_sync_orchestrator.dart';
 
 class PosV2SessionMonitorService {
   PosV2SessionMonitorService._();
@@ -50,6 +51,9 @@ class PosV2SessionMonitorService {
 
     _isChecking = true;
     try {
+      // Before checking active session, attempt to push any pending local shift opens/closes
+      await PosV2SyncOrchestrator().syncPendingLocalShifts(session.toSyncContext());
+
       final authService = PosV2AuthService();
       final sessionCode = await authService.resolveActiveDeviceSessionCode(session);
 

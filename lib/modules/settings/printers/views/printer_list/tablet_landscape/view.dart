@@ -175,7 +175,7 @@ class _PrinterListViewState extends State<PrinterListView> {
   void _openEditorWithDevice(BuildContext context, BluetoothDevice device) {
     final newPrinter = PrinterDeviceConfig(
       id: 0,
-      printerKey: '',
+      printerKey: 'printer-${DateTime.now().microsecondsSinceEpoch}',
       displayName: device.name ?? 'Bluetooth Printer',
       connectionType: 'bluetooth',
       connectionTarget: device.address,
@@ -535,8 +535,8 @@ class _PrinterListViewState extends State<PrinterListView> {
     final notes = TextEditingController(text: printer?.notes ?? '');
     var connectionType = printer?.connectionType ?? 'system';
     var paperProfileId = printer?.paperProfileId ?? 'thermal_58';
-    var fontScale = printer?.fontScale ?? 1.0;
-    var lineSpacing = printer?.lineSpacing ?? 1.0;
+    final fontScaleCtrl = TextEditingController(text: (printer?.fontScale ?? 1.0).toStringAsFixed(1));
+    final lineSpacingCtrl = TextEditingController(text: (printer?.lineSpacing ?? 1.0).toStringAsFixed(1));
     var autoCut = printer?.supportsAutoCut ?? false;
     var isActive = printer?.isActive ?? true;
 
@@ -680,9 +680,9 @@ class _PrinterListViewState extends State<PrinterListView> {
                           const SizedBox(height: 12),
                           Row(
                             children: [
-                              Expanded(child: _readonlyField('Font Scale', fontScale.toStringAsFixed(1))),
+                              Expanded(child: _field(fontScaleCtrl, 'Font Scale', Icons.format_size_rounded)),
                               const SizedBox(width: 12),
-                              Expanded(child: _readonlyField('Line Spacing', lineSpacing.toStringAsFixed(1))),
+                              Expanded(child: _field(lineSpacingCtrl, 'Line Spacing', Icons.height_rounded)),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -759,8 +759,8 @@ class _PrinterListViewState extends State<PrinterListView> {
                                   ? double.tryParse(customWidth.text.trim())
                                   : null,
                               charsPerLine: int.tryParse(chars.text.trim()) ?? selectedProfile.defaultCharsPerLine,
-                              fontScale: fontScale,
-                              lineSpacing: lineSpacing,
+                              fontScale: double.tryParse(fontScaleCtrl.text) ?? 1.0,
+                              lineSpacing: double.tryParse(lineSpacingCtrl.text) ?? 1.0,
                               supportsAutoCut: autoCut,
                               notes: notes.text.trim(),
                               isActive: isActive,
@@ -848,11 +848,13 @@ class _PrinterListViewState extends State<PrinterListView> {
       );
 
   Widget _toggleCard(String title, String subtitle, bool value, ValueChanged<bool> onChanged) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: value ? const Color(0xFFC7D2FE) : const Color(0xFFE5E7EB)),
+        side: BorderSide(
+          color: value ? const Color(0xFFC7D2FE) : const Color(0xFFE5E7EB),
+        ),
       ),
       child: SwitchListTile.adaptive(
         value: value,

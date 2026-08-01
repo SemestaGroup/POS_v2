@@ -148,7 +148,8 @@ class BluetoothRawPrintAdapter extends PrinterTransportAdapter {
       }
       await Future<void>.delayed(const Duration(milliseconds: 400));
       await bluetooth.writeBytes(Uint8List.fromList(output.rawBytes));
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      // Berikan waktu lebih panjang agar printer menyelesaikan pencetakan sebelum koneksi diputus (5 detik)
+      await Future<void>.delayed(const Duration(milliseconds: 5000));
       try {
         await bluetooth.disconnect();
       } catch (_) {}

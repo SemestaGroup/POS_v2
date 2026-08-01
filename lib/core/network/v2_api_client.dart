@@ -125,9 +125,12 @@ class V2ApiClient {
     final requestId = DateTime.now().microsecondsSinceEpoch.toString();
     final stopwatch = Stopwatch()..start();
 
+    http.Response response;
+    dynamic decoded;
+
     try {
-      final response = await send();
-      final decoded = _decodeJsonBody(response);
+      response = await send();
+      decoded = _decodeJsonBody(response);
       stopwatch.stop();
       _log(
         requestId: requestId,
@@ -139,7 +142,6 @@ class V2ApiClient {
         responseBody: decoded,
         durationMs: stopwatch.elapsedMilliseconds,
       );
-      return _ensureSuccessfulEnvelope(decoded, response.statusCode);
     } catch (error) {
       stopwatch.stop();
       _log(
@@ -155,6 +157,8 @@ class V2ApiClient {
       );
       rethrow;
     }
+
+    return _ensureSuccessfulEnvelope(decoded, response.statusCode);
   }
 
   Future<dynamic> _sendAndDecodeAny({

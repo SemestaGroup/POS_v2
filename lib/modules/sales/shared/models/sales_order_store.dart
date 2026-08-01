@@ -7,6 +7,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/local/database_service.dart';
 import '../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../operations/shift/models/active_shift_store.dart';
 import '../../../operations/stores/operations_read_stores.dart';
 
 class SalesOrderLineItem {
@@ -57,6 +58,9 @@ class SalesOrderRecord {
     this.orderLevelDiscountAmount = 0,
     this.fallbackSubtotalAmount,
     this.fallbackTotalAmount,
+    this.taxAmount = 0,
+    this.taxName,
+    this.taxPercentage = 0.0,
     this.customerLocalId,
     this.customerPhone,
     this.customerAddress,
@@ -85,13 +89,16 @@ class SalesOrderRecord {
   final int orderLevelDiscountAmount;
   final int? fallbackSubtotalAmount;
   final int? fallbackTotalAmount;
+  final int taxAmount;
+  final String? taxName;
+  final double taxPercentage;
 
   int get subtotalAmount => items.isNotEmpty
       ? items.fold(0, (sum, item) => sum + item.totalPrice)
       : (fallbackSubtotalAmount ?? 0);
 
   int get totalAmount => items.isNotEmpty
-      ? (subtotalAmount - orderLevelDiscountAmount).clamp(0, 1 << 31)
+      ? (subtotalAmount - orderLevelDiscountAmount + taxAmount).clamp(0, 1 << 31)
       : (fallbackTotalAmount ?? 0);
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 }
@@ -335,6 +342,9 @@ class SalesOrderStore {
             orderLevelDiscountAmount: _asInt(row['manual_discount_value']) ?? 0,
             fallbackSubtotalAmount: _asInt(row['subtotal_amount']),
             fallbackTotalAmount: _asInt(row['total_amount']),
+            taxAmount: _asInt(_extractCustomField(row['custom_fields_json'], 'tax_amount')) ?? 0,
+            taxName: _extractCustomField(row['custom_fields_json'], 'tax_name'),
+            taxPercentage: double.tryParse(_extractCustomField(row['custom_fields_json'], 'tax_percentage') ?? '') ?? 0.0,
             items: items,
           ),
         );
@@ -369,6 +379,9 @@ class SalesOrderStore {
     DateTime? existingCreatedAt,
     String? paymentModeRemoteId,
     String? paymentModeName,
+    int taxAmount = 0,
+    String? taxName,
+    double taxPercentage = 0.0,
     bool processQueueNow = false,
   }) async {
     if (items.isEmpty) {
@@ -398,6 +411,9 @@ class SalesOrderStore {
       orderType: orderType,
       note: (note != null && note.trim().isNotEmpty) ? note.trim() : null,
       orderLevelDiscountAmount: orderLevelDiscountAmount,
+      taxAmount: taxAmount,
+      taxName: taxName,
+      taxPercentage: taxPercentage,
       items: List<SalesOrderLineItem>.from(items),
     );
 
@@ -509,6 +525,7 @@ class SalesOrderStore {
           'customer_id': record.customerLocalId,
           'sale_staff_id': saleStaffId,
           'id_pos': record.id,
+          'shift_session_id': ActiveShiftStore.instance.activeShiftNotifier.value?.id,
           'location_id': session.locationId,
           'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
@@ -543,6 +560,7 @@ class SalesOrderStore {
         updateValues: <String, Object?>{
           'customer_id': record.customerLocalId,
           'sale_staff_id': saleStaffId,
+          'shift_session_id': ActiveShiftStore.instance.activeShiftNotifier.value?.id,
           'location_id': session.locationId,
           'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
@@ -664,7 +682,7 @@ class SalesOrderStore {
     if (processQueueNow) {
       // Flush only this order's queue items so we don't accidentally send
       // unrelated pending orders from other sessions at the same time.
-      await PosV2SyncQueueProcessor.instance.flushForOrder(record.id);
+      unawaited(PosV2SyncQueueProcessor.instance.flushForOrder(record.id));
       // Then flush any remaining items (e.g. leftover from prior sessions)
       // in the background so the UI is not blocked.
       unawaited(PosV2SyncQueueProcessor.instance.flushPending());
@@ -1066,21 +1084,44 @@ class SalesOrderStore {
   }
 
   Map<String, Object?> _buildOrderCustomFields(SalesOrderRecord record) {
-    if ((record.appliedPromotionRemoteId ?? '').isEmpty &&
-        (record.appliedPromotionName ?? '').isEmpty &&
-        (record.appliedPromotionType ?? '').isEmpty &&
-        (record.appliedPromotionSummary ?? '').isEmpty) {
-      return const <String, Object?>{};
-    }
-
-    return <String, Object?>{
-      'order_promotion': <String, Object?>{
+    final fields = <String, dynamic>{};
+    if ((record.appliedPromotionRemoteId ?? '').isNotEmpty ||
+        (record.appliedPromotionName ?? '').isNotEmpty ||
+        (record.appliedPromotionType ?? '').isNotEmpty ||
+        (record.appliedPromotionSummary ?? '').isNotEmpty) {
+      fields['order_promotion'] = <String, Object?>{
         'remote_id': record.appliedPromotionRemoteId,
         'name': record.appliedPromotionName,
         'promo_type': record.appliedPromotionType,
         'summary': record.appliedPromotionSummary,
-      },
-    };
+      };
+    }
+    if (record.taxAmount > 0) {
+      fields['tax_amount'] = record.taxAmount.toString();
+      if (record.taxName != null) {
+        fields['tax_name'] = record.taxName;
+      }
+      if (record.taxPercentage > 0) {
+        fields['tax_percentage'] = record.taxPercentage.toString();
+      }
+    }
+    return fields;
+  }
+
+  String? _extractCustomField(Object? rawCustomFields, String key) {
+    final text = rawCustomFields?.toString();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(text);
+      if (decoded is! Map<String, dynamic>) {
+        return null;
+      }
+      return decoded[key]?.toString();
+    } catch (_) {
+      return null;
+    }
   }
 
   String? _extractPromotionField(Object? rawCustomFields, String key) {

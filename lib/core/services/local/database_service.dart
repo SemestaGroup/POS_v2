@@ -73,6 +73,9 @@ class DatabaseService {
     if (oldVersion < 6) {
       // pos_cash_flow table will be created by schema application
     }
+    if (oldVersion < 8) {
+      await _addColumnIfMissing(db, 'pos_cash_flow', 'shift_session_id', 'INTEGER');
+    }
   }
 
   Future<void> _addColumnIfMissing(

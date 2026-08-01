@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 6;
+  static const int version = 8;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -398,6 +398,33 @@ CREATE TABLE IF NOT EXISTS pos_role (
   deleted_at TEXT,
   UNIQUE(tenant_id, role_id),
   FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS pos_promo (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  remote_id TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  amount TEXT,
+  amount_type TEXT,
+  promo_type TEXT,
+  min_order_amount TEXT,
+  max_discount_amount TEXT,
+  auto_apply INTEGER NOT NULL DEFAULT 0,
+  days_active TEXT,
+  start_date TEXT,
+  end_date TEXT,
+  start_time TEXT,
+  end_time TEXT,
+  eligible_category_ids TEXT,
+  eligible_product_ids TEXT,
+  raw_payload_json TEXT
+);
+
+CREATE TABLE IF NOT EXISTS pos_tax (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  remote_id TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  taxrate TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS category (
@@ -913,6 +940,13 @@ CREATE INDEX IF NOT EXISTS idx_approval_request_location_status
 CREATE INDEX IF NOT EXISTS idx_approval_request_requester_device
   ON approval_request(tenant_id, requester_device_id, updated_at);
 
+CREATE TABLE IF NOT EXISTS pos_tax (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  remote_id TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  taxrate TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS pos_order_item (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id INTEGER NOT NULL,
@@ -1005,6 +1039,7 @@ CREATE TABLE IF NOT EXISTS pos_cash_flow (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id INTEGER NOT NULL,
   location_id INTEGER,
+  shift_session_id INTEGER,
   type TEXT NOT NULL, 
   amount INTEGER NOT NULL DEFAULT 0,
   note TEXT,

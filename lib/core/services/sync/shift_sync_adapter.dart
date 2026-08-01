@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'base_v2_sync_adapter.dart';
 import 'v2_sync_context.dart';
 import 'v2_sync_result.dart';
@@ -16,36 +18,73 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     String? deviceId,
     String? registerId,
   }) async {
-    final envelope = await buildClient(context).postEnvelope(
-      'api/v2/pos-shift-sessions/open',
-      body: <String, dynamic>{
-        'location_id': locationId,
-        'staff_id': staffId,
-        'staff_name': staffName,
-        'shift_name': shiftName,
-        'opening_balance': openingBalance,
-        'device_id': deviceId,
-        'register_id': registerId ?? context.registerId,
-      },
-    );
+    Map<String, dynamic> row = {};
+    bool isOffline = false;
 
-    final row =
-        V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
-    if (row.isEmpty) {
-      return const V2SyncResult(endpointName: 'pos-shift-sessions/open');
+    try {
+      final envelope = await buildClient(context).postEnvelope(
+        'api/v2/pos-shift-sessions/open',
+        body: <String, dynamic>{
+          'location_id': locationId,
+          'staff_id': staffId,
+          'staff_name': staffName,
+          'shift_name': shiftName,
+          'opening_balance': openingBalance,
+          'device_id': deviceId,
+          'register_id': registerId ?? context.registerId,
+        },
+      ).timeout(const Duration(seconds: 3));
+      row = V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
+    } catch (e) {
+      if (e.toString().toLowerCase().contains('active shift session already exists')) {
+        rethrow;
+      }
+      isOffline = true;
     }
 
     var upsertedCount = 0;
     await databaseService.transaction((txn) async {
       final tenantId = await ensureTenantId(txn, context);
-      upsertedCount += await _upsertShiftRow(txn, tenantId, row);
-      await touchCheckpoint(
-        txn,
-        tenantId,
-        endpointName: 'pos-shift-sessions/open',
-        scopeKey: row['id']?.toString() ?? 'new',
-        notes: 'Shift opened and stored locally.',
-      );
+      final now = V2SyncUtils.nowIso();
+      
+      if (isOffline || row.isEmpty) {
+        final staffLocalId = await findLocalIdByRemoteId(txn, 'staff', tenantId, staffId.toString());
+        await txn.insert('shift_session', <String, Object?>{
+          'tenant_id': tenantId,
+          'remote_id': null,
+          'location_id': locationId.toString(),
+          'pos_staff_id': staffLocalId,
+          'pos_staff_remote_id': staffId.toString(),
+          'pos_staff_name_snapshot': staffName,
+          'shift_name': shiftName,
+          'source_device_id': deviceId,
+          'register_id': registerId ?? context.registerId,
+          'business_date': now.substring(0, 10),
+          'opened_at': now,
+          'opening_balance': openingBalance,
+          'status': 'open',
+          'sync_state': 'pending',
+          'created_at': now,
+          'updated_at': now,
+        });
+        upsertedCount = 1;
+        await touchCheckpoint(
+          txn,
+          tenantId,
+          endpointName: 'pos-shift-sessions/open',
+          scopeKey: 'local',
+          notes: 'Shift opened offline and stored locally.',
+        );
+      } else {
+        upsertedCount += await _upsertShiftRow(txn, tenantId, row);
+        await touchCheckpoint(
+          txn,
+          tenantId,
+          endpointName: 'pos-shift-sessions/open',
+          scopeKey: row['id']?.toString() ?? 'new',
+          notes: 'Shift opened online and stored locally.',
+        );
+      }
     });
 
     return V2SyncResult(
@@ -57,7 +96,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
 
   Future<V2SyncResult> closeShift(
     V2SyncContext context, {
-    required int shiftRemoteId,
+    required int shiftLocalId,
     required int actualCash,
     int? expectedCash,
     int? totalNonCash,
@@ -68,59 +107,79 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
         '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}';
 
-    final envelope = await buildClient(context).postEnvelope(
-      'api/v2/pos-shift-sessions/$shiftRemoteId/close',
-      body: <String, dynamic>{
-        'closed_at': closedAt,
-        'actual_cash': actualCash,
-        'expected_cash': expectedCash ?? 0,
-        'closing_balance': actualCash,
-        'total_non_cash': totalNonCash ?? 0,
-        'reconciliation_json': reconciliationJson ?? <String, dynamic>{},
-      },
-    );
-    final row =
-        V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
-
     var upsertedCount = 0;
     await databaseService.transaction((txn) async {
       final tenantId = await ensureTenantId(txn, context);
-      if (row.isNotEmpty) {
-        upsertedCount += await _upsertShiftRow(txn, tenantId, row);
+
+      final rows = await txn.query(
+        'shift_session',
+        columns: ['remote_id'],
+        where: 'id = ? AND tenant_id = ?',
+        whereArgs: [shiftLocalId, tenantId],
+      );
+      if (rows.isEmpty) {
+        throw Exception('Shift session not found locally.');
+      }
+      final remoteId = V2SyncUtils.asString(rows.first['remote_id']);
+
+      Map<String, dynamic> row = {};
+      bool isOffline = false;
+
+      if (remoteId != null && remoteId.isNotEmpty) {
+        try {
+          final envelope = await buildClient(context).postEnvelope(
+            'api/v2/pos-shift-sessions/$remoteId/close',
+            body: <String, dynamic>{
+              'closed_at': closedAt,
+              'actual_cash': actualCash,
+              'expected_cash': expectedCash ?? 0,
+              'closing_balance': actualCash,
+              'total_non_cash': totalNonCash ?? 0,
+              'reconciliation_json': reconciliationJson ?? <String, dynamic>{},
+            },
+          ).timeout(const Duration(seconds: 3));
+          row = V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
+        } catch (_) {
+          isOffline = true;
+        }
       } else {
-        // Fallback: update locally by remote_id
-        await txn.rawUpdate(
-          '''
-          UPDATE shift_session
-          SET status = 'closed',
-              closed_at = ?,
-              actual_cash = ?,
-              expected_cash = ?,
-              closing_balance = ?,
-              total_non_cash = ?,
-              updated_at = ?
-          WHERE tenant_id = ? AND remote_id = ?
-          ''',
-          <Object?>[
-            closedAt,
-            actualCash,
-            expectedCash ?? 0,
-            actualCash,
-            totalNonCash ?? 0,
-            closedAt,
-            tenantId,
-            shiftRemoteId.toString(),
-          ],
+        isOffline = true;
+      }
+
+      if (isOffline || row.isEmpty) {
+        await txn.update(
+          'shift_session',
+          <String, Object?>{
+            'status': 'closed',
+            'closed_at': closedAt,
+            'actual_cash': actualCash,
+            'expected_cash': expectedCash ?? 0,
+            'closing_balance': actualCash,
+            'total_non_cash': totalNonCash ?? 0,
+            'sync_state': 'pending',
+            'updated_at': V2SyncUtils.nowIso(),
+          },
+          where: 'id = ?',
+          whereArgs: <Object?>[shiftLocalId],
         );
         upsertedCount = 1;
+        await touchCheckpoint(
+          txn,
+          tenantId,
+          endpointName: 'pos-shift-sessions/close',
+          scopeKey: 'local_$shiftLocalId',
+          notes: 'Shift closed offline.',
+        );
+      } else {
+        upsertedCount += await _upsertShiftRow(txn, tenantId, row);
+        await touchCheckpoint(
+          txn,
+          tenantId,
+          endpointName: 'pos-shift-sessions/close',
+          scopeKey: remoteId.toString(),
+          notes: 'Shift closed online.',
+        );
       }
-      await touchCheckpoint(
-        txn,
-        tenantId,
-        endpointName: 'pos-shift-sessions/close',
-        scopeKey: shiftRemoteId.toString(),
-        notes: 'Shift closed.',
-      );
     });
 
     return V2SyncResult(
@@ -266,5 +325,54 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
       },
     );
     return 1;
+  }
+
+  Future<void> syncPendingLocalShifts(V2SyncContext context) async {
+    await databaseService.transaction((txn) async {
+      final tenantId = await ensureTenantId(txn, context);
+      final rows = await txn.query(
+        'shift_session',
+        where: 'tenant_id = ? AND sync_state = ?',
+        whereArgs: [tenantId, 'pending'],
+      );
+      if (rows.isEmpty) return;
+
+      for (final row in rows) {
+        final status = row['status']?.toString();
+        final localId = V2SyncUtils.asInt(row['id']);
+
+        if (status == 'closed') {
+          final remoteId = row['remote_id']?.toString();
+          if (remoteId != null && remoteId.isNotEmpty) {
+            try {
+              await closeShift(
+                context,
+                shiftLocalId: localId,
+                actualCash: V2SyncUtils.asInt(row['actual_cash']),
+                expectedCash: V2SyncUtils.asInt(row['expected_cash']),
+                totalNonCash: V2SyncUtils.asInt(row['total_non_cash']),
+                reconciliationJson: V2SyncUtils.asMap(row['reconciliation_json'] != null ? jsonDecode(row['reconciliation_json'].toString()) : null),
+              );
+            } catch (_) {}
+          }
+        } else if (status == 'open') {
+          final remoteId = row['remote_id']?.toString();
+          if (remoteId == null || remoteId.isEmpty) {
+            try {
+              await openShift(
+                context,
+                locationId: V2SyncUtils.asInt(row['location_id']),
+                staffId: V2SyncUtils.asInt(row['pos_staff_remote_id']),
+                staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
+                shiftName: row['shift_name']?.toString() ?? '',
+                openingBalance: V2SyncUtils.asInt(row['opening_balance']),
+                deviceId: row['source_device_id']?.toString(),
+                registerId: row['register_id']?.toString(),
+              );
+            } catch (_) {}
+          }
+        }
+      }
+    });
   }
 }

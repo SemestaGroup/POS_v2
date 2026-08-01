@@ -3,6 +3,11 @@ import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 
 import '../../../stores/operations_read_stores.dart';
+import '../../../../../core/printing/services/printer_rendering_service.dart';
+import '../../../../../core/printing/services/printer_transport_service.dart';
+import '../../../../settings/printers/controllers/printer_settings_controller.dart';
+import '../../../shift/services/shift_report_builder.dart';
+import '../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 
 class RecapView extends StatefulWidget {
   const RecapView({super.key});
@@ -99,8 +104,58 @@ class _RecapViewState extends State<RecapView> {
       lastDate: DateTime.now(),
     );
     if (date != null && mounted) {
-      setState(() => _selectedArchiveDate = date);
+      setState(() {
+        _selectedArchiveDate = date;
+      });
       _store.fetchArchives(date);
+    }
+  }
+
+  Future<void> _printArchive(EodArchiveRecord archive) async {
+    try {
+      await PrinterSettingsController.instance.refresh(silent: true);
+      final state = PrinterSettingsController.instance.stateNotifier.value;
+      final printer = state.printers.where((p) => p.isActive && p.roles.contains('cashier')).firstOrNull ?? 
+                      state.printers.where((p) => p.isActive).firstOrNull;
+
+      if (printer == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tidak ada printer terdaftar. Silakan atur printer terlebih dahulu.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final documentData = await ShiftReportBuilder.instance.buildFromEodArchive(
+        archive: archive,
+        tenantId: PosV2RuntimeSessionStore.instance.currentSession!.tenantId,
+      );
+      
+      final renderer = PrinterRenderingService.instance;
+      final renderOutput = await renderer.render(printer, documentData);
+
+      final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+      
+      if (!mounted) return;
+      if (!dispatchResult.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mencetak: ${dispatchResult.message}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -531,12 +586,7 @@ class _RecapViewState extends State<RecapView> {
                               ),
                               const SizedBox(width: 20),
                               OutlinedButton.icon(
-                                onPressed: () {
-                                  // TODO: Re-print logic
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Fitur cetak ulang segera hadir.')),
-                                  );
-                                },
+                                onPressed: () => _printArchive(archive),
                                 icon: const Icon(Icons.print_rounded, size: 14),
                                 label: const Text('Cetak', style: TextStyle(fontSize: 11)),
                                 style: OutlinedButton.styleFrom(

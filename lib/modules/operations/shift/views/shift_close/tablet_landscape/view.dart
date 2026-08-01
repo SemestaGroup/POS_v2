@@ -3,7 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
+import '../../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../../../../core/printing/services/printer_rendering_service.dart';
+import '../../../../../../core/printing/services/printer_transport_service.dart';
+import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
 import '../../../models/active_shift_store.dart';
+import '../../../services/shift_report_builder.dart';
 
 class ShiftCloseView extends StatefulWidget {
   const ShiftCloseView({super.key});
@@ -464,6 +469,56 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
           _isLoading = false;
           _errorMessage = e.toString().replaceFirst('Exception: ', '');
         });
+      }
+    }
+  }
+
+  Future<void> _printReport({required bool isEod}) async {
+    final shift = ActiveShiftStore.instance.activeShiftNotifier.value;
+    if (shift == null) return;
+    
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session == null) return;
+    
+    setState(() => _isLoading = true);
+    try {
+      final document = await ShiftReportBuilder.instance.buildReport(
+        tenantId: session.tenantId,
+        shiftSessionId: shift.id,
+        isEod: isEod,
+      );
+      
+      if (document != null && mounted) {
+        final state = PrinterSettingsController.instance.stateNotifier.value;
+        final printer = state.printers.where((p) => p.isActive && p.roles.contains('cashier')).firstOrNull ?? 
+                        state.printers.where((p) => p.isActive).firstOrNull;
+        if (printer != null) {
+          final renderResult = await PrinterRenderingService.instance.render(printer, document);
+          final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderResult);
+          
+          if (!dispatchResult.success && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('Gagal mencetak: ${dispatchResult.message ?? "Printer error"}'),
+              backgroundColor: Colors.red.shade600,
+            ));
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Printer belum diatur.'),
+            backgroundColor: Colors.orange,
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Gagal membuat laporan: $e'),
+          backgroundColor: Colors.red.shade600,
+        ));
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -1220,6 +1275,36 @@ class _ShiftCloseViewState extends State<ShiftCloseView>
         ],
 
         const SizedBox(height: 20),
+
+        // ── Print Buttons ─────────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : () => _printReport(isEod: false),
+                icon: const Icon(Icons.print_rounded, size: 16),
+                label: const Text('Cetak Rekapan', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _isLoading ? null : () => _printReport(isEod: true),
+                icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                label: const Text('Cetak EOD', style: TextStyle(fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
 
         // ── Submit Button ─────────────────────────────────────────────
         SizedBox(
