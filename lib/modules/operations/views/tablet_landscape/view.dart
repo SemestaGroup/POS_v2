@@ -1,98 +1,21 @@
 import 'package:flutter/material.dart';
-import '../../../../core/widgets/responsive/responsive_context.dart';
 
-import '../../../../core/widgets/navigation/mobile_section_menu_page.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../master_data/customers/views/customer_list/customer_list_view.dart';
-import '../../shift/views/shift_open/tablet_landscape/view.dart';
-import '../../shift/views/shift_close/tablet_landscape/view.dart';
-import '../../recap/views/tablet_landscape/view.dart';
-import '../../cash_flow/views/tablet_landscape/view.dart';
-import '../../kitchen/views/tablet_landscape/view.dart';
-import '../../shift/views/shift_history/tablet_landscape/view.dart';
-import '../mobile_portrait/view.dart';
-import '../../../../app/role_access/role_manager.dart';
+import '../operations_menu.dart';
 
-class _SubMenuDefinition {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Widget view;
-  final List<AppRole> allowedRoles;
+class OperationsTabletLandscapeView extends StatefulWidget {
+  const OperationsTabletLandscapeView({required this.subMenus, super.key});
 
-  _SubMenuDefinition({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.view,
-    required this.allowedRoles,
-  });
-}
-
-class OperationsShellView extends StatefulWidget {
-  const OperationsShellView({super.key});
+  final List<OperationsMenuDefinition> subMenus;
 
   @override
-  State<OperationsShellView> createState() => _OperationsShellViewState();
+  State<OperationsTabletLandscapeView> createState() =>
+      _OperationsTabletLandscapeViewState();
 }
 
-class _OperationsShellViewState extends State<OperationsShellView> {
+class _OperationsTabletLandscapeViewState
+    extends State<OperationsTabletLandscapeView> {
   int _selectedSubMenuIndex = 0;
-
-  List<_SubMenuDefinition> get _allSubMenus {
-    final l10n = AppLocalizations.of(context)!;
-    return [
-      _SubMenuDefinition(
-        title: l10n.shiftMenu,
-        subtitle: 'Buka shift kasir',
-        icon: Icons.access_time_rounded,
-        view: const ShiftOpenView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
-      ),
-      _SubMenuDefinition(
-        title: 'Tutup Shift',
-        subtitle: 'Tutup dan rekonsiliasi shift',
-        icon: Icons.lock_clock_outlined,
-        view: const ShiftCloseView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
-      ),
-      _SubMenuDefinition(
-        title: l10n.recapMenu,
-        subtitle: 'Shift and daily recaps',
-        icon: Icons.receipt_long_rounded,
-        view: const RecapView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor],
-      ),
-      _SubMenuDefinition(
-        title: 'Riwayat Shift',
-        subtitle: 'Histori shift dari database lokal',
-        icon: Icons.history_toggle_off_rounded,
-        view: const ShiftHistoryView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
-      ),
-      _SubMenuDefinition(
-        title: l10n.cashFlowMenu,
-        subtitle: 'Cash in & out',
-        icon: Icons.account_balance_wallet_rounded,
-        view: const CashFlowView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
-      ),
-      _SubMenuDefinition(
-        title: l10n.kitchenMonitorMenu,
-        subtitle: 'Live kitchen orders',
-        icon: Icons.restaurant_rounded,
-        view: const KitchenMonitorView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.kitchen],
-      ),
-      _SubMenuDefinition(
-        title: l10n.customerListMenu,
-        subtitle: 'Customer database',
-        icon: Icons.people_rounded,
-        view: const CustomerListView(),
-        allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
-      ),
-    ];
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,50 +25,16 @@ class _OperationsShellViewState extends State<OperationsShellView> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: ValueListenableBuilder<AppRole>(
-        valueListenable: RoleManager.roleNotifier,
-        builder: (context, activeRole, _) {
-          final isMobile = context.isMobile;
-          final filteredSubMenus = _allSubMenus
-              .where((menu) => menu.allowedRoles.contains(activeRole))
-              .toList();
-
-          if (filteredSubMenus.isEmpty) {
-            return Center(child: Text(l10n.operationsUnavailableMessage));
-          }
-
-          if (isMobile) {
-            final shiftTypes = [
-              ShiftOpenView,
-              ShiftCloseView,
-              CashFlowView,
-              ShiftHistoryView,
-            ];
-
-            final shiftMenus = filteredSubMenus.where((menu) {
-              return shiftTypes.contains(menu.view.runtimeType);
-            }).toList();
-
-            final managementMenus = filteredSubMenus.where((menu) {
-              return !shiftTypes.contains(menu.view.runtimeType);
-            }).toList();
-
-            return OperationsMobileView(
-              shiftItems: shiftMenus.map(_toMobileMenuItem).toList(),
-              managementItems: managementMenus.map(_toMobileMenuItem).toList(),
-            );
-          }
-
-          if (_selectedSubMenuIndex >= filteredSubMenus.length) {
+      body: Builder(
+        builder: (context) {
+          if (_selectedSubMenuIndex >= widget.subMenus.length) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
-                setState(() {
-                  _selectedSubMenuIndex = 0;
-                });
+                setState(() => _selectedSubMenuIndex = 0);
               }
             });
           }
-          final safeIndex = _selectedSubMenuIndex < filteredSubMenus.length
+          final safeIndex = _selectedSubMenuIndex < widget.subMenus.length
               ? _selectedSubMenuIndex
               : 0;
 
@@ -154,7 +43,6 @@ class _OperationsShellViewState extends State<OperationsShellView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── Page Header (outside card) ──────────────────────────────
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16, left: 4),
                   child: Row(
@@ -198,13 +86,11 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                     ],
                   ),
                 ),
-
-                // ── Main Card (sidebar + content) ────────────────────────────
                 Expanded(
                   child: Container(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
                     decoration: const BoxDecoration(
-                      color: Color(0xFFF0F2FF), // Soft greyish blue
+                      color: Color(0xFFF0F2FF),
                       borderRadius: BorderRadius.vertical(
                         top: Radius.circular(20),
                       ),
@@ -230,35 +116,22 @@ class _OperationsShellViewState extends State<OperationsShellView> {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            // ── Sidebar ─────────────────────────────────────────
                             _buildSidebar(
-                              theme,
                               primaryColor,
-                              filteredSubMenus,
+                              widget.subMenus,
                               safeIndex,
                             ),
-
-                            // ── Divider ─────────────────────────────────────────
                             VerticalDivider(
                               width: 1,
                               thickness: 1,
                               color: Colors.grey.shade100,
                             ),
-
-                            // ── Content ─────────────────────────────────────────
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: IndexedStack(
-                                      index: safeIndex,
-                                      children: filteredSubMenus
-                                          .map((m) => m.view)
-                                          .toList(),
-                                    ),
-                                  ),
-                                ],
+                              child: IndexedStack(
+                                index: safeIndex,
+                                children: widget.subMenus
+                                    .map((menu) => menu.view)
+                                    .toList(),
                               ),
                             ),
                           ],
@@ -275,41 +148,9 @@ class _OperationsShellViewState extends State<OperationsShellView> {
     );
   }
 
-  Color getMenuBgColor(Type viewType) {
-    if (viewType == ShiftOpenView) return const Color(0xFFECFDF5);
-    if (viewType == ShiftCloseView) return const Color(0xFFFEF2F2);
-    if (viewType == RecapView) return const Color(0xFFEEF2FF);
-    if (viewType == ShiftHistoryView) return const Color(0xFFF1F5F9);
-    if (viewType == CashFlowView) return const Color(0xFFFFFBEB);
-    if (viewType == KitchenMonitorView) return const Color(0xFFF5F3FF);
-    return const Color(0xFFF0FDFA);
-  }
-
-  Color getMenuIconColor(Type viewType) {
-    if (viewType == ShiftOpenView) return const Color(0xFF059669);
-    if (viewType == ShiftCloseView) return const Color(0xFFDC2626);
-    if (viewType == RecapView) return const Color(0xFF4F46E5);
-    if (viewType == ShiftHistoryView) return const Color(0xFF475569);
-    if (viewType == CashFlowView) return const Color(0xFFD97706);
-    if (viewType == KitchenMonitorView) return const Color(0xFF7C3AED);
-    return const Color(0xFF0D9488);
-  }
-
-  MobileMenuItem _toMobileMenuItem(_SubMenuDefinition menu) {
-    return MobileMenuItem(
-      title: menu.title,
-      subtitle: menu.subtitle,
-      icon: menu.icon,
-      iconBackground: getMenuBgColor(menu.view.runtimeType),
-      iconColor: getMenuIconColor(menu.view.runtimeType),
-      view: menu.view,
-    );
-  }
-
   Widget _buildSidebar(
-    ThemeData theme,
     Color primaryColor,
-    List<_SubMenuDefinition> filteredCategories,
+    List<OperationsMenuDefinition> categories,
     int safeIndex,
   ) {
     return SizedBox(
@@ -318,17 +159,13 @@ class _OperationsShellViewState extends State<OperationsShellView> {
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
         child: ListView.builder(
           padding: EdgeInsets.zero,
-          itemCount: filteredCategories.length,
+          itemCount: categories.length,
           itemBuilder: (context, index) {
             final isSelected = safeIndex == index;
-            final category = filteredCategories[index];
+            final category = categories[index];
 
             return InkWell(
-              onTap: () {
-                setState(() {
-                  _selectedSubMenuIndex = index;
-                });
-              },
+              onTap: () => setState(() => _selectedSubMenuIndex = index),
               borderRadius: BorderRadius.circular(12),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 180),

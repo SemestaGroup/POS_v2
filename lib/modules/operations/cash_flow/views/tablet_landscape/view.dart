@@ -3,14 +3,16 @@ import 'package:intl/intl.dart';
 
 import '../../../stores/operations_read_stores.dart';
 
-class CashFlowView extends StatefulWidget {
-  const CashFlowView({super.key});
+class CashFlowTabletLandscapeView extends StatefulWidget {
+  const CashFlowTabletLandscapeView({super.key});
 
   @override
-  State<CashFlowView> createState() => _CashFlowViewState();
+  State<CashFlowTabletLandscapeView> createState() =>
+      _CashFlowTabletLandscapeViewState();
 }
 
-class _CashFlowViewState extends State<CashFlowView> {
+class _CashFlowTabletLandscapeViewState
+    extends State<CashFlowTabletLandscapeView> {
   final CashFlowStore _store = CashFlowStore.instance;
   DateTime? _startDate;
   DateTime? _endDate;
@@ -35,11 +37,11 @@ class _CashFlowViewState extends State<CashFlowView> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: Theme.of(context).colorScheme.copyWith(
-                  primary: Theme.of(context).colorScheme.primary,
-                  onPrimary: Colors.white,
-                  surface: Colors.white,
-                  onSurface: Colors.black,
-                ),
+              primary: Theme.of(context).colorScheme.primary,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
           ),
           child: child!,
         );
@@ -122,29 +124,44 @@ class _CashFlowViewState extends State<CashFlowView> {
                           _startDate = DateTime(now.year, now.month, now.day);
                           _endDate = DateTime(now.year, now.month, now.day);
                         });
-                        _store.refresh(startDate: _startDate, endDate: _endDate);
+                        _store.refresh(
+                          startDate: _startDate,
+                          endDate: _endDate,
+                        );
                       } else if (value == 'last7days') {
                         final now = DateTime.now();
                         setState(() {
-                          _startDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+                          _startDate = DateTime(
+                            now.year,
+                            now.month,
+                            now.day,
+                          ).subtract(const Duration(days: 6));
                           _endDate = DateTime(now.year, now.month, now.day);
                         });
-                        _store.refresh(startDate: _startDate, endDate: _endDate);
+                        _store.refresh(
+                          startDate: _startDate,
+                          endDate: _endDate,
+                        );
                       } else if (value == 'thisMonth') {
                         final now = DateTime.now();
                         setState(() {
                           _startDate = DateTime(now.year, now.month, 1);
                           // last day of current month
-                          _endDate = DateTime(now.year, now.month + 1, 0); 
+                          _endDate = DateTime(now.year, now.month + 1, 0);
                         });
-                        _store.refresh(startDate: _startDate, endDate: _endDate);
+                        _store.refresh(
+                          startDate: _startDate,
+                          endDate: _endDate,
+                        );
                       } else if (value == 'custom') {
                         await _selectDateRange();
                       }
                     },
                     color: Colors.white,
                     elevation: 3,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     offset: const Offset(0, 40),
                     itemBuilder: (context) => [
                       const PopupMenuItem(
@@ -153,20 +170,32 @@ class _CashFlowViewState extends State<CashFlowView> {
                       ),
                       const PopupMenuItem(
                         value: 'last7days',
-                        child: Text('7 Hari Terakhir', style: TextStyle(fontSize: 13)),
+                        child: Text(
+                          '7 Hari Terakhir',
+                          style: TextStyle(fontSize: 13),
+                        ),
                       ),
                       const PopupMenuItem(
                         value: 'thisMonth',
-                        child: Text('Bulan Ini', style: TextStyle(fontSize: 13)),
+                        child: Text(
+                          'Bulan Ini',
+                          style: TextStyle(fontSize: 13),
+                        ),
                       ),
                       const PopupMenuDivider(),
                       const PopupMenuItem(
                         value: 'custom',
-                        child: Text('Kustom Tanggal...', style: TextStyle(fontSize: 13)),
+                        child: Text(
+                          'Kustom Tanggal...',
+                          style: TextStyle(fontSize: 13),
+                        ),
                       ),
                     ],
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: Colors.grey.shade300),
                         borderRadius: BorderRadius.circular(8),
@@ -174,18 +203,34 @@ class _CashFlowViewState extends State<CashFlowView> {
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.calendar_month_rounded, size: 14, color: Colors.black87),
+                          Icon(
+                            Icons.calendar_month_rounded,
+                            size: 14,
+                            color: Colors.black87,
+                          ),
                           SizedBox(width: 6),
-                          Text('Filter Tanggal', style: TextStyle(fontSize: 11, color: Colors.black87)),
+                          Text(
+                            'Filter Tanggal',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.black87,
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   TextButton.icon(
-                    onPressed: () => _store.refresh(startDate: _startDate, endDate: _endDate),
+                    onPressed: () => _store.refresh(
+                      startDate: _startDate,
+                      endDate: _endDate,
+                    ),
                     icon: const Icon(Icons.refresh_rounded, size: 14),
-                    label: const Text('Refresh', style: TextStyle(fontSize: 11)),
+                    label: const Text(
+                      'Refresh',
+                      style: TextStyle(fontSize: 11),
+                    ),
                     style: TextButton.styleFrom(foregroundColor: primaryColor),
                   ),
                 ],
@@ -199,11 +244,35 @@ class _CashFlowViewState extends State<CashFlowView> {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: _card('Total Masuk', snapshot.totalIn, Icons.arrow_downward_rounded, const Color(0xFF10B981), currencyFmt)),
+                        Expanded(
+                          child: _card(
+                            'Total Masuk',
+                            snapshot.totalIn,
+                            Icons.arrow_downward_rounded,
+                            const Color(0xFF10B981),
+                            currencyFmt,
+                          ),
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: _card('Total Keluar', snapshot.totalOut, Icons.arrow_upward_rounded, const Color(0xFFEF4444), currencyFmt)),
+                        Expanded(
+                          child: _card(
+                            'Total Keluar',
+                            snapshot.totalOut,
+                            Icons.arrow_upward_rounded,
+                            const Color(0xFFEF4444),
+                            currencyFmt,
+                          ),
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: _card('Saldo Bersih', netBalance, Icons.account_balance_rounded, primaryColor, currencyFmt)),
+                        Expanded(
+                          child: _card(
+                            'Saldo Bersih',
+                            netBalance,
+                            Icons.account_balance_rounded,
+                            primaryColor,
+                            currencyFmt,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 18),
@@ -220,7 +289,10 @@ class _CashFlowViewState extends State<CashFlowView> {
                               child: Center(
                                 child: Text(
                                   'Belum ada transaksi kas.',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                  ),
                                 ),
                               ),
                             )
@@ -228,14 +300,25 @@ class _CashFlowViewState extends State<CashFlowView> {
                               shrinkWrap: true,
                               physics: const NeverScrollableScrollPhysics(),
                               itemCount: snapshot.entries.length,
-                              separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade100),
+                              separatorBuilder: (_, _) => Divider(
+                                height: 1,
+                                color: Colors.grey.shade100,
+                              ),
                               itemBuilder: (context, index) {
                                 final entry = snapshot.entries[index];
                                 final isIn = entry.type == 'in';
-                                final color = isIn ? const Color(0xFF10B981) : const Color(0xFFEF4444);
-                                final dateFmt = DateFormat('dd MMM yyyy HH:mm', 'id_ID');
+                                final color = isIn
+                                    ? const Color(0xFF10B981)
+                                    : const Color(0xFFEF4444);
+                                final dateFmt = DateFormat(
+                                  'dd MMM yyyy HH:mm',
+                                  'id_ID',
+                                );
                                 return Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 10,
+                                  ),
                                   child: Row(
                                     children: [
                                       Container(
@@ -246,7 +329,9 @@ class _CashFlowViewState extends State<CashFlowView> {
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
-                                          isIn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                          isIn
+                                              ? Icons.arrow_downward_rounded
+                                              : Icons.arrow_upward_rounded,
                                           color: color,
                                           size: 14,
                                         ),
@@ -254,25 +339,37 @@ class _CashFlowViewState extends State<CashFlowView> {
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               entry.description,
-                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF111827)),
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: Color(0xFF111827),
+                                              ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               dateFmt.format(entry.createdAt),
-                                              style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey.shade500,
+                                              ),
                                             ),
                                           ],
                                         ),
                                       ),
                                       Text(
                                         '${isIn ? '+' : '-'} Rp ${currencyFmt.format(entry.amount)}',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w800,
+                                          color: color,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -290,7 +387,13 @@ class _CashFlowViewState extends State<CashFlowView> {
     );
   }
 
-  Widget _card(String label, int amount, IconData icon, Color color, NumberFormat fmt) {
+  Widget _card(
+    String label,
+    int amount,
+    IconData icon,
+    Color color,
+    NumberFormat fmt,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -313,11 +416,18 @@ class _CashFlowViewState extends State<CashFlowView> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade500)),
+                Text(
+                  label,
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
                 const SizedBox(height: 3),
                 Text(
                   'Rp ${fmt.format(amount)}',
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF111827)),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111827),
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),

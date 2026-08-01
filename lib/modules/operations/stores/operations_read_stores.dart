@@ -243,8 +243,8 @@ class RecapStore {
                AND s.eod_group_id IS NULL
                AND s.status = 'closed'
                AND (
-                 substr(replace(p.created_at, 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
-                 AND substr(replace(p.created_at, 'T', ' '), 1, 19) <= COALESCE(substr(replace(s.closed_at, 'T', ' '), 1, 19), '9999-12-31 23:59:59')
+                 substr(replace(COALESCE(NULLIF(p.recorded_at, ''), p.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                 AND substr(replace(COALESCE(NULLIF(p.recorded_at, ''), p.created_at), 'T', ' '), 1, 19) <= COALESCE(substr(replace(s.closed_at, 'T', ' '), 1, 19), '9999-12-31 23:59:59')
                )
           )
         ''',
@@ -287,7 +287,7 @@ class RecapStore {
       final session = await _requireSession();
       // the date is used to filter created_at
       final dateStr = DateFormat('yyyy-MM-dd').format(date);
-      
+
       final rows = await DatabaseService.instance.rawQuery(
         '''
         SELECT id, eod_code, created_at, total_transactions, total_revenue, summary_json
@@ -299,14 +299,18 @@ class RecapStore {
         <Object?>[session.tenantId, dateStr],
       );
 
-      final archives = rows.map((row) => EodArchiveRecord(
-        id: _asInt(row['id']) ?? 0,
-        eodCode: row['eod_code']?.toString() ?? '',
-        createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
-        totalTransactions: _asInt(row['total_transactions']) ?? 0,
-        totalRevenue: _asInt(row['total_revenue']) ?? 0,
-        summaryJson: row['summary_json']?.toString(),
-      )).toList(growable: false);
+      final archives = rows
+          .map(
+            (row) => EodArchiveRecord(
+              id: _asInt(row['id']) ?? 0,
+              eodCode: row['eod_code']?.toString() ?? '',
+              createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
+              totalTransactions: _asInt(row['total_transactions']) ?? 0,
+              totalRevenue: _asInt(row['total_revenue']) ?? 0,
+              summaryJson: row['summary_json']?.toString(),
+            ),
+          )
+          .toList(growable: false);
 
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
         isLoading: false,
@@ -327,7 +331,7 @@ class RecapStore {
     );
     try {
       final session = await _requireSession();
-      
+
       // 1. Ensure no open shifts
       final openShiftRows = await DatabaseService.instance.rawQuery(
         '''
@@ -338,7 +342,9 @@ class RecapStore {
         <Object?>[session.tenantId],
       );
       if (openShiftRows.isNotEmpty) {
-        throw Exception('Masih ada shift yang belum ditutup. Harap tutup semua shift terlebih dahulu.');
+        throw Exception(
+          'Masih ada shift yang belum ditutup. Harap tutup semua shift terlebih dahulu.',
+        );
       }
 
       // 2. Fetch all unarchived closed shifts
@@ -350,7 +356,7 @@ class RecapStore {
         ''',
         <Object?>[session.tenantId],
       );
-      
+
       if (shiftRows.isEmpty) {
         throw Exception('Tidak ada shift tertutup yang bisa direkap.');
       }
@@ -373,7 +379,7 @@ class RecapStore {
              WHERE s.tenant_id = p.tenant_id
                AND s.deleted_at IS NULL
                AND s.eod_group_id IS NULL
-               AND (REPLACE(p.created_at, 'T', ' ') >= REPLACE(s.opened_at, 'T', ' ') AND REPLACE(p.created_at, 'T', ' ') <= COALESCE(REPLACE(s.closed_at, 'T', ' '), '9999-12-31 23:59:59'))
+               AND (REPLACE(COALESCE(NULLIF(p.recorded_at, ''), p.created_at), 'T', ' ') >= REPLACE(s.opened_at, 'T', ' ') AND REPLACE(COALESCE(NULLIF(p.recorded_at, ''), p.created_at), 'T', ' ') <= COALESCE(REPLACE(s.closed_at, 'T', ' '), '9999-12-31 23:59:59'))
           )
         GROUP BY COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya')
         ''',
@@ -387,12 +393,15 @@ class RecapStore {
         ''',
         <Object?>[session.tenantId],
       );
-      final allModeNames = modeRows.map((r) => r['name']?.toString() ?? '').where((n) => n.isNotEmpty).toList();
+      final allModeNames = modeRows
+          .map((r) => r['name']?.toString() ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
 
       int totalTransactions = 0;
       int totalRevenue = 0;
       final paymentSummary = <Map<String, dynamic>>[];
-      
+
       for (final mode in allModeNames) {
         paymentSummary.add({'name': mode, 'qty': 0, 'amount': 0});
       }
@@ -400,15 +409,18 @@ class RecapStore {
       for (final row in paymentRows) {
         final name = row['payment_name']?.toString() ?? 'Lainnya';
         final amount = _asInt(row['amount']) ?? 0;
-        final qty = (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round();
-        
+        final qty = (double.tryParse(row['qty']?.toString() ?? '0') ?? 0)
+            .round();
+
         totalRevenue += amount;
         totalTransactions += qty;
-        
+
         final existingIdx = paymentSummary.indexWhere((p) => p['name'] == name);
         if (existingIdx != -1) {
-          paymentSummary[existingIdx]['amount'] = (paymentSummary[existingIdx]['amount'] as int) + amount;
-          paymentSummary[existingIdx]['qty'] = (paymentSummary[existingIdx]['qty'] as int) + qty;
+          paymentSummary[existingIdx]['amount'] =
+              (paymentSummary[existingIdx]['amount'] as int) + amount;
+          paymentSummary[existingIdx]['qty'] =
+              (paymentSummary[existingIdx]['qty'] as int) + qty;
         } else {
           paymentSummary.add({'name': name, 'qty': qty, 'amount': amount});
         }
@@ -432,17 +444,22 @@ class RecapStore {
              WHERE s.tenant_id = o.tenant_id
                AND s.deleted_at IS NULL
                AND s.eod_group_id IS NULL
-               AND (REPLACE(o.created_at, 'T', ' ') >= REPLACE(s.opened_at, 'T', ' ') AND REPLACE(o.created_at, 'T', ' ') <= COALESCE(REPLACE(s.closed_at, 'T', ' '), '9999-12-31 23:59:59'))
+               AND (REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= REPLACE(s.opened_at, 'T', ' ') AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= COALESCE(REPLACE(s.closed_at, 'T', ' '), '9999-12-31 23:59:59'))
           )
         GROUP BY i.product_name_snapshot
         ''',
         <Object?>[session.tenantId],
       );
 
-      final itemSummary = itemRows.map((row) => {
-        'name': row['item_name']?.toString() ?? 'Produk',
-        'qty': (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round(),
-      }).toList();
+      final itemSummary = itemRows
+          .map(
+            (row) => {
+              'name': row['item_name']?.toString() ?? 'Produk',
+              'qty': (double.tryParse(row['qty']?.toString() ?? '0') ?? 0)
+                  .round(),
+            },
+          )
+          .toList();
 
       final summaryJson = jsonEncode({
         'payments': paymentSummary,
@@ -464,7 +481,14 @@ class RecapStore {
           INSERT INTO shift_eod_archive (tenant_id, eod_code, created_at, total_transactions, total_revenue, summary_json)
           VALUES (?, ?, ?, ?, ?, ?)
           ''',
-          <Object?>[session.tenantId, eodCode, createdAt, totalTransactions, totalRevenue, summaryJson],
+          <Object?>[
+            session.tenantId,
+            eodCode,
+            createdAt,
+            totalTransactions,
+            totalRevenue,
+            summaryJson,
+          ],
         );
 
         await txn.rawUpdate(
@@ -512,7 +536,7 @@ class CashFlowStore {
 
     try {
       final session = await _requireSession();
-      
+
       String dateFilter = '';
       List<Object?> dateArgs = [];
       if (startDate != null && endDate != null) {
@@ -560,7 +584,7 @@ class CashFlowStore {
       );
 
       final List<CashFlowEntryRecord> entries = [];
-      
+
       entries.addAll(
         paymentRows.map(
           (row) => CashFlowEntryRecord(
@@ -586,8 +610,12 @@ class CashFlowStore {
 
       entries.sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
-      final totalIn = entries.where((e) => e.type == 'in').fold<int>(0, (sum, e) => sum + e.amount);
-      final totalOut = entries.where((e) => e.type == 'out').fold<int>(0, (sum, e) => sum + e.amount);
+      final totalIn = entries
+          .where((e) => e.type == 'in')
+          .fold<int>(0, (sum, e) => sum + e.amount);
+      final totalOut = entries
+          .where((e) => e.type == 'out')
+          .fold<int>(0, (sum, e) => sum + e.amount);
 
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
         isLoading: false,
