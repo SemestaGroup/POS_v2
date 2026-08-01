@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../stores/overview_store.dart';
+import '../../../../sales/orders/shared/orders_history_sync_service.dart';
 import 'sales_metrics_view.dart';
 import 'customer_metrics_view.dart';
 
@@ -9,10 +12,12 @@ class OwnerOverviewTabletLandscapeView extends StatefulWidget {
   const OwnerOverviewTabletLandscapeView({super.key});
 
   @override
-  State<OwnerOverviewTabletLandscapeView> createState() => _OwnerOverviewTabletLandscapeViewState();
+  State<OwnerOverviewTabletLandscapeView> createState() =>
+      _OwnerOverviewTabletLandscapeViewState();
 }
 
-class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLandscapeView> {
+class _OwnerOverviewTabletLandscapeViewState
+    extends State<OwnerOverviewTabletLandscapeView> {
   int _selectedTab = 0; // 0 for Sales, 1 for Customer
   DateTimeRange? _selectedDateRange;
 
@@ -27,9 +32,16 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _applyFilter();
+        unawaited(_syncHistoryAndApplyFilter());
       }
     });
+  }
+
+  Future<void> _syncHistoryAndApplyFilter() async {
+    await OrdersHistorySyncService.instance.ensureSynced();
+    if (mounted) {
+      _applyFilter();
+    }
   }
 
   @override
@@ -101,8 +113,12 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
                   ? ValueListenableBuilder<OverviewSnapshot>(
                       valueListenable: OverviewStore.instance.snapshotNotifier,
                       builder: (context, snapshot, _) {
-                        if (snapshot.isLoading && snapshot.salesToday == 0 && snapshot.salesThisMonth == 0) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.isLoading &&
+                            snapshot.salesToday == 0 &&
+                            snapshot.salesThisMonth == 0) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         }
                         return SalesMetricsView(snapshot: snapshot);
                       },
@@ -203,12 +219,19 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
 
   void _showDateMenu(BuildContext context, ThemeData theme) async {
     final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
-    
+    final RenderBox overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(
-        button.localToGlobal(button.size.bottomLeft(const Offset(0, 8)), ancestor: overlay),
-        button.localToGlobal(button.size.bottomLeft(const Offset(0, 8)), ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomLeft(const Offset(0, 8)),
+          ancestor: overlay,
+        ),
+        button.localToGlobal(
+          button.size.bottomLeft(const Offset(0, 8)),
+          ancestor: overlay,
+        ),
       ),
       Offset.zero & overlay.size,
     );
@@ -279,7 +302,11 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset('assets/mockups/dashboard/date-filter.webp', width: 14, height: 14),
+                Image.asset(
+                  'assets/mockups/dashboard/date-filter.webp',
+                  width: 14,
+                  height: 14,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   dateText,
@@ -295,18 +322,26 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
             ),
           ),
         );
-      }
+      },
     );
   }
 
-  PopupMenuItem<String> _buildPopupMenuItem(String text, String value, ThemeData theme) {
+  PopupMenuItem<String> _buildPopupMenuItem(
+    String text,
+    String value,
+    ThemeData theme,
+  ) {
     return PopupMenuItem<String>(
       value: value,
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+        ),
       ),
     );
   }

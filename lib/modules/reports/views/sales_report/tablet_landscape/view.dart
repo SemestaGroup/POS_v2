@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../sales/orders/shared/orders_history_sync_service.dart';
 import '../../../stores/report_read_stores.dart';
 
 class SalesReportView extends StatefulWidget {
@@ -17,8 +20,17 @@ class _SalesReportViewState extends State<SalesReportView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _store.refresh(period: _store.snapshotNotifier.value.period);
+      unawaited(_syncHistoryAndRefresh());
     });
+  }
+
+  Future<void> _syncHistoryAndRefresh({String? period}) async {
+    await OrdersHistorySyncService.instance.ensureSynced();
+    if (mounted) {
+      await _store.refresh(
+        period: period ?? _store.snapshotNotifier.value.period,
+      );
+    }
   }
 
   @override
@@ -55,10 +67,16 @@ class _SalesReportViewState extends State<SalesReportView> {
                   const SizedBox(width: 6),
                   _buildPeriodChip('7 Hari', 'week', primaryColor, snapshot),
                   const SizedBox(width: 6),
-                  _buildPeriodChip('Bulan Ini', 'month', primaryColor, snapshot),
+                  _buildPeriodChip(
+                    'Bulan Ini',
+                    'month',
+                    primaryColor,
+                    snapshot,
+                  ),
                   const Spacer(),
                   IconButton(
-                    onPressed: () => _store.refresh(period: snapshot.period),
+                    onPressed: () =>
+                        _syncHistoryAndRefresh(period: snapshot.period),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     color: primaryColor,
                   ),
@@ -121,7 +139,10 @@ class _SalesReportViewState extends State<SalesReportView> {
                   ? Center(
                       child: Text(
                         'Belum ada transaksi pada periode ini.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade400,
+                        ),
                       ),
                     )
                   : ListView.separated(
@@ -141,7 +162,10 @@ class _SalesReportViewState extends State<SalesReportView> {
                           child: Row(
                             children: [
                               _DataCell(row.token, 2, monospace: true),
-                              _DataCell(row.label.isEmpty ? 'Walk-in' : row.label, 2),
+                              _DataCell(
+                                row.label.isEmpty ? 'Walk-in' : row.label,
+                                2,
+                              ),
                               _DataCell(dateFmt.format(row.createdAt), 2),
                               _DataCell(row.paymentMethods, 2),
                               _DataCell(
@@ -205,7 +229,7 @@ class _SalesReportViewState extends State<SalesReportView> {
   ) {
     final isActive = snapshot.period == value;
     return InkWell(
-      onTap: () => _store.refresh(period: value),
+      onTap: () => _syncHistoryAndRefresh(period: value),
       borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -286,7 +310,12 @@ class _HeaderCell extends StatelessWidget {
 }
 
 class _DataCell extends StatelessWidget {
-  const _DataCell(this.value, this.flex, {this.muted = false, this.monospace = false});
+  const _DataCell(
+    this.value,
+    this.flex, {
+    this.muted = false,
+    this.monospace = false,
+  });
 
   final String value;
   final int flex;

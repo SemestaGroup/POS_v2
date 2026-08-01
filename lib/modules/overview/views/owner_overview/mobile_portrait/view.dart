@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../stores/overview_store.dart';
+import '../../../../sales/orders/shared/orders_history_sync_service.dart';
 import 'sales_metrics_view.dart';
 import 'customer_metrics_view.dart';
 
@@ -29,9 +32,16 @@ class _OwnerOverviewMobileViewState extends State<OwnerOverviewMobileView> {
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _applyFilter();
+        unawaited(_syncHistoryAndApplyFilter());
       }
     });
+  }
+
+  Future<void> _syncHistoryAndApplyFilter() async {
+    await OrdersHistorySyncService.instance.ensureSynced();
+    if (mounted) {
+      _applyFilter();
+    }
   }
 
   @override

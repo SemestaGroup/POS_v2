@@ -273,8 +273,9 @@ class CashierReportLiteSnapshot {
     return CashierReportLiteSnapshot(
       isLoading: isLoading ?? this.isLoading,
       shiftName: shiftName ?? this.shiftName,
-      shiftOpenedAt:
-          useShiftOpenedAt ? shiftOpenedAt : (shiftOpenedAt ?? this.shiftOpenedAt),
+      shiftOpenedAt: useShiftOpenedAt
+          ? shiftOpenedAt
+          : (shiftOpenedAt ?? this.shiftOpenedAt),
       openingBalance: openingBalance ?? this.openingBalance,
       hasActiveShift: hasActiveShift ?? this.hasActiveShift,
       totalCash: totalCash ?? this.totalCash,
@@ -293,18 +294,18 @@ class ReportSummaryStore {
 
   final ValueNotifier<ReportSummarySnapshot> snapshotNotifier =
       ValueNotifier<ReportSummarySnapshot>(
-    const ReportSummarySnapshot(
-      isLoading: false,
-      todaySales: 0,
-      todayTransactions: 0,
-      todayDiscount: 0,
-      weekSales: 0,
-      weekTransactions: 0,
-      monthSales: 0,
-      monthTransactions: 0,
-      topProducts: <ReportSummaryTopProductRecord>[],
-    ),
-  );
+        const ReportSummarySnapshot(
+          isLoading: false,
+          todaySales: 0,
+          todayTransactions: 0,
+          todayDiscount: 0,
+          weekSales: 0,
+          weekTransactions: 0,
+          monthSales: 0,
+          monthTransactions: 0,
+          topProducts: <ReportSummaryTopProductRecord>[],
+        ),
+      );
 
   Future<void> refresh() async {
     snapshotNotifier.value = snapshotNotifier.value.copyWith(
@@ -410,15 +411,15 @@ class SalesReportStore {
 
   final ValueNotifier<SalesReportSnapshot> snapshotNotifier =
       ValueNotifier<SalesReportSnapshot>(
-    const SalesReportSnapshot(
-      isLoading: false,
-      period: 'today',
-      rows: <SalesReportRowRecord>[],
-      totalRevenue: 0,
-      totalTransactions: 0,
-      totalDiscount: 0,
-    ),
-  );
+        const SalesReportSnapshot(
+          isLoading: false,
+          period: 'today',
+          rows: <SalesReportRowRecord>[],
+          totalRevenue: 0,
+          totalTransactions: 0,
+          totalDiscount: 0,
+        ),
+      );
 
   Future<void> refresh({String? period}) async {
     final nextPeriod = period ?? snapshotNotifier.value.period;
@@ -464,7 +465,8 @@ class SalesReportStore {
               totalAmount: _asInt(row['total_amount']) ?? 0,
               discountAmount: _asInt(row['discount_total_amount']) ?? 0,
               paymentMethods: row['payment_methods']?.toString() ?? '-',
-              createdAt: _parseDateTime(row['transaction_date']) ?? DateTime.now(),
+              createdAt:
+                  _parseDateTime(row['transaction_date']) ?? DateTime.now(),
             ),
           )
           .toList(growable: false);
@@ -474,8 +476,10 @@ class SalesReportStore {
         rows: mapped,
         totalRevenue: mapped.fold<int>(0, (sum, row) => sum + row.totalAmount),
         totalTransactions: mapped.length,
-        totalDiscount:
-            mapped.fold<int>(0, (sum, row) => sum + row.discountAmount),
+        totalDiscount: mapped.fold<int>(
+          0,
+          (sum, row) => sum + row.discountAmount,
+        ),
       );
     } catch (error) {
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
@@ -493,12 +497,12 @@ class ProductReportStore {
 
   final ValueNotifier<ProductReportSnapshot> snapshotNotifier =
       ValueNotifier<ProductReportSnapshot>(
-    const ProductReportSnapshot(
-      isLoading: false,
-      period: 'month',
-      stats: <ProductReportStatRecord>[],
-    ),
-  );
+        const ProductReportSnapshot(
+          isLoading: false,
+          period: 'month',
+          stats: <ProductReportStatRecord>[],
+        ),
+      );
 
   Future<void> refresh({String? period}) async {
     final nextPeriod = period ?? snapshotNotifier.value.period;
@@ -523,7 +527,7 @@ class ProductReportStore {
           AND o.status_code IN ('2', '4')
           AND o.deleted_at IS NULL
           AND oi.deleted_at IS NULL
-          AND o.created_at >= ?
+          AND COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?
         GROUP BY oi.product_name_snapshot
         ORDER BY total_revenue DESC
         LIMIT 100
@@ -560,12 +564,12 @@ class StaffReportStore {
 
   final ValueNotifier<StaffReportSnapshot> snapshotNotifier =
       ValueNotifier<StaffReportSnapshot>(
-    const StaffReportSnapshot(
-      isLoading: false,
-      period: 'month',
-      stats: <StaffReportStatRecord>[],
-    ),
-  );
+        const StaffReportSnapshot(
+          isLoading: false,
+          period: 'month',
+          stats: <StaffReportStatRecord>[],
+        ),
+      );
 
   Future<void> refresh({String? period}) async {
     final nextPeriod = period ?? snapshotNotifier.value.period;
@@ -589,7 +593,7 @@ class StaffReportStore {
         WHERE o.tenant_id = ?
           AND o.status_code IN ('2', '4')
           AND o.deleted_at IS NULL
-          AND o.created_at >= ?
+          AND COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?
         GROUP BY o.sale_staff_id, s.full_name
         ORDER BY total_revenue DESC
         ''',
@@ -616,18 +620,16 @@ class StaffReportStore {
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
         isLoading: false,
         stats: orderRows
-            .map(
-              (row) {
-                final name = row['staff_name']?.toString() ?? 'Unknown';
-                return StaffReportStatRecord(
-                  staffName: name,
-                  totalOrders: _asInt(row['total_orders']) ?? 0,
-                  totalRevenue: _asInt(row['total_revenue']) ?? 0,
-                  totalDiscount: _asInt(row['total_discount']) ?? 0,
-                  shiftsCount: shiftCountByStaff[name] ?? 0,
-                );
-              },
-            )
+            .map((row) {
+              final name = row['staff_name']?.toString() ?? 'Unknown';
+              return StaffReportStatRecord(
+                staffName: name,
+                totalOrders: _asInt(row['total_orders']) ?? 0,
+                totalRevenue: _asInt(row['total_revenue']) ?? 0,
+                totalDiscount: _asInt(row['total_discount']) ?? 0,
+                shiftsCount: shiftCountByStaff[name] ?? 0,
+              );
+            })
             .toList(growable: false),
       );
     } catch (error) {
@@ -646,17 +648,17 @@ class CashierReportLiteStore {
 
   final ValueNotifier<CashierReportLiteSnapshot> snapshotNotifier =
       ValueNotifier<CashierReportLiteSnapshot>(
-    const CashierReportLiteSnapshot(
-      isLoading: false,
-      shiftName: '-',
-      openingBalance: 0,
-      hasActiveShift: false,
-      totalCash: 0,
-      totalNonCash: 0,
-      totalTransactions: 0,
-      paymentBreakdown: <CashierPaymentBreakdownRecord>[],
-    ),
-  );
+        const CashierReportLiteSnapshot(
+          isLoading: false,
+          shiftName: '-',
+          openingBalance: 0,
+          hasActiveShift: false,
+          totalCash: 0,
+          totalNonCash: 0,
+          totalTransactions: 0,
+          paymentBreakdown: <CashierPaymentBreakdownRecord>[],
+        ),
+      );
 
   Future<void> refresh() async {
     snapshotNotifier.value = snapshotNotifier.value.copyWith(
@@ -700,15 +702,19 @@ class CashierReportLiteStore {
       }
 
       final now = DateTime.now();
-      final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
+      final todayStart = DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).toIso8601String();
       final txRows = await DatabaseService.instance.rawQuery(
         '''
         SELECT COUNT(*) as tx_count
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('paid','posted')
+          AND status_code IN ('2','4')
           AND deleted_at IS NULL
-          AND created_at >= ?
+          AND COALESCE(NULLIF(order_date, ''), created_at) >= ?
         ''',
         <Object?>[session.tenantId, todayStart],
       );
@@ -724,7 +730,7 @@ class CashierReportLiteStore {
           AND o.deleted_at IS NULL
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND o.created_at >= ?
+          AND COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?
         GROUP BY p.payment_mode_name_snapshot, p.payment_mode_id
         ORDER BY total_amount DESC
         ''',
@@ -738,7 +744,9 @@ class CashierReportLiteStore {
         final amount = _asInt(row['total_amount']) ?? 0;
         final pmName = (row['pm_name']?.toString() ?? '').toLowerCase();
         final isCash =
-            pmName.contains('tunai') || pmName.contains('cash') || pmName.contains('uang');
+            pmName.contains('tunai') ||
+            pmName.contains('cash') ||
+            pmName.contains('uang');
         if (isCash) {
           totalCash += amount;
         } else {
@@ -776,7 +784,8 @@ class CashierReportLiteStore {
 }
 
 Future<PosV2RuntimeSession> _requireSession() async {
-  final session = PosV2RuntimeSessionStore.instance.currentSession ??
+  final session =
+      PosV2RuntimeSessionStore.instance.currentSession ??
       await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
   if (session == null) {
     throw Exception('Tidak ada sesi aktif.');

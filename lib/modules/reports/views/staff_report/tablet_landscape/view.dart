@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../sales/orders/shared/orders_history_sync_service.dart';
 import '../../../stores/report_read_stores.dart';
 
 class StaffReportView extends StatefulWidget {
@@ -17,8 +20,17 @@ class _StaffReportViewState extends State<StaffReportView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _store.refresh(period: _store.snapshotNotifier.value.period);
+      unawaited(_syncHistoryAndRefresh());
     });
+  }
+
+  Future<void> _syncHistoryAndRefresh({String? period}) async {
+    await OrdersHistorySyncService.instance.ensureSynced();
+    if (mounted) {
+      await _store.refresh(
+        period: period ?? _store.snapshotNotifier.value.period,
+      );
+    }
   }
 
   @override
@@ -56,7 +68,8 @@ class _StaffReportViewState extends State<StaffReportView> {
                   _chip('Bulan Ini', 'month', primaryColor, snapshot),
                   const Spacer(),
                   IconButton(
-                    onPressed: () => _store.refresh(period: snapshot.period),
+                    onPressed: () =>
+                        _syncHistoryAndRefresh(period: snapshot.period),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     color: primaryColor,
                   ),
@@ -83,12 +96,16 @@ class _StaffReportViewState extends State<StaffReportView> {
                   ? Center(
                       child: Text(
                         'Belum ada data staf pada periode ini.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade400,
+                        ),
                       ),
                     )
                   : ListView.separated(
                       itemCount: snapshot.stats.length,
-                      separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade100),
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: Colors.grey.shade100),
                       itemBuilder: (context, index) {
                         final stat = snapshot.stats[index];
                         final isTop = index == 0;
@@ -96,9 +113,12 @@ class _StaffReportViewState extends State<StaffReportView> {
                           color: isTop
                               ? primaryColor.withValues(alpha: 0.03)
                               : index.isOdd
-                                  ? Colors.transparent
-                                  : const Color(0xFFFAFAFB),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                              ? Colors.transparent
+                              : const Color(0xFFFAFAFB),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 11,
+                          ),
                           child: Row(
                             children: [
                               Expanded(
@@ -107,10 +127,18 @@ class _StaffReportViewState extends State<StaffReportView> {
                                   children: [
                                     CircleAvatar(
                                       radius: 16,
-                                      backgroundColor: primaryColor.withValues(alpha: 0.12),
+                                      backgroundColor: primaryColor.withValues(
+                                        alpha: 0.12,
+                                      ),
                                       child: Text(
-                                        stat.staffName.isNotEmpty ? stat.staffName[0].toUpperCase() : '?',
-                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: primaryColor),
+                                        stat.staffName.isNotEmpty
+                                            ? stat.staffName[0].toUpperCase()
+                                            : '?',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: primaryColor,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 10),
@@ -122,7 +150,9 @@ class _StaffReportViewState extends State<StaffReportView> {
                                               stat.staffName,
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                fontWeight: isTop ? FontWeight.w800 : FontWeight.w600,
+                                                fontWeight: isTop
+                                                    ? FontWeight.w800
+                                                    : FontWeight.w600,
                                                 color: const Color(0xFF111827),
                                               ),
                                               maxLines: 1,
@@ -159,8 +189,12 @@ class _StaffReportViewState extends State<StaffReportView> {
                                   'Rp ${currencyFmt.format(stat.totalRevenue)}',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    fontWeight: isTop ? FontWeight.w800 : FontWeight.w700,
-                                    color: isTop ? primaryColor : const Color(0xFF111827),
+                                    fontWeight: isTop
+                                        ? FontWeight.w800
+                                        : FontWeight.w700,
+                                    color: isTop
+                                        ? primaryColor
+                                        : const Color(0xFF111827),
                                   ),
                                 ),
                               ),
@@ -176,10 +210,15 @@ class _StaffReportViewState extends State<StaffReportView> {
     );
   }
 
-  Widget _chip(String label, String value, Color color, StaffReportSnapshot snapshot) {
+  Widget _chip(
+    String label,
+    String value,
+    Color color,
+    StaffReportSnapshot snapshot,
+  ) {
     final active = snapshot.period == value;
     return InkWell(
-      onTap: () => _store.refresh(period: value),
+      onTap: () => _syncHistoryAndRefresh(period: value),
       borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -213,7 +252,11 @@ class _StaffHeader extends StatelessWidget {
       flex: flex,
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF6B7280)),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF6B7280),
+        ),
       ),
     );
   }

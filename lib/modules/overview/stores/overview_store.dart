@@ -119,7 +119,8 @@ class OverviewStore {
   }
 
   void _updateSnapshot(OverviewSnapshot newSnapshot) {
-    if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
         snapshotNotifier.value = newSnapshot;
       });
@@ -129,10 +130,9 @@ class OverviewStore {
   }
 
   Future<void> refresh({DateTime? startDate, DateTime? endDate}) async {
-    _updateSnapshot(snapshotNotifier.value.copyWith(
-      isLoading: true,
-      clearError: true,
-    ));
+    _updateSnapshot(
+      snapshotNotifier.value.copyWith(isLoading: true, clearError: true),
+    );
 
     try {
       final session = PosV2RuntimeSessionStore.instance.currentSession;
@@ -142,23 +142,49 @@ class OverviewStore {
 
       final tenantId = session.tenantId;
       final now = DateTime.now();
-      
-      final effectiveStart = startDate ?? DateTime(now.year, now.month, now.day);
-      final effectiveEnd = endDate ?? DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-      final startRange = DateTime(effectiveStart.year, effectiveStart.month, effectiveStart.day, 0, 0, 0);
-      final endRange = DateTime(effectiveEnd.year, effectiveEnd.month, effectiveEnd.day, 23, 59, 59);
-      final startMonthRange = DateTime(startRange.year, startRange.month, 1);
+      final effectiveStart =
+          startDate ?? DateTime(now.year, now.month, now.day);
+      final effectiveEnd =
+          endDate ?? DateTime(now.year, now.month, now.day, 23, 59, 59);
+
+      final startRange = DateTime(
+        effectiveStart.year,
+        effectiveStart.month,
+        effectiveStart.day,
+        0,
+        0,
+        0,
+      );
+      final endRange = DateTime(
+        effectiveEnd.year,
+        effectiveEnd.month,
+        effectiveEnd.day,
+        23,
+        59,
+        59,
+      );
+      // This KPI is intentionally independent from the selected report range.
+      // A range such as 25 Jul–1 Aug must not make “Bulan Ini” include July.
+      final currentMonthStart = DateTime(now.year, now.month, 1);
+      final currentMoment = now;
 
       final startStr = _dbDate(startRange);
       final endStr = _dbDate(endRange);
-      final startMonthStr = _dbDate(startMonthRange);
+      final currentMonthStartStr = _dbDate(currentMonthStart);
+      final currentMomentStr = _dbDate(currentMoment);
 
       String label = 'Hari Ini';
-      final isToday = startRange.year == now.year && startRange.month == now.month && startRange.day == now.day &&
-                      endRange.year == now.year && endRange.month == now.month && endRange.day == now.day;
+      final isToday =
+          startRange.year == now.year &&
+          startRange.month == now.month &&
+          startRange.day == now.day &&
+          endRange.year == now.year &&
+          endRange.month == now.month &&
+          endRange.day == now.day;
       if (!isToday) {
-        label = '${DateFormat('dd/MM').format(startRange)} - ${DateFormat('dd/MM').format(endRange)}';
+        label =
+            '${DateFormat('dd/MM').format(startRange)} - ${DateFormat('dd/MM').format(endRange)}';
       }
 
       final db = DatabaseService.instance;
@@ -171,13 +197,15 @@ class OverviewStore {
         WHERE tenant_id = ? 
           AND deleted_at IS NULL 
           AND status_code IN ('2', '4')
-          AND REPLACE(created_at, 'T', ' ') >= ? 
-          AND REPLACE(created_at, 'T', ' ') <= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         ''',
         [tenantId, startStr, endStr],
       );
-      final salesToday = (salesTodayResult.first['total'] as num?)?.toInt() ?? 0;
-      final transactionsToday = (salesTodayResult.first['count'] as num?)?.toInt() ?? 0;
+      final salesToday =
+          (salesTodayResult.first['total'] as num?)?.toInt() ?? 0;
+      final transactionsToday =
+          (salesTodayResult.first['count'] as num?)?.toInt() ?? 0;
 
       // 2. Sales This Month
       final salesMonthResult = await db.rawQuery(
@@ -187,12 +215,13 @@ class OverviewStore {
         WHERE tenant_id = ? 
           AND deleted_at IS NULL 
           AND status_code IN ('2', '4')
-          AND REPLACE(created_at, 'T', ' ') >= ?
-          AND REPLACE(created_at, 'T', ' ') <= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         ''',
-        [tenantId, startMonthStr, endStr],
+        [tenantId, currentMonthStartStr, currentMomentStr],
       );
-      final salesThisMonth = (salesMonthResult.first['total'] as num?)?.toInt() ?? 0;
+      final salesThisMonth =
+          (salesMonthResult.first['total'] as num?)?.toInt() ?? 0;
 
       // 3. Top Products (filtered period)
       final topProductsResult = await db.rawQuery(
@@ -203,8 +232,8 @@ class OverviewStore {
         WHERE o.tenant_id = ? 
           AND o.deleted_at IS NULL 
           AND o.status_code IN ('2', '4')
-          AND REPLACE(o.created_at, 'T', ' ') >= ?
-          AND REPLACE(o.created_at, 'T', ' ') <= ?
+          AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= ?
         GROUP BY i.product_id, i.product_name_snapshot
         ORDER BY qty DESC
         LIMIT 5
@@ -243,13 +272,13 @@ class OverviewStore {
       // 5. Hourly Sales (Today / Filtered Period) for Bar Chart
       final hourlyResult = await db.rawQuery(
         '''
-        SELECT strftime('%H', REPLACE(created_at, 'T', ' ')) as hour, SUM(total_amount) as total
+        SELECT strftime('%H', REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ')) as hour, SUM(total_amount) as total
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL 
           AND status_code IN ('2', '4')
-          AND REPLACE(created_at, 'T', ' ') >= ? 
-          AND REPLACE(created_at, 'T', ' ') <= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         GROUP BY hour
         ORDER BY hour ASC
         ''',
@@ -265,19 +294,21 @@ class OverviewStore {
       List<HourlySalesRecord> hourlySales = [];
       for (int i = 8; i <= 22; i++) {
         final hourStr = i.toString().padLeft(2, '0');
-        hourlySales.add(HourlySalesRecord('$hourStr:00', hourMap[hourStr] ?? 0));
+        hourlySales.add(
+          HourlySalesRecord('$hourStr:00', hourMap[hourStr] ?? 0),
+        );
       }
 
       // 6. Daily Transactions for Line Chart
       final dailyResult = await db.rawQuery(
         '''
-        SELECT date(REPLACE(created_at, 'T', ' ')) as dayDate, COUNT(id) as count
+        SELECT date(REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ')) as dayDate, COUNT(id) as count
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL
           AND status_code IN ('2', '4')
-          AND REPLACE(created_at, 'T', ' ') >= ?
-          AND REPLACE(created_at, 'T', ' ') <= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         GROUP BY dayDate
         ORDER BY dayDate ASC
         ''',
@@ -296,12 +327,17 @@ class OverviewStore {
       for (int i = 0; i <= totalDays; i++) {
         final d = startRange.add(Duration(days: i));
         final dateStr = DateFormat('yyyy-MM-dd').format(d);
-        final displayStr = totalDays <= 7 ? DateFormat('EEE').format(d) : DateFormat('dd/MM').format(d);
-        dailyTransactions.add(DailyTransactionRecord(displayStr, dailyMap[dateStr] ?? 0));
+        final displayStr = totalDays <= 7
+            ? DateFormat('EEE').format(d)
+            : DateFormat('dd/MM').format(d);
+        dailyTransactions.add(
+          DailyTransactionRecord(displayStr, dailyMap[dateStr] ?? 0),
+        );
       }
 
       // 7. Status Sync
-      final pendingCount = await PosV2SyncQueueProcessor.instance.getPendingSyncCount();
+      final pendingCount = await PosV2SyncQueueProcessor.instance
+          .getPendingSyncCount();
 
       // 8. Active Shift
       final openShiftRows = await db.rawQuery(
@@ -313,25 +349,29 @@ class OverviewStore {
         [tenantId],
       );
 
-      _updateSnapshot(snapshotNotifier.value.copyWith(
-        isLoading: false,
-        salesToday: salesToday,
-        salesThisMonth: salesThisMonth,
-        transactionsToday: transactionsToday,
-        pendingSyncCount: pendingCount,
-        isShiftOpen: openShiftRows.isNotEmpty,
-        topProducts: topProducts,
-        recentTransactions: recentTransactions,
-        hourlySales: hourlySales,
-        dailyTransactions: dailyTransactions,
-        periodLabel: label,
-      ));
+      _updateSnapshot(
+        snapshotNotifier.value.copyWith(
+          isLoading: false,
+          salesToday: salesToday,
+          salesThisMonth: salesThisMonth,
+          transactionsToday: transactionsToday,
+          pendingSyncCount: pendingCount,
+          isShiftOpen: openShiftRows.isNotEmpty,
+          topProducts: topProducts,
+          recentTransactions: recentTransactions,
+          hourlySales: hourlySales,
+          dailyTransactions: dailyTransactions,
+          periodLabel: label,
+        ),
+      );
     } catch (e, st) {
       debugPrint('OverviewStore refresh error: $e\n$st');
-      _updateSnapshot(snapshotNotifier.value.copyWith(
-        isLoading: false,
-        errorMessage: e.toString(),
-      ));
+      _updateSnapshot(
+        snapshotNotifier.value.copyWith(
+          isLoading: false,
+          errorMessage: e.toString(),
+        ),
+      );
     }
   }
 
@@ -340,7 +380,9 @@ class OverviewStore {
     if (raw.isEmpty) return DateTime.now();
     try {
       var str = raw.replaceAll(' ', 'T');
-      if (!str.endsWith('Z') && !str.contains('+') && RegExp(r'T\d{2}:\d{2}:\d{2}').hasMatch(str)) {
+      if (!str.endsWith('Z') &&
+          !str.contains('+') &&
+          RegExp(r'T\d{2}:\d{2}:\d{2}').hasMatch(str)) {
         str = '${str}Z';
       }
       return DateTime.parse(str).toLocal();

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/widgets/responsive/responsive_context.dart';
+import '../../../sales/orders/shared/orders_history_sync_service.dart';
 import '../../stores/report_read_stores.dart';
 import 'mobile_portrait/view.dart';
 import 'tablet_landscape/view.dart';
@@ -30,7 +33,16 @@ class _ReportSummaryMobileContainerState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _store.refresh());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_syncHistoryAndRefresh());
+    });
+  }
+
+  Future<void> _syncHistoryAndRefresh() async {
+    await OrdersHistorySyncService.instance.ensureSynced();
+    if (mounted) {
+      await _store.refresh();
+    }
   }
 
   @override
@@ -58,7 +70,7 @@ class _ReportSummaryMobileContainerState
           snapshot: snapshot,
           primaryColor: primaryColor,
           currencyFmt: currencyFmt,
-          onRefresh: _store.refresh,
+          onRefresh: _syncHistoryAndRefresh,
         );
       },
     );

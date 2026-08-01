@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../sales/orders/shared/orders_history_sync_service.dart';
 import '../../../stores/report_read_stores.dart';
 
 class ProductReportView extends StatefulWidget {
@@ -19,8 +22,17 @@ class _ProductReportViewState extends State<ProductReportView> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _store.refresh(period: _store.snapshotNotifier.value.period);
+      unawaited(_syncHistoryAndRefresh());
     });
+  }
+
+  Future<void> _syncHistoryAndRefresh({String? period}) async {
+    await OrdersHistorySyncService.instance.ensureSynced();
+    if (mounted) {
+      await _store.refresh(
+        period: period ?? _store.snapshotNotifier.value.period,
+      );
+    }
   }
 
   @override
@@ -38,13 +50,22 @@ class _ProductReportViewState extends State<ProductReportView> {
     return ValueListenableBuilder<ProductReportSnapshot>(
       valueListenable: _store.snapshotNotifier,
       builder: (context, snapshot, _) {
-        final filtered = snapshot.stats.where((stat) {
-          if (_searchQuery.isEmpty) return true;
-          return stat.name.toLowerCase().contains(_searchQuery.toLowerCase());
-        }).toList(growable: false);
-        final totalQty = filtered.fold(0, (sum, item) => sum + item.totalQuantity);
-        final totalRevenue =
-            filtered.fold(0, (sum, item) => sum + item.totalRevenue);
+        final filtered = snapshot.stats
+            .where((stat) {
+              if (_searchQuery.isEmpty) return true;
+              return stat.name.toLowerCase().contains(
+                _searchQuery.toLowerCase(),
+              );
+            })
+            .toList(growable: false);
+        final totalQty = filtered.fold(
+          0,
+          (sum, item) => sum + item.totalQuantity,
+        );
+        final totalRevenue = filtered.fold(
+          0,
+          (sum, item) => sum + item.totalRevenue,
+        );
 
         if (snapshot.isLoading && snapshot.stats.isEmpty) {
           return const Center(child: CircularProgressIndicator());
@@ -69,14 +90,20 @@ class _ProductReportViewState extends State<ProductReportView> {
                   const SizedBox(width: 6),
                   _buildPeriodChip('7 Hari', 'week', primaryColor, snapshot),
                   const SizedBox(width: 6),
-                  _buildPeriodChip('Bulan Ini', 'month', primaryColor, snapshot),
+                  _buildPeriodChip(
+                    'Bulan Ini',
+                    'month',
+                    primaryColor,
+                    snapshot,
+                  ),
                   const SizedBox(width: 14),
                   Expanded(
                     child: SizedBox(
                       height: 34,
                       child: TextField(
                         controller: _searchController,
-                        onChanged: (value) => setState(() => _searchQuery = value),
+                        onChanged: (value) =>
+                            setState(() => _searchQuery = value),
                         decoration: InputDecoration(
                           hintText: 'Cari produk...',
                           hintStyle: TextStyle(
@@ -90,7 +117,9 @@ class _ProductReportViewState extends State<ProductReportView> {
                           ),
                           filled: true,
                           fillColor: const Color(0xFFF8FAFC),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 0,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(18),
                             borderSide: BorderSide(color: Colors.grey.shade200),
@@ -110,7 +139,8 @@ class _ProductReportViewState extends State<ProductReportView> {
                   ),
                   const SizedBox(width: 6),
                   IconButton(
-                    onPressed: () => _store.refresh(period: snapshot.period),
+                    onPressed: () =>
+                        _syncHistoryAndRefresh(period: snapshot.period),
                     icon: const Icon(Icons.refresh_rounded, size: 18),
                     color: primaryColor,
                   ),
@@ -125,9 +155,17 @@ class _ProductReportViewState extends State<ProductReportView> {
                 children: [
                   _buildStrip('Produk', '${filtered.length}', primaryColor),
                   _buildDivider(),
-                  _buildStrip('Total Terjual', '$totalQty item', const Color(0xFF8B5CF6)),
+                  _buildStrip(
+                    'Total Terjual',
+                    '$totalQty item',
+                    const Color(0xFF8B5CF6),
+                  ),
                   _buildDivider(),
-                  _buildStrip('Total Pendapatan', 'Rp ${currencyFmt.format(totalRevenue)}', const Color(0xFF10B981)),
+                  _buildStrip(
+                    'Total Pendapatan',
+                    'Rp ${currencyFmt.format(totalRevenue)}',
+                    const Color(0xFF10B981),
+                  ),
                 ],
               ),
             ),
@@ -151,24 +189,40 @@ class _ProductReportViewState extends State<ProductReportView> {
                   ? Center(
                       child: Text(
                         'Tidak ada data produk.',
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade400,
+                        ),
                       ),
                     )
                   : ListView.separated(
                       itemCount: filtered.length,
-                      separatorBuilder: (_, _) => Divider(height: 1, color: Colors.grey.shade100),
+                      separatorBuilder: (_, _) =>
+                          Divider(height: 1, color: Colors.grey.shade100),
                       itemBuilder: (context, index) {
                         final stat = filtered[index];
                         return Container(
-                          color: index.isOdd ? Colors.transparent : const Color(0xFFFAFAFB),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          color: index.isOdd
+                              ? Colors.transparent
+                              : const Color(0xFFFAFAFB),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                           child: Row(
                             children: [
                               _ProductCell('${index + 1}', 1, muted: true),
                               _ProductCell(stat.name, 5, bold: true),
                               _ProductCell('${stat.totalQuantity} item', 2),
-                              _ProductCell('Rp ${currencyFmt.format(stat.averagePrice)}', 2),
-                              _ProductCell('Rp ${currencyFmt.format(stat.totalRevenue)}', 2, bold: true),
+                              _ProductCell(
+                                'Rp ${currencyFmt.format(stat.averagePrice)}',
+                                2,
+                              ),
+                              _ProductCell(
+                                'Rp ${currencyFmt.format(stat.totalRevenue)}',
+                                2,
+                                bold: true,
+                              ),
                             ],
                           ),
                         );
@@ -181,17 +235,24 @@ class _ProductReportViewState extends State<ProductReportView> {
     );
   }
 
-  Widget _buildPeriodChip(String label, String value, Color primaryColor, ProductReportSnapshot snapshot) {
+  Widget _buildPeriodChip(
+    String label,
+    String value,
+    Color primaryColor,
+    ProductReportSnapshot snapshot,
+  ) {
     final isActive = snapshot.period == value;
     return InkWell(
-      onTap: () => _store.refresh(period: value),
+      onTap: () => _syncHistoryAndRefresh(period: value),
       borderRadius: BorderRadius.circular(999),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: isActive ? primaryColor : const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: isActive ? primaryColor : Colors.grey.shade200),
+          border: Border.all(
+            color: isActive ? primaryColor : Colors.grey.shade200,
+          ),
         ),
         child: Text(
           label,
@@ -210,11 +271,18 @@ class _ProductReportViewState extends State<ProductReportView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+          ),
           const SizedBox(height: 3),
           Text(
             value,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: color),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
           ),
         ],
       ),
@@ -222,11 +290,11 @@ class _ProductReportViewState extends State<ProductReportView> {
   }
 
   Widget _buildDivider() => Container(
-        width: 1,
-        height: 28,
-        margin: const EdgeInsets.symmetric(horizontal: 10),
-        color: const Color(0xFFE5E7EB),
-      );
+    width: 1,
+    height: 28,
+    margin: const EdgeInsets.symmetric(horizontal: 10),
+    color: const Color(0xFFE5E7EB),
+  );
 }
 
 class _ProductHeader extends StatelessWidget {
@@ -241,14 +309,23 @@ class _ProductHeader extends StatelessWidget {
       flex: flex,
       child: Text(
         label,
-        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF6B7280)),
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF6B7280),
+        ),
       ),
     );
   }
 }
 
 class _ProductCell extends StatelessWidget {
-  const _ProductCell(this.value, this.flex, {this.bold = false, this.muted = false});
+  const _ProductCell(
+    this.value,
+    this.flex, {
+    this.bold = false,
+    this.muted = false,
+  });
 
   final String value;
   final int flex;
