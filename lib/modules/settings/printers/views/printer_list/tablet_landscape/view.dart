@@ -9,14 +9,14 @@ import '../../../../../../core/services/sync/pos_v2_options_service.dart';
 import '../../../../../../core/services/sync/pos_v2_sync_status_store.dart';
 import '../../../../../../l10n/app_localizations.dart';
 
-class PrinterListView extends StatefulWidget {
-  const PrinterListView({super.key});
+class PrinterListTabletLandscapeView extends StatefulWidget {
+  const PrinterListTabletLandscapeView({super.key});
 
   @override
-  State<PrinterListView> createState() => _PrinterListViewState();
+  State<PrinterListTabletLandscapeView> createState() => _PrinterListTabletLandscapeViewState();
 }
 
-class _PrinterListViewState extends State<PrinterListView> {
+class _PrinterListTabletLandscapeViewState extends State<PrinterListTabletLandscapeView> {
   final PrinterSettingsController _controller = PrinterSettingsController.instance;
 
   bool _autoPrint = false;
@@ -827,23 +827,6 @@ class _PrinterListViewState extends State<PrinterListView> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF4F46E5), width: 1.5),
-        ),
-      );
-
-  Widget _readonlyField(String label, String value) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9FAFB),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280))),
-            const SizedBox(height: 2),
-            Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          ],
         ),
       );
 

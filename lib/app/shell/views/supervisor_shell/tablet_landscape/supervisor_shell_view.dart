@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../../core/widgets/responsive/responsive_context.dart';
-import '../../../../../modules/overview/views/supervisor_overview/tablet_landscape/view.dart';
+import '../../../../../modules/overview/views/supervisor_overview/supervisor_overview_view.dart';
 import '../../../../../modules/sales/pos/views/pos_workspace/pos_workspace_view.dart';
 import '../../../../../modules/operations/views/operations_shell_view.dart';
 import '../../../../../modules/reports/views/reports_shell_view.dart';

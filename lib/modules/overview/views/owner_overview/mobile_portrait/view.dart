@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import '../../../../../../core/widgets/responsive/responsive_context.dart';
 import 'package:intl/intl.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../stores/overview_store.dart';
 import 'sales_metrics_view.dart';
 import 'customer_metrics_view.dart';
 
-class OwnerOverviewTabletLandscapeView extends StatefulWidget {
-  const OwnerOverviewTabletLandscapeView({super.key});
+class OwnerOverviewMobileView extends StatefulWidget {
+  const OwnerOverviewMobileView({super.key});
 
   @override
-  State<OwnerOverviewTabletLandscapeView> createState() => _OwnerOverviewTabletLandscapeViewState();
+  State<OwnerOverviewMobileView> createState() =>
+      _OwnerOverviewMobileViewState();
 }
 
-class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLandscapeView> {
+class _OwnerOverviewMobileViewState extends State<OwnerOverviewMobileView> {
   int _selectedTab = 0; // 0 for Sales, 1 for Customer
   DateTimeRange? _selectedDateRange;
 
@@ -101,13 +103,17 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
                   ? ValueListenableBuilder<OverviewSnapshot>(
                       valueListenable: OverviewStore.instance.snapshotNotifier,
                       builder: (context, snapshot, _) {
-                        if (snapshot.isLoading && snapshot.salesToday == 0 && snapshot.salesThisMonth == 0) {
-                          return const Center(child: CircularProgressIndicator());
+                        if (snapshot.isLoading &&
+                            snapshot.salesToday == 0 &&
+                            snapshot.salesThisMonth == 0) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
                         }
-                        return SalesMetricsView(snapshot: snapshot);
+                        return SalesMetricsMobileView(snapshot: snapshot);
                       },
                     )
-                  : const CustomerMetricsView(),
+                  : const CustomerMetricsMobileView(),
             ),
           ],
         ),
@@ -118,27 +124,101 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
   Widget _buildHeader(BuildContext context, ThemeData theme) {
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final lastModifiedAt = DateTime(2026, 6, 4, 11, 35);
+    final isMobile = context.isMobile;
+
+    if (isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTabs(context, theme),
+          const SizedBox(height: 6),
+          Text(
+            AppLocalizations.of(context)!.lastModified(
+              DateFormat.yMMMMd(localeName).format(lastModifiedAt),
+              DateFormat.Hm(localeName).format(lastModifiedAt),
+            ),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 9.5,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _buildDateFilter(theme),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    onPressed: _applyFilter,
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      side: BorderSide(color: theme.dividerColor),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)!.applyFilter,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  height: 32,
+                  child: OutlinedButton(
+                    onPressed: () {},
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      side: BorderSide(color: theme.colorScheme.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
+                    child: Text(
+                      AppLocalizations.of(context)!.dailySales,
+                      style: TextStyle(
+                        color: theme.colorScheme.primary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+      );
+    }
+
+    final headerRow1 = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        _buildTabs(context, theme),
+        Text(
+          AppLocalizations.of(context)!.lastModified(
+            DateFormat.yMMMMd(localeName).format(lastModifiedAt),
+            DateFormat.Hm(localeName).format(lastModifiedAt),
+          ),
+          style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
+        ),
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Row 1: Tabs and "Terakhir diubah"
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            _buildTabs(context, theme),
-            Text(
-              AppLocalizations.of(context)!.lastModified(
-                DateFormat.yMMMMd(localeName).format(lastModifiedAt),
-                DateFormat.Hm(localeName).format(lastModifiedAt),
-              ),
-              style: theme.textTheme.bodyMedium?.copyWith(fontSize: 10),
-            ),
-          ],
-        ),
+        headerRow1,
         const SizedBox(height: 16),
-        // Row 2: Filters
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -203,12 +283,19 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
 
   void _showDateMenu(BuildContext context, ThemeData theme) async {
     final RenderBox button = context.findRenderObject() as RenderBox;
-    final RenderBox overlay = Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
-    
+    final RenderBox overlay =
+        Navigator.of(context).overlay!.context.findRenderObject() as RenderBox;
+
     final RelativeRect position = RelativeRect.fromRect(
       Rect.fromPoints(
-        button.localToGlobal(button.size.bottomLeft(const Offset(0, 8)), ancestor: overlay),
-        button.localToGlobal(button.size.bottomLeft(const Offset(0, 8)), ancestor: overlay),
+        button.localToGlobal(
+          button.size.bottomLeft(const Offset(0, 8)),
+          ancestor: overlay,
+        ),
+        button.localToGlobal(
+          button.size.bottomLeft(const Offset(0, 8)),
+          ancestor: overlay,
+        ),
       ),
       Offset.zero & overlay.size,
     );
@@ -279,7 +366,11 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Image.asset('assets/mockups/dashboard/date-filter.webp', width: 14, height: 14),
+                Image.asset(
+                  'assets/mockups/dashboard/date-filter.webp',
+                  width: 14,
+                  height: 14,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   dateText,
@@ -295,18 +386,26 @@ class _OwnerOverviewTabletLandscapeViewState extends State<OwnerOverviewTabletLa
             ),
           ),
         );
-      }
+      },
     );
   }
 
-  PopupMenuItem<String> _buildPopupMenuItem(String text, String value, ThemeData theme) {
+  PopupMenuItem<String> _buildPopupMenuItem(
+    String text,
+    String value,
+    ThemeData theme,
+  ) {
     return PopupMenuItem<String>(
       value: value,
       height: 38,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Text(
         text,
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.black87),
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+          color: Colors.black87,
+        ),
       ),
     );
   }

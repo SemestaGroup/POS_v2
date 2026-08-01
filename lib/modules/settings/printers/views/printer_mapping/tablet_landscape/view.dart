@@ -4,14 +4,14 @@ import 'package:flutter/material.dart';
 import '../../../controllers/printer_settings_controller.dart';
 import '../../../models/printer_settings_models.dart';
 
-class PrinterMappingView extends StatefulWidget {
-  const PrinterMappingView({super.key});
+class PrinterMappingTabletLandscapeView extends StatefulWidget {
+  const PrinterMappingTabletLandscapeView({super.key});
 
   @override
-  State<PrinterMappingView> createState() => _PrinterMappingViewState();
+  State<PrinterMappingTabletLandscapeView> createState() => _PrinterMappingTabletLandscapeViewState();
 }
 
-class _PrinterMappingViewState extends State<PrinterMappingView> {
+class _PrinterMappingTabletLandscapeViewState extends State<PrinterMappingTabletLandscapeView> {
   final PrinterSettingsController _controller = PrinterSettingsController.instance;
   String? _selectedPrinterKey;
 

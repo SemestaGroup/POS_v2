@@ -33,6 +33,8 @@ class KasMasukInputData {
   }
 }
 
+final RegExp _digitOnlyRegex = RegExp(r'[^0-9]');
+
 /// Modal Dialog Form Kas Masuk Estetik (Petty Cash In)
 class KasMasukDialog extends StatefulWidget {
   final KasMasukInputData? initialData;
@@ -56,6 +58,29 @@ class KasMasukDialog extends StatefulWidget {
     ValueChanged<KasMasukInputData>? onSubmit,
     bool optimizeForMobileKeyboard = false,
   }) {
+    if (optimizeForMobileKeyboard) {
+      return showModalBottomSheet<KasMasukInputData>(
+        context: context,
+        isScrollControlled: true,
+        isDismissible: false,
+        enableDrag: false,
+        backgroundColor: Colors.transparent,
+        builder: (context) {
+          final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+          return RepaintBoundary(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: KasMasukDialog(
+                initialData: initialData,
+                paymentModes: paymentModes,
+                onSubmit: onSubmit,
+                optimizeForMobileKeyboard: true,
+              ),
+            ),
+          );
+        },
+      );
+    }
     return showDialog<KasMasukInputData>(
       context: context,
       barrierDismissible: false,
@@ -63,7 +88,7 @@ class KasMasukDialog extends StatefulWidget {
         initialData: initialData,
         paymentModes: paymentModes,
         onSubmit: onSubmit,
-        optimizeForMobileKeyboard: optimizeForMobileKeyboard,
+        optimizeForMobileKeyboard: false,
       ),
     );
   }
@@ -85,27 +110,29 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
   bool _isSubmitting = false;
   String? _errorMessage;
 
-  final NumberFormat _currencyFormatter = NumberFormat('#,###', 'id_ID');
-
+  static final NumberFormat _currencyFormatter = NumberFormat('#,###', 'id_ID');
+  static final DateFormat _dateFormat = DateFormat('dd MMMM yyyy', 'id_ID');
   static const List<int> _presetAmounts = [10000, 20000, 50000, 100000, 200000];
 
-  List<Map<String, dynamic>> get _availablePaymentModes {
-    if (widget.paymentModes != null && widget.paymentModes!.isNotEmpty) {
-      return widget.paymentModes!;
-    }
-    return [
-      {'id': 1, 'name': 'Kas / Tunai', 'type': 'cash'},
-    ];
-  }
+  late final List<Map<String, dynamic>> _availablePaymentModes;
 
   @override
   void initState() {
     super.initState();
     final data = widget.initialData;
 
-    _namaController = TextEditingController(text: data?.nama ?? 'Tambah Petty Cash');
+    _namaController = TextEditingController(
+      text: data?.nama ?? 'Tambah Petty Cash',
+    );
     _catatanController = TextEditingController(text: data?.catatan ?? '');
     _selectedDate = data?.tanggal ?? DateTime.now();
+
+    _availablePaymentModes =
+        (widget.paymentModes != null && widget.paymentModes!.isNotEmpty)
+        ? widget.paymentModes!
+        : [
+            {'id': 1, 'name': 'Kas / Tunai', 'type': 'cash'},
+          ];
 
     final initialAmount = data?.amount ?? 0;
     _amountController = TextEditingController(
@@ -116,14 +143,16 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
     if (data?.paymentModeId != null) {
       _selectedPaymentModeId = data!.paymentModeId;
     } else {
-      final cashMode = modes.firstWhere(
-        (m) {
-          final name = (m['name'] ?? m['payment_name'] ?? m['title'] ?? '').toString().toLowerCase();
-          return name.contains('cash') || name.contains('tunai');
-        },
-        orElse: () => modes.first,
-      );
-      _selectedPaymentModeId = cashMode['id'] ?? cashMode['remote_id'] ?? cashMode['payment_mode_id'];
+      final cashMode = modes.firstWhere((m) {
+        final name = (m['name'] ?? m['payment_name'] ?? m['title'] ?? '')
+            .toString()
+            .toLowerCase();
+        return name.contains('cash') || name.contains('tunai');
+      }, orElse: () => modes.first);
+      _selectedPaymentModeId =
+          cashMode['id'] ??
+          cashMode['remote_id'] ??
+          cashMode['payment_mode_id'];
     }
   }
 
@@ -140,32 +169,13 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
   }
 
   int _parseAmount(String text) {
-    final clean = text.replaceAll(RegExp(r'[^0-9]'), '');
+    final clean = text.replaceAll(_digitOnlyRegex, '');
     return int.tryParse(clean) ?? 0;
   }
 
   int get _parsedAmount => _parseAmount(_amountController.text);
 
   void _onAmountChanged(String val) {
-    if (widget.optimizeForMobileKeyboard) {
-      if (_errorMessage != null) {
-        setState(() => _errorMessage = null);
-      }
-      return;
-    }
-    final numeric = _parseAmount(val);
-    if (numeric == 0) {
-      _amountController.value = const TextEditingValue(
-        text: '',
-        selection: TextSelection.collapsed(offset: 0),
-      );
-      return;
-    }
-    final formatted = _formatCurrency(numeric);
-    _amountController.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
-    );
     if (_errorMessage != null) {
       setState(() => _errorMessage = null);
     }
@@ -175,7 +185,9 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
     final formatted = _formatCurrency(amount);
     setState(() {
       _amountController.text = formatted;
-      _amountController.selection = TextSelection.collapsed(offset: formatted.length);
+      _amountController.selection = TextSelection.collapsed(
+        offset: formatted.length,
+      );
       _errorMessage = null;
     });
   }
@@ -227,13 +239,16 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
     for (final mode in _availablePaymentModes) {
       final id = mode['id'] ?? mode['remote_id'] ?? mode['payment_mode_id'];
       if (id == _selectedPaymentModeId) {
-        selectedModeName = (mode['name'] ?? mode['payment_name'] ?? mode['title'])?.toString();
+        selectedModeName =
+            (mode['name'] ?? mode['payment_name'] ?? mode['title'])?.toString();
         break;
       }
     }
 
     final data = KasMasukInputData(
-      nama: _namaController.text.trim().isEmpty ? 'Kas Masuk' : _namaController.text.trim(),
+      nama: _namaController.text.trim().isEmpty
+          ? 'Kas Masuk'
+          : _namaController.text.trim(),
       amount: amount,
       catatan: _catatanController.text.trim(),
       tanggal: _selectedDate,
@@ -252,24 +267,19 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('dd MMMM yyyy', 'id_ID');
+    final screenSize = MediaQuery.sizeOf(context);
 
-    return Dialog(
-      insetAnimationDuration: widget.optimizeForMobileKeyboard ? Duration.zero : const Duration(milliseconds: 100),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      elevation: 12,
-      clipBehavior: Clip.antiAlias,
-      backgroundColor: Colors.white,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 500,
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header Banner Estetik Emerald Green
-            Container(
+    final mainWidget = ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: 500,
+        maxHeight: screenSize.height * 0.85,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header Banner Estetik Emerald Green
+          RepaintBoundary(
+            child: Container(
               padding: const EdgeInsets.fromLTRB(20, 18, 16, 18),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -335,177 +345,315 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
                           color: Color(0xCCFFFFFF),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close_rounded, color: Color(0xFF64748B), size: 18),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: Color(0xFF64748B),
+                          size: 18,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
 
-            // Form Body
-            Flexible(
-              child: SingleChildScrollView(
-                keyboardDismissBehavior: widget.optimizeForMobileKeyboard
-                    ? ScrollViewKeyboardDismissBehavior.onDrag
-                    : ScrollViewKeyboardDismissBehavior.manual,
-                padding: const EdgeInsets.all(20),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_errorMessage != null) ...[
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFEF2F2),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFFCA5A5)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline_rounded, color: Color(0xFFDC2626), size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _errorMessage!,
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFFB91C1C), fontWeight: FontWeight.w500),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      // Hero Card Input Nominal
+          // Form Body
+          Flexible(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: widget.optimizeForMobileKeyboard
+                  ? ScrollViewKeyboardDismissBehavior.onDrag
+                  : ScrollViewKeyboardDismissBehavior.manual,
+              padding: const EdgeInsets.all(20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_errorMessage != null) ...[
                       Container(
                         width: double.infinity,
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFAFAFA),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: const Color(0xFFF1F5F9)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Text(
-                                  'NOMINAL KAS MASUK *',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFF64748B),
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                                Text(
-                                  'Nominal Tunai',
-                                  style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                                ),
-                              ],
+                            const Icon(
+                              Icons.error_outline_rounded,
+                              color: Color(0xFFDC2626),
+                              size: 18,
                             ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _amountController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: widget.optimizeForMobileKeyboard
-                                  ? [FilteringTextInputFormatter.digitsOnly, _CurrencyInputFormatter()]
-                                  : [FilteringTextInputFormatter.digitsOnly],
-                              onChanged: _onAmountChanged,
-                              style: const TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF10B981),
-                                letterSpacing: -0.5,
-                              ),
-                              decoration: InputDecoration(
-                                hintText: '0',
-                                hintStyle: const TextStyle(
-                                  fontSize: 22,
-                                  color: Color(0xFFCBD5E1),
-                                  fontWeight: FontWeight.w600,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFFB91C1C),
+                                  fontWeight: FontWeight.w500,
                                 ),
-                                prefixIcon: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  margin: const EdgeInsets.only(right: 10),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFD1FAE5),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Text(
-                                    'Rp',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF10B981),
-                                    ),
-                                  ),
-                                ),
-                                prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 38),
-                                isDense: true,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                              ),
-                              validator: (val) {
-                                if (val == null || val.trim().isEmpty) {
-                                  return 'Nominal kas masuk wajib diisi';
-                                }
-                                if (_parseAmount(val) <= 0) {
-                                  return 'Nominal harus lebih dari 0';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 10),
-                            const Divider(height: 1, color: Color(0xFFE2E8F0)),
-                            const SizedBox(height: 10),
-                            // Quick Amount Chips
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Row(
-                                children: _presetAmounts.map((preset) {
-                                  final isSelected = _parsedAmount == preset;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 6),
-                                    child: InkWell(
-                                      onTap: () => _setPresetAmount(preset),
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? const Color(0xFF10B981) : Colors.white,
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(
-                                            color: isSelected ? const Color(0xFF10B981) : const Color(0xFFE2E8F0),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          '${preset ~/ 1000}rb',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: isSelected ? Colors.white : const Color(0xFF475569),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
                               ),
                             ),
                           ],
                         ),
                       ),
+                    ],
 
-                      const SizedBox(height: 18),
+                    // Hero Card Input Nominal
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFAFAFA),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: const [
+                              Text(
+                                'NOMINAL KAS MASUK *',
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF64748B),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              Text(
+                                'Nominal Tunai',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _amountController,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                              _CurrencyInputFormatter(),
+                            ],
+                            onChanged: _onAmountChanged,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF10B981),
+                              letterSpacing: -0.5,
+                            ),
+                            decoration: InputDecoration(
+                              hintText: '0',
+                              hintStyle: const TextStyle(
+                                fontSize: 22,
+                                color: Color(0xFFCBD5E1),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              prefixIcon: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                margin: const EdgeInsets.only(right: 10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFD1FAE5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Text(
+                                  'Rp',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF10B981),
+                                  ),
+                                ),
+                              ),
+                              prefixIconConstraints: const BoxConstraints(
+                                minWidth: 44,
+                                minHeight: 38,
+                              ),
+                              isDense: true,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                            ),
+                            validator: (val) {
+                              if (val == null || val.trim().isEmpty) {
+                                return 'Nominal kas masuk wajib diisi';
+                              }
+                              if (_parseAmount(val) <= 0) {
+                                return 'Nominal harus lebih dari 0';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                          const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                          const SizedBox(height: 10),
+                          // Quick Amount Chips
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _presetAmounts.map((preset) {
+                                final isSelected = _parsedAmount == preset;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 6),
+                                  child: InkWell(
+                                    onTap: () => _setPresetAmount(preset),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 5,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isSelected
+                                            ? const Color(0xFF10B981)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected
+                                              ? const Color(0xFF10B981)
+                                              : const Color(0xFFE2E8F0),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '${preset ~/ 1000}rb',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : const Color(0xFF475569),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
 
+                    const SizedBox(height: 18),
+
+                    // Responsive Layout: 1 Kolom untuk Mobile, 2 Kolom untuk Tablet
+                    if (widget.optimizeForMobileKeyboard) ...[
+                      const Text(
+                        'Nama / Sumber Uang *',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TextFormField(
+                        controller: _namaController,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF1E293B),
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Misal: Tambah Petty Cash',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFCBD5E1),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(
+                              color: Color(0xFF10B981),
+                              width: 1.5,
+                            ),
+                          ),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.trim().isEmpty) {
+                            return 'Nama wajib diisi';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      const Text(
+                        'Tanggal',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF334155),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      InkWell(
+                        onTap: _selectDate,
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 11,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: const Color(0xFFCBD5E1)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 16,
+                                color: Color(0xFF64748B),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _dateFormat.format(_selectedDate),
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF1E293B),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ] else ...[
                       // Grid 2 Kolom (Nama & Tanggal)
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,24 +674,40 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
                                 const SizedBox(height: 6),
                                 TextFormField(
                                   controller: _namaController,
-                                  style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF1E293B),
+                                  ),
                                   decoration: InputDecoration(
                                     hintText: 'Misal: Tambah Petty Cash',
-                                    hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                    hintStyle: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 12,
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
+                                    ),
                                     filled: true,
                                     fillColor: Colors.white,
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFCBD5E1),
+                                      ),
                                     ),
                                     enabledBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFFCBD5E1),
+                                      ),
                                     ),
                                     focusedBorder: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(10),
-                                      borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
+                                      borderSide: const BorderSide(
+                                        color: Color(0xFF10B981),
+                                        width: 1.5,
+                                      ),
                                     ),
                                   ),
                                   validator: (val) {
@@ -577,11 +741,16 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
                                   onTap: _selectDate,
                                   borderRadius: BorderRadius.circular(10),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 11,
+                                    ),
                                     decoration: BoxDecoration(
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFFCBD5E1)),
+                                      border: Border.all(
+                                        color: const Color(0xFFCBD5E1),
+                                      ),
                                     ),
                                     child: Row(
                                       children: [
@@ -593,7 +762,7 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
-                                            dateFormat.format(_selectedDate),
+                                            _dateFormat.format(_selectedDate),
                                             style: const TextStyle(
                                               fontSize: 12.5,
                                               fontWeight: FontWeight.w600,
@@ -611,183 +780,274 @@ class _KasMasukDialogState extends State<KasMasukDialog> {
                           ),
                         ],
                       ),
-
-                      const SizedBox(height: 14),
-
-                      // Dropdown Metode Pembayaran
-                      const Text(
-                        'Metode Pembayaran',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<dynamic>(
-                        initialValue: _selectedPaymentModeId,
-                        style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
-                        decoration: InputDecoration(
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
-                          ),
-                        ),
-                        items: _availablePaymentModes.map((mode) {
-                          final id = mode['id'] ?? mode['remote_id'] ?? mode['payment_mode_id'];
-                          final name = (mode['name'] ?? mode['payment_name'] ?? mode['title'] ?? 'Kas/Tunai').toString();
-                          return DropdownMenuItem<dynamic>(
-                            value: id,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  name.toLowerCase().contains('cash') || name.toLowerCase().contains('tunai')
-                                      ? Icons.payments_rounded
-                                      : Icons.account_balance_wallet_rounded,
-                                  size: 16,
-                                  color: const Color(0xFF10B981),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(name),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                        onChanged: (val) {
-                          setState(() {
-                            _selectedPaymentModeId = val;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Catatan / Keperluan Field
-                      const Text(
-                        'Catatan / Keperluan',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF334155),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _catatanController,
-                        maxLines: 2,
-                        style: const TextStyle(fontSize: 13, color: Color(0xFF1E293B)),
-                        decoration: InputDecoration(
-                          hintText: 'Opsional: Berikan catatan kas masuk',
-                          hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFF10B981), width: 1.5),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 22),
-
-                      // Action Buttons
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          OutlinedButton(
-                            onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                              side: const BorderSide(color: Color(0xFFCBD5E1)),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              foregroundColor: const Color(0xFF475569),
-                            ),
-                            child: const Text(
-                              'Batal',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF10B981), Color(0xFF059669)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x4010B981),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton.icon(
-                              onPressed: _handleSubmit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              icon: _isSubmitting
-                                  ? const SizedBox(
-                                      width: 14,
-                                      height: 14,
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.check_circle_rounded, size: 16),
-                              label: Text(
-                                _isSubmitting ? 'Menyimpan...' : 'Simpan Kas Masuk',
-                                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ],
-                  ),
+
+                    const SizedBox(height: 14),
+
+                    // Dropdown Metode Pembayaran
+                    const Text(
+                      'Metode Pembayaran',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<dynamic>(
+                      initialValue: _selectedPaymentModeId,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1E293B),
+                      ),
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF10B981),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                      items: _availablePaymentModes.map((mode) {
+                        final id =
+                            mode['id'] ??
+                            mode['remote_id'] ??
+                            mode['payment_mode_id'];
+                        final name =
+                            (mode['name'] ??
+                                    mode['payment_name'] ??
+                                    mode['title'] ??
+                                    'Kas/Tunai')
+                                .toString();
+                        return DropdownMenuItem<dynamic>(
+                          value: id,
+                          child: Row(
+                            children: [
+                              Icon(
+                                name.toLowerCase().contains('cash') ||
+                                        name.toLowerCase().contains('tunai')
+                                    ? Icons.payments_rounded
+                                    : Icons.account_balance_wallet_rounded,
+                                size: 16,
+                                color: const Color(0xFF10B981),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(name),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() {
+                          _selectedPaymentModeId = val;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Catatan / Keperluan Field
+                    const Text(
+                      'Catatan / Keperluan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF334155),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _catatanController,
+                      maxLines: 2,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF1E293B),
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Opsional: Berikan catatan kas masuk',
+                        hintStyle: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 12,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFCBD5E1),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF10B981),
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    // Action Buttons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        OutlinedButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 11,
+                            ),
+                            side: const BorderSide(color: Color(0xFFCBD5E1)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            foregroundColor: const Color(0xFF475569),
+                          ),
+                          child: const Text(
+                            'Batal',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF10B981), Color(0xFF059669)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x4010B981),
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: _handleSubmit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 18,
+                                vertical: 11,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            icon: _isSubmitting
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 16,
+                                  ),
+                            label: Text(
+                              _isSubmitting
+                                  ? 'Menyimpan...'
+                                  : 'Simpan Kas Masuk',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
+    );
+
+    if (widget.optimizeForMobileKeyboard) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: mainWidget,
+      );
+    }
+
+    return Dialog(
+      insetAnimationDuration: const Duration(milliseconds: 100),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 12,
+      clipBehavior: Clip.antiAlias,
+      backgroundColor: Colors.white,
+      child: mainWidget,
     );
   }
 }
 
 class _CurrencyInputFormatter extends TextInputFormatter {
-  final NumberFormat _formatter = NumberFormat('#,###', 'id_ID');
+  static final NumberFormat _formatter = NumberFormat('#,###', 'id_ID');
 
   @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     if (newValue.text.isEmpty) return newValue;
-    final value = int.tryParse(newValue.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+    final value =
+        int.tryParse(newValue.text.replaceAll(_digitOnlyRegex, '')) ?? 0;
     if (value == 0) return const TextEditingValue();
     final text = _formatter.format(value);
-    return TextEditingValue(text: text, selection: TextSelection.collapsed(offset: text.length));
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }
