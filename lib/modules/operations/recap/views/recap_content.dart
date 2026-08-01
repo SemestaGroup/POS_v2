@@ -80,23 +80,23 @@ class _RecapContentState extends State<RecapContent> {
     if (confirmed != true || !mounted) return;
 
     await _store.executeEndOfDay();
-    if (mounted) {
-      if (_store.snapshotNotifier.value.errorMessage != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_store.snapshotNotifier.value.errorMessage!),
-            backgroundColor: Colors.red.shade700,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('End of Day berhasil diproses.'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _store.fetchArchives(_selectedArchiveDate);
-      }
+    if (!context.mounted) return;
+
+    if (_store.snapshotNotifier.value.errorMessage != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_store.snapshotNotifier.value.errorMessage!),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('End of Day berhasil diproses.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      _store.fetchArchives(_selectedArchiveDate);
     }
   }
 

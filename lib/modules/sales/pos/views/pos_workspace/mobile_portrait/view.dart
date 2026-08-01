@@ -3702,14 +3702,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         session.baseUrl.isNotEmpty &&
         session.authToken.isNotEmpty) {
       try {
-        modes =
-            await ExpenseService(
-              baseUrl: session.baseUrl,
-              authToken: session.authToken,
-            ).getPaymentModes().timeout(
-              const Duration(seconds: 3),
-              onTimeout: () => <Map<String, dynamic>>[],
-            );
+        modes = await ExpenseService(
+          baseUrl: session.baseUrl,
+          authToken: session.authToken,
+        ).getPaymentModes();
       } catch (_) {}
     }
 
@@ -3719,9 +3715,16 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       try {
         final localDbModes = await DatabaseService.instance.rawQuery(
           '''
-          SELECT id, remote_id, name, type
+          SELECT
+            COALESCE(NULLIF(remote_id, ''), CAST(id AS TEXT)) AS id,
+            remote_id,
+            name,
+            '' AS type
           FROM payment_mode
           WHERE tenant_id = ?
+            AND deleted_at IS NULL
+            AND is_active = 1
+            AND TRIM(COALESCE(name, '')) != ''
           ORDER BY selected_by_default DESC, name ASC
           ''',
           [session!.tenantId],
@@ -3732,10 +3735,12 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       } catch (_) {}
     }
 
+    // Do not fabricate bank or QRIS methods when neither the server nor the
+    // locally-synchronised payment-mode catalogue is available. Their IDs are
+    // tenant-specific and submitting a guessed ID can record cash flow under
+    // the wrong method.
     return const [
       {'id': 1, 'name': 'Kas / Tunai', 'type': 'cash'},
-      {'id': 2, 'name': 'Transfer Bank', 'type': 'bank'},
-      {'id': 3, 'name': 'QRIS / Digital', 'type': 'qris'},
     ];
   }
 
