@@ -122,12 +122,16 @@ class StaffSyncAdapter extends BaseV2SyncAdapter {
       case 'admin':
         return 'owner';
       case 'supervisor':
+      case 'spv':
         return 'supervisor';
       case 'kitchen':
+      case 'dapur':
         return 'kitchen';
       case 'cashier':
+      case 'kasir':
         return 'cashier';
       case 'programmer':
+      case 'developer':
         return 'programmer';
       default:
         return normalized;

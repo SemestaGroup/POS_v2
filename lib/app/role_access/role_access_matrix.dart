@@ -16,6 +16,7 @@ const roleAccessMatrix = <AppRole, Set<AppSection>>{
     AppSection.operations,
     AppSection.reports,
     AppSection.masterData,
+    AppSection.settings,
   },
   AppRole.cashier: {
     AppSection.sales,

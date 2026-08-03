@@ -6,6 +6,7 @@ import '../../../../../modules/sales/pos/views/pos_workspace/pos_workspace_view.
 import '../../../../../modules/operations/views/operations_shell_view.dart';
 import '../../../../../modules/reports/views/reports_shell_view.dart';
 import '../../../../../modules/master_data/views/master_data_shell_view.dart';
+import '../../../../../modules/settings/views/settings_shell_view.dart';
 import '../../../widgets/sidebar_widget.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../../modules/operations/shift/models/active_shift_store.dart';
@@ -59,6 +60,11 @@ class _SupervisorShellViewState extends State<SupervisorShellView> {
         title: l10n.masterData,
         icon: Icons.folder_open_rounded,
         sectionLabel: 'MASTER DATA',
+      ),
+      SidebarItem(
+        title: l10n.settings,
+        icon: Icons.settings_rounded,
+        sectionLabel: 'SETTINGS',
       ),
     ];
   }
@@ -139,9 +145,14 @@ class _SupervisorShellViewState extends State<SupervisorShellView> {
       case 0:
         return const SupervisorOverviewView(key: ValueKey('spv_overview'));
       case 1:
-        return PosWorkspaceView(
-          key: const ValueKey('spv_sales'),
-          isReadOnly: ActiveShiftStore.instance.isReadOnly,
+        return ValueListenableBuilder<bool>(
+          valueListenable: ActiveShiftStore.instance.readOnlyModeNotifier,
+          builder: (context, isReadOnly, _) {
+            return PosWorkspaceView(
+              key: const ValueKey('spv_sales'),
+              isReadOnly: isReadOnly,
+            );
+          },
         );
       case 2:
         return const OperationsShellView(key: ValueKey('spv_operations'));
@@ -149,6 +160,8 @@ class _SupervisorShellViewState extends State<SupervisorShellView> {
         return const ReportsShellView(key: ValueKey('spv_reports'));
       case 4:
         return const MasterDataShellView(key: ValueKey('spv_master_data'));
+      case 5:
+        return const SettingsShellView(key: ValueKey('spv_settings'));
       default:
         return const SupervisorOverviewView();
     }

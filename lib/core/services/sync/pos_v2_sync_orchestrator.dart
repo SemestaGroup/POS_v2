@@ -217,16 +217,12 @@ class PosV2SyncOrchestrator {
   }
 
   Future<V2SyncResult> syncActiveShiftForContext(V2SyncContext context) {
+    // The API enforces one open shift per location. Do not restrict this
+    // bootstrap lookup to the logged-in staff or device, otherwise a cashier
+    // joining an already-open location shift is incorrectly sent to ShiftGate.
     return _shift.sync(
       context,
       path: 'api/v2/pos-shift-sessions/active',
-      query: <String, dynamic>{
-        if (context.staffId?.isNotEmpty == true)
-          'pos_staff_id': context.staffId,
-        if (context.deviceId?.isNotEmpty == true) 'device_id': context.deviceId,
-        if (context.registerId?.isNotEmpty == true)
-          'register_id': context.registerId,
-      },
       allowNotFoundEmpty: true,
     );
   }

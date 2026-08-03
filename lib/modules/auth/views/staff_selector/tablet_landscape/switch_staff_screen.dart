@@ -109,7 +109,10 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
         authService: _authService,
         onSuccess: () {
           if (mounted) {
-            Navigator.of(context).pop();
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const AuthGate()),
+              (route) => false,
+            );
           }
         },
       ),
@@ -1312,7 +1315,7 @@ class _PinKeypadDialogState extends State<_PinKeypadDialog> {
     });
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({bool forceLogoutOtherSession = false}) async {
     final l10n = AppLocalizations.of(context)!;
     if (_pin.isEmpty) {
       setState(() => _errorMessage = l10n.switchStaffPinRequired);
@@ -1325,12 +1328,22 @@ class _PinKeypadDialogState extends State<_PinKeypadDialog> {
 
     try {
       final email = widget.staffInfo['email']?.toString() ?? '';
+      final staffRemoteId =
+          widget.staffInfo['remote_id']?.toString() ??
+          widget.staffInfo['id']?.toString();
+      final staffRoleCode =
+          widget.staffInfo['role_code']?.toString() ??
+          widget.staffInfo['role_name']?.toString();
       await widget.authService.pinLoginAndSyncBootstrap(
         tenantBaseUrl: widget.session.baseUrl,
         email: email,
         pin: _pin,
         deviceId: widget.session.deviceId ?? 'FLINKPOS-V2-DEVICE',
         registerId: widget.session.registerId,
+        staffId: staffRemoteId,
+        staffRoleCode: staffRoleCode,
+        actingStaffId: widget.session.staffId,
+        forceLogoutOtherSession: forceLogoutOtherSession,
       );
       if (mounted) {
         Navigator.of(context).pop(); // close dialog
@@ -1338,13 +1351,97 @@ class _PinKeypadDialogState extends State<_PinKeypadDialog> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
-          _pin = ''; // clear pin on error
-        });
+        final errorMsg = e.toString().replaceFirst('Exception: ', '');
+        if (!forceLogoutOtherSession &&
+            errorMsg.toLowerCase().contains(
+              'already has an active session on another device',
+            )) {
+          setState(() {
+            _isSubmitting = false;
+          });
+          _showForceLogoutDialog();
+        } else {
+          setState(() {
+            _isSubmitting = false;
+            _errorMessage = errorMsg;
+            _pin = ''; // clear pin on error
+          });
+        }
       }
     }
+  }
+
+  void _showForceLogoutDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final loc = AppLocalizations.of(ctx)!;
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          loc.activeSessionTitle,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc.activeSessionMessage,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(loc.cancel),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _submit(forceLogoutOtherSession: true);
+                        },
+                        child: Text(loc.activeSessionForceLogout),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildKey(String text, {VoidCallback? onTap, IconData? icon}) {

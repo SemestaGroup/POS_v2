@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/auth/auth_gate.dart';
 import '../../../core/services/local/database_service.dart';
 import '../../../core/services/sync/pos_v2_auth_service.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
@@ -73,7 +74,7 @@ class _PinAccountSwitchDialogState extends State<_PinAccountSwitchDialog> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _submit({bool forceLogoutOtherSession = false}) async {
     final l10n = AppLocalizations.of(context)!;
     if (_isSubmitting) {
       return;
@@ -92,28 +93,54 @@ class _PinAccountSwitchDialogState extends State<_PinAccountSwitchDialog> {
     });
 
     try {
+      final selectedStaff = widget.staffRows.firstWhere(
+        (row) => row['email']?.toString() == _selectedEmail,
+        orElse: () => <String, Object?>{},
+      );
+      final staffRemoteId =
+          selectedStaff['remote_id']?.toString() ??
+          selectedStaff['id']?.toString();
+      final staffRoleCode =
+          selectedStaff['role_code']?.toString() ??
+          selectedStaff['role_name']?.toString();
+
       await _authService.pinLoginAndSyncBootstrap(
         tenantBaseUrl: widget.session.baseUrl,
         email: _selectedEmail!,
         pin: _pinController.text.trim(),
         deviceId: widget.session.deviceId ?? 'FLINKPOS-V2-DEVICE',
         registerId: widget.session.registerId,
+        staffId: staffRemoteId,
+        staffRoleCode: staffRoleCode,
+        actingStaffId: widget.session.staffId,
+        forceLogoutOtherSession: forceLogoutOtherSession,
       );
 
       if (!mounted) {
         return;
       }
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(l10n.switchAccountSuccess)));
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthGate()),
+        (route) => false,
+      );
     } catch (error) {
       if (!mounted) {
         return;
       }
-      setState(() {
-        _errorMessage = error.toString().replaceFirst('Exception: ', '');
-      });
+      final errorMsg = error.toString().replaceFirst('Exception: ', '');
+      if (!forceLogoutOtherSession &&
+          errorMsg.toLowerCase().contains(
+            'already has an active session on another device',
+          )) {
+        setState(() {
+          _isSubmitting = false;
+        });
+        _showForceLogoutDialog();
+      } else {
+        setState(() {
+          _errorMessage = errorMsg;
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -121,6 +148,79 @@ class _PinAccountSwitchDialogState extends State<_PinAccountSwitchDialog> {
         });
       }
     }
+  }
+
+  void _showForceLogoutDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        final loc = AppLocalizations.of(ctx)!;
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.orange,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          loc.activeSessionTitle,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc.activeSessionMessage,
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: Text(loc.cancel),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          Navigator.of(ctx).pop();
+                          _submit(forceLogoutOtherSession: true);
+                        },
+                        child: Text(loc.activeSessionForceLogout),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override

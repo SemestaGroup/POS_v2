@@ -10,6 +10,7 @@ class ActiveShiftRecord {
     required this.id,
     required this.shiftName,
     required this.staffName,
+    required this.staffRemoteId,
     required this.locationId,
     required this.openedAt,
     required this.openingBalance,
@@ -20,6 +21,7 @@ class ActiveShiftRecord {
   final int id;
   final String shiftName;
   final String staffName;
+  final String? staffRemoteId;
   final String locationId;
   final DateTime openedAt;
   final int openingBalance;
@@ -53,6 +55,12 @@ class ActiveShiftStore {
   final ValueNotifier<ActiveShiftRecord?> activeShiftNotifier =
       ValueNotifier<ActiveShiftRecord?>(null);
 
+  /// The currently open shift for this location, regardless of which staff
+  /// opened it. Cashiers use this only to detect a shift that they must not
+  /// take over; their [activeShiftNotifier] remains limited to their own shift.
+  final ValueNotifier<ActiveShiftRecord?> locationActiveShiftNotifier =
+      ValueNotifier<ActiveShiftRecord?>(null);
+
   /// True when a non-cashier user has chosen to enter without opening a shift.
   final ValueNotifier<bool> readOnlyModeNotifier = ValueNotifier<bool>(false);
 
@@ -77,75 +85,40 @@ class ActiveShiftStore {
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (session == null) {
       activeShiftNotifier.value = null;
+      locationActiveShiftNotifier.value = null;
       return;
     }
 
     final role = RoleManager.fromCode(session.staffRoleCode);
     final isCashier = role == AppRole.cashier;
-    final staffId = session.staffId;
-    final registerId = session.registerId;
-    final deviceId = session.deviceId;
     final rows = await DatabaseService.instance.rawQuery(
-      isCashier
-          ? '''
-            SELECT id, shift_name, pos_staff_name_snapshot, location_id,
-                   opened_at, opening_balance, source_device_id, register_id
-            FROM shift_session
-            WHERE tenant_id = ?
-              AND status = 'open'
-              AND deleted_at IS NULL
-              AND (? IS NULL OR pos_staff_remote_id = ?)
-            ORDER BY opened_at DESC, id DESC
-            LIMIT 1
-            '''
-          : '''
-            SELECT id, shift_name, pos_staff_name_snapshot, location_id,
-                   opened_at, opening_balance, source_device_id, register_id
-            FROM shift_session
-            WHERE tenant_id = ?
-              AND status = 'open'
-              AND deleted_at IS NULL
-              AND (
-                (? IS NOT NULL AND register_id = ?)
-                OR (? IS NOT NULL AND source_device_id = ?)
-                OR (? IS NOT NULL AND location_id = ?)
-              )
-            ORDER BY opened_at DESC, id DESC
-            LIMIT 1
-            ''',
-      isCashier
-          ? <Object?>[session.tenantId, staffId, staffId]
-          : <Object?>[
-              session.tenantId,
-              registerId,
-              registerId,
-              deviceId,
-              deviceId,
-              session.locationId,
-              session.locationId,
-            ],
+      '''
+        SELECT id, shift_name, pos_staff_name_snapshot, pos_staff_remote_id,
+               location_id, opened_at, opening_balance, source_device_id,
+               register_id
+        FROM shift_session
+        WHERE tenant_id = ?
+          AND status = 'open'
+          AND deleted_at IS NULL
+          AND location_id = ?
+        ORDER BY opened_at DESC, id DESC
+        LIMIT 1
+        ''',
+      <Object?>[session.tenantId, session.locationId],
     );
 
     if (rows.isEmpty) {
       activeShiftNotifier.value = null;
+      locationActiveShiftNotifier.value = null;
       return;
     }
 
-    final row = rows.first;
-    activeShiftNotifier.value = ActiveShiftRecord(
-      id: _asInt(row['id']) ?? 0,
-      shiftName: row['shift_name']?.toString() ?? '',
-      staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
-      locationId: row['location_id']?.toString() ?? '',
-      registerId: row['register_id']?.toString(),
-      openedAt:
-          DateTime.tryParse(
-            (row['opened_at']?.toString() ?? '').replaceFirst(' ', 'T'),
-          ) ??
-          DateTime.now(),
-      openingBalance: _asInt(row['opening_balance']) ?? 0,
-      deviceId: row['source_device_id']?.toString(),
-    );
+    final locationShift = _toActiveShiftRecord(rows.first);
+    locationActiveShiftNotifier.value = locationShift;
+    activeShiftNotifier.value =
+        isCashier && locationShift.staffRemoteId != session.staffId
+        ? null
+        : locationShift;
   }
 
   Future<void> openShift({
@@ -173,6 +146,11 @@ class ActiveShiftStore {
       );
     }
 
+    final activeLocationShift = locationActiveShiftNotifier.value;
+    if (activeLocationShift != null) {
+      throw Exception(_activeShiftMessage(activeLocationShift));
+    }
+
     try {
       await _syncOrchestrator.openShift(
         session.toSyncContext(),
@@ -189,6 +167,11 @@ class ActiveShiftStore {
         'active shift session already exists',
       )) {
         await _syncOrchestrator.syncActiveShift(session.toSyncContext());
+        await refresh();
+        final activeLocationShift = locationActiveShiftNotifier.value;
+        if (activeLocationShift != null) {
+          throw Exception(_activeShiftMessage(activeLocationShift));
+        }
       } else {
         rethrow;
       }
@@ -209,7 +192,8 @@ class ActiveShiftStore {
 
   Future<int> getShiftCashInTotal() async {
     final shift = activeShiftNotifier.value;
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (shift == null || session == null) return 0;
 
@@ -235,7 +219,8 @@ class ActiveShiftStore {
 
   Future<int> getShiftCashOutTotal() async {
     final shift = activeShiftNotifier.value;
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (shift == null || session == null) return 0;
 
@@ -261,7 +246,8 @@ class ActiveShiftStore {
 
   Future<int> getShiftCashSalesTotal() async {
     final shift = activeShiftNotifier.value;
-    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+    final session =
+        PosV2RuntimeSessionStore.instance.currentSession ??
         await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
     if (shift == null || session == null) return 0;
 
@@ -438,6 +424,10 @@ class ActiveShiftStore {
     if (session == null) {
       throw Exception('Session tidak ditemukan. Login ulang diperlukan.');
     }
+    if (RoleManager.fromCode(session.staffRoleCode) == AppRole.cashier &&
+        shift.staffRemoteId != session.staffId) {
+      throw Exception('Kasir hanya dapat menutup shift miliknya sendiri.');
+    }
 
     await _syncOrchestrator.closeShift(
       session.toSyncContext(),
@@ -466,5 +456,33 @@ class ActiveShiftStore {
       return value.round();
     }
     return int.tryParse(value.toString().split('.').first);
+  }
+
+  ActiveShiftRecord _toActiveShiftRecord(Map<String, Object?> row) {
+    return ActiveShiftRecord(
+      id: _asInt(row['id']) ?? 0,
+      shiftName: row['shift_name']?.toString() ?? '',
+      staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
+      staffRemoteId: row['pos_staff_remote_id']?.toString(),
+      locationId: row['location_id']?.toString() ?? '',
+      registerId: row['register_id']?.toString(),
+      openedAt:
+          DateTime.tryParse(
+            (row['opened_at']?.toString() ?? '').replaceFirst(' ', 'T'),
+          ) ??
+          DateTime.now(),
+      openingBalance: _asInt(row['opening_balance']) ?? 0,
+      deviceId: row['source_device_id']?.toString(),
+    );
+  }
+
+  String _activeShiftMessage(ActiveShiftRecord shift) {
+    final staffName = shift.staffName.trim().isEmpty
+        ? 'kasir lain'
+        : shift.staffName;
+    final shiftName = shift.shiftName.trim().isEmpty
+        ? 'shift aktif'
+        : shift.shiftName;
+    return '$shiftName masih aktif atas nama $staffName. Tutup shift tersebut terlebih dahulu sebelum membuka shift baru.';
   }
 }

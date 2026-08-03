@@ -7,9 +7,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
   BootstrapSyncAdapter({super.databaseService});
 
   Future<V2SyncResult> sync(V2SyncContext context) async {
-    final envelope = await buildClient(
-      context,
-    ).getEnvelope(
+    final envelope = await buildClient(context).getEnvelope(
       'api/v2/pos-bootstrap',
       query: <String, dynamic>{
         if (context.staffId?.isNotEmpty == true) 'staff_id': context.staffId,
@@ -33,6 +31,10 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
     );
     final resolvedLocationId =
         V2SyncUtils.asString(tenant['location_id']) ?? context.locationId;
+    final resolvedStaffRoleCode = _resolveStaffRoleCode(
+      staffProfile,
+      activeDeviceSession,
+    );
 
     var upsertedCount = 0;
 
@@ -42,7 +44,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
         txn,
         context,
         tenantName: V2SyncUtils.asString(tenant['tenant_name']),
-        roleCode: V2SyncUtils.asString(staffProfile?['role_code'] ?? staffProfile?['role']),
+        roleCode: resolvedStaffRoleCode,
       );
 
       await txn.update(
@@ -80,8 +82,10 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
           insertValues: <String, Object?>{
             'tenant_id': tenantId,
             'remote_id': staffRemoteId,
-            'role_code': V2SyncUtils.asString(staffProfile['role_code'] ?? staffProfile['role']),
-            'role_name': V2SyncUtils.asString(staffProfile['role_name'] ?? staffProfile['role']),
+            'role_code': resolvedStaffRoleCode,
+            'role_name': V2SyncUtils.asString(
+              staffProfile['role_name'] ?? staffProfile['role'],
+            ),
             'first_name': V2SyncUtils.asString(staffProfile['firstname']),
             'last_name': V2SyncUtils.asString(staffProfile['lastname']),
             'full_name': fullName.isEmpty ? context.staffFullName : fullName,
@@ -98,8 +102,12 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'updated_at': now,
           },
           updateValues: <String, Object?>{
-            'role_code': V2SyncUtils.asString(staffProfile['role_code'] ?? staffProfile['role']),
-            'role_name': V2SyncUtils.asString(staffProfile['role_name'] ?? staffProfile['role']),
+            ...?(resolvedStaffRoleCode == null
+                ? null
+                : <String, Object?>{'role_code': resolvedStaffRoleCode}),
+            'role_name': V2SyncUtils.asString(
+              staffProfile['role_name'] ?? staffProfile['role'],
+            ),
             'first_name': V2SyncUtils.asString(staffProfile['firstname']),
             'last_name': V2SyncUtils.asString(staffProfile['lastname']),
             'full_name': fullName.isEmpty ? context.staffFullName : fullName,
@@ -144,9 +152,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'staff_remote_id': V2SyncUtils.asString(
               activeDeviceSession['staff_id'] ?? context.staffId,
             ),
-            'staff_role_code': V2SyncUtils.asString(
-              activeDeviceSession['staff_role_code'],
-            ),
+            'staff_role_code': resolvedStaffRoleCode,
             'device_id':
                 V2SyncUtils.asString(activeDeviceSession['device_id']) ??
                 context.deviceId,
@@ -182,9 +188,9 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'staff_remote_id': V2SyncUtils.asString(
               activeDeviceSession['staff_id'] ?? context.staffId,
             ),
-            'staff_role_code': V2SyncUtils.asString(
-              activeDeviceSession['staff_role_code'],
-            ),
+            ...?(resolvedStaffRoleCode == null
+                ? null
+                : <String, Object?>{'staff_role_code': resolvedStaffRoleCode}),
             'device_id':
                 V2SyncUtils.asString(activeDeviceSession['device_id']) ??
                 context.deviceId,
@@ -238,10 +244,7 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'staff_remote_id': context.staffId,
             'staff_email': context.staffEmail,
             'staff_full_name': context.staffFullName,
-            'staff_role_code': V2SyncUtils.asString(
-                  staffProfile?['role_code'] ?? staffProfile?['role'],
-                ) ??
-                V2SyncUtils.asString(activeDeviceSession?['staff_role_code']),
+            'staff_role_code': resolvedStaffRoleCode,
             'base_url': context.normalizedBaseUrl,
             'auth_token': context.authToken,
             'device_id': context.deviceId,
@@ -259,10 +262,9 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
             'staff_remote_id': context.staffId,
             'staff_email': context.staffEmail,
             'staff_full_name': context.staffFullName,
-            'staff_role_code': V2SyncUtils.asString(
-                  staffProfile?['role_code'] ?? staffProfile?['role'],
-                ) ??
-                V2SyncUtils.asString(activeDeviceSession?['staff_role_code']),
+            ...?(resolvedStaffRoleCode == null
+                ? null
+                : <String, Object?>{'staff_role_code': resolvedStaffRoleCode}),
             'base_url': context.normalizedBaseUrl,
             'auth_token': context.authToken,
             'device_id': context.deviceId,
@@ -457,5 +459,39 @@ class BootstrapSyncAdapter extends BaseV2SyncAdapter {
       upsertedCount: upsertedCount,
       meta: <String, Object?>{'tenantKey': context.tenantKey},
     );
+  }
+
+  String? _resolveStaffRoleCode(
+    Map<String, dynamic>? staffProfile,
+    Map<String, dynamic>? activeDeviceSession,
+  ) {
+    final candidates = <String?>[
+      V2SyncUtils.asString(staffProfile?['role_code']),
+      V2SyncUtils.asString(staffProfile?['role_name']),
+      V2SyncUtils.asString(staffProfile?['role']),
+      V2SyncUtils.asString(activeDeviceSession?['staff_role_code']),
+    ];
+
+    for (final candidate in candidates) {
+      switch (candidate?.trim().toLowerCase()) {
+        case 'owner':
+        case 'admin':
+          return 'owner';
+        case 'supervisor':
+        case 'spv':
+          return 'supervisor';
+        case 'cashier':
+        case 'kasir':
+          return 'cashier';
+        case 'kitchen':
+        case 'dapur':
+          return 'kitchen';
+        case 'programmer':
+        case 'developer':
+          return 'programmer';
+      }
+    }
+
+    return null;
   }
 }

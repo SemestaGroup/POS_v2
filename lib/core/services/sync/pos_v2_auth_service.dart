@@ -111,17 +111,16 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     Map<String, dynamic>? staff, {
     String? fallbackRoleCode,
   }) {
-    final direct = V2SyncUtils.asString(staff?['role_code']);
-    if (direct != null && direct.isNotEmpty) {
-      return direct;
-    }
-
-    final roleName = V2SyncUtils.asString(
+    final rawRoleCode = V2SyncUtils.asString(staff?['role_code']);
+    final rawRoleName = V2SyncUtils.asString(
       staff?['role_name'] ?? staff?['role'],
     );
-    final normalizedRoleName = roleName?.trim().toLowerCase();
-    if (normalizedRoleName != null && normalizedRoleName.isNotEmpty) {
-      switch (normalizedRoleName) {
+
+    // Role IDs are tenant-configurable (for example, a cashier can have ID
+    // "2" in one tenant and "3" in another). Only names/codes have a stable
+    // application meaning; never infer a role from a numeric database ID.
+    for (final rawRole in [rawRoleCode, rawRoleName]) {
+      switch (rawRole?.trim().toLowerCase()) {
         case 'owner':
         case 'admin':
           return 'owner';
@@ -129,27 +128,15 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         case 'spv':
           return 'supervisor';
         case 'kitchen':
+        case 'dapur':
           return 'kitchen';
         case 'programmer':
         case 'developer':
           return 'programmer';
         case 'cashier':
+        case 'kasir':
           return 'cashier';
       }
-    }
-
-    final roleId = V2SyncUtils.asString(staff?['role_id'] ?? staff?['roleid']);
-    switch (roleId) {
-      case '1':
-        return 'owner';
-      case '2':
-        return 'supervisor';
-      case '3':
-        return 'cashier';
-      case '4':
-        return 'kitchen';
-      case '5':
-        return 'programmer';
     }
 
     return fallbackRoleCode?.trim().isNotEmpty == true
@@ -218,6 +205,21 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       baseUrl: loginBaseUrl,
       authToken: kFlinkV2FixedAuthToken,
     );
+    if (forceLogoutOtherSession) {
+      try {
+        await loginClient.postEnvelope(
+          'api/v2/pos-auth/force-logout',
+          body: <String, dynamic>{
+            'email': email.trim(),
+            'device_id': deviceId.trim(),
+            'reason': 'Force logout previous session',
+          },
+        );
+      } catch (_) {
+        // Keep login resilient even if force-logout endpoint is unavailable.
+      }
+    }
+
     final loginEnvelope = await loginClient.postEnvelope(
       'api/v2/pos-auth/login',
       body: <String, dynamic>{
@@ -225,14 +227,19 @@ class PosV2AuthService extends BaseV2SyncAdapter {
         'password': password,
         'device_id': deviceId.trim(),
         'app_version': AppConstants.appVersion,
-        'force_logout_other_session': forceLogoutOtherSession,
+        'force_logout_other_session': forceLogoutOtherSession ? 1 : 0,
+        'force_logout_other_device': forceLogoutOtherSession ? 1 : 0,
+        'force_logout': forceLogoutOtherSession ? 1 : 0,
       },
     );
 
     final loginData =
         V2SyncUtils.asMap(loginEnvelope['data']) ?? const <String, dynamic>{};
-    final staff =
-        V2SyncUtils.asMap(loginData['staff']) ?? const <String, dynamic>{};
+    final staffData = V2SyncUtils.asMap(loginData['staff']);
+    // Some POS-auth responses put identity under `staff`, while role fields
+    // remain at the top level. Merge both shapes so a role from the response
+    // is never lost merely because `staff` contains an id or email.
+    final staff = <String, dynamic>{...loginData, ...?staffData};
     final deviceSession =
         V2SyncUtils.asMap(loginData['device_session']) ??
         const <String, dynamic>{};
@@ -491,27 +498,66 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String pin,
     required String deviceId,
     String? registerId,
+    String? staffId,
+    String? staffRoleCode,
+    String? actingStaffId,
     bool forceLogoutOtherSession = false,
   }) async {
+    final resolvedDeviceId = await _resolveOrCreateDeviceId(deviceId);
+    final currentSession = PosV2RuntimeSessionStore.instance.currentSession;
+    final effectiveActingStaffId = actingStaffId ?? currentSession?.staffId;
     final client = V2ApiClient(
       baseUrl: tenantBaseUrl,
       authToken: kFlinkV2FixedAuthToken,
     );
+
+    if (forceLogoutOtherSession) {
+      try {
+        final forceLogoutBody = <String, dynamic>{
+          'email': email.trim(),
+          'reason': 'Force logout previous session for staff switch',
+          'force_all': 1,
+          'force_all_devices': 1,
+          'force': 1,
+        };
+        final parsedStaffId = int.tryParse(staffId ?? '');
+        if (parsedStaffId != null) {
+          forceLogoutBody['staff_id'] = parsedStaffId;
+        }
+        final parsedActingId = int.tryParse(effectiveActingStaffId ?? '');
+        if (parsedActingId != null) {
+          forceLogoutBody['acting_staff_id'] = parsedActingId;
+        }
+
+        await client.postEnvelope(
+          'api/v2/pos-auth/force-logout',
+          body: forceLogoutBody,
+        );
+      } catch (_) {
+        // Keep login resilient even if force-logout endpoint is unavailable.
+      }
+    }
+
     final loginEnvelope = await client.postEnvelope(
       'api/v2/pos-auth/pin-login',
       body: <String, dynamic>{
         'email': email.trim(),
         'pin': pin.trim(),
-        'device_id': deviceId.trim(),
+        'device_id': resolvedDeviceId,
         'app_version': AppConstants.appVersion,
-        'force_logout_other_session': forceLogoutOtherSession,
+        'force_logout_other_session': forceLogoutOtherSession ? 1 : 0,
+        'force_logout_other_device': forceLogoutOtherSession ? 1 : 0,
+        'force_logout': forceLogoutOtherSession ? 1 : 0,
       },
     );
 
     final loginData =
         V2SyncUtils.asMap(loginEnvelope['data']) ?? const <String, dynamic>{};
-    final staff =
-        V2SyncUtils.asMap(loginData['staff']) ?? const <String, dynamic>{};
+    final staffData = V2SyncUtils.asMap(loginData['staff']);
+    // Role information may be returned beside `staff` rather than inside it.
+    // Keep the nested identity values as the priority while retaining those
+    // top-level role fields.
+    final staff = <String, dynamic>{...loginData, ...?staffData};
     final deviceSession =
         V2SyncUtils.asMap(loginData['device_session']) ??
         const <String, dynamic>{};
@@ -522,7 +568,9 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     final runtimeSession = PosV2RuntimeSessionStore.instance.currentSession;
     final resolvedRoleCode = resolveRoleCode(
       staff,
-      fallbackRoleCode: runtimeSession?.staffRoleCode,
+      // If an older backend omits role fields entirely, retain the role of the
+      // selected, locally cached staff record—not the account just replaced.
+      fallbackRoleCode: staffRoleCode ?? runtimeSession?.staffRoleCode,
     );
     final effectiveToken =
         V2SyncUtils.asString(loginData['auth_token']) ?? kFlinkV2FixedAuthToken;
@@ -675,6 +723,9 @@ class PosV2AuthService extends BaseV2SyncAdapter {
     required String pin,
     required String deviceId,
     String? registerId,
+    String? staffId,
+    String? staffRoleCode,
+    String? actingStaffId,
     bool forceLogoutOtherSession = false,
   }) async {
     final session = await pinLoginOnly(
@@ -683,6 +734,9 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       pin: pin,
       deviceId: deviceId,
       registerId: registerId,
+      staffId: staffId,
+      staffRoleCode: staffRoleCode,
+      actingStaffId: actingStaffId,
       forceLogoutOtherSession: forceLogoutOtherSession,
     );
     await runBootstrapSync(session);

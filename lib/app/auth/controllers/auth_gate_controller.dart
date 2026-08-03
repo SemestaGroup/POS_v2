@@ -22,16 +22,15 @@ class AuthGateController {
 
   static final AuthGateController instance = AuthGateController._();
 
-  final ValueNotifier<AuthGateState> stateNotifier = ValueNotifier<AuthGateState>(
-    const AuthGateState(
-      isRestoring: true,
-      screen: AuthGateScreen.login,
-    ),
-  );
+  final ValueNotifier<AuthGateState> stateNotifier =
+      ValueNotifier<AuthGateState>(
+        const AuthGateState(isRestoring: true, screen: AuthGateScreen.login),
+      );
 
   Future<void> restoreAndEvaluate() async {
     stateNotifier.value = stateNotifier.value.copyWith(isRestoring: true);
-    final session = await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    final session = await PosV2RuntimeSessionStore.instance
+        .restoreFromDatabase();
     await _evaluateSession(session);
   }
 
@@ -79,21 +78,25 @@ class AuthGateController {
         await ActiveShiftStore.instance.refresh();
         final role = RoleManager.fromCode(session.staffRoleCode);
         final isCashier = role == AppRole.cashier;
-        final hasActiveShift =
+        final activeShift =
             ActiveShiftStore.instance.activeShiftNotifier.value != null;
 
         if (isCashier) {
           // Cashier must always have an active shift before accessing the shell.
           final needsShiftOpen =
-              (session.staffId?.isNotEmpty ?? false) && !hasActiveShift;
-          nextScreen =
-              needsShiftOpen ? AuthGateScreen.shift : AuthGateScreen.shell;
+              (session.staffId?.isNotEmpty ?? false) && !activeShift;
+          nextScreen = needsShiftOpen
+              ? AuthGateScreen.shift
+              : AuthGateScreen.shell;
         } else {
           // Non-cashier (owner/supervisor/etc.):
-          // • If there's already an active shift on this device → go straight to shell (read-only warning shown in UI).
+          // • If there's already an active shift on this device → go straight to shell.
           // • If no active shift → show ShiftGate where they can open a shift OR enter read-only.
           // • If readOnlyMode was already set → go to shell (handled by _handleReadOnlyModeChanged, but guard here too).
-          if (hasActiveShift || ActiveShiftStore.instance.isReadOnly) {
+          // Owner and supervisor are operational overrides: an active shift
+          // belonging to a cashier must not prevent them from entering POS to
+          // investigate or resolve an outlet issue.
+          if (activeShift || ActiveShiftStore.instance.isReadOnly) {
             nextScreen = AuthGateScreen.shell;
           } else {
             nextScreen = AuthGateScreen.shift;

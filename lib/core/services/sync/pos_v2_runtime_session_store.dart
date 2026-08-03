@@ -90,7 +90,7 @@ class PosV2RuntimeSessionStore {
   ValueListenable<PosV2RuntimeSession?> get sessionNotifier => _sessionNotifier;
 
   PosV2RuntimeSession? get currentSession => _sessionNotifier.value;
-  
+
   bool wasForcedOut = false;
 
   /// Set a new session. If the session identity (tenant/staff/device) is the
@@ -158,7 +158,10 @@ class PosV2RuntimeSessionStore {
           COALESCE(app_session.staff_remote_id, staff.remote_id) AS resolved_staff_remote_id,
           COALESCE(app_session.staff_email, staff.email) AS resolved_staff_email,
           COALESCE(app_session.staff_full_name, staff.full_name) AS resolved_staff_full_name,
-          COALESCE(app_session.staff_role_code, staff.role_code, app_tenant.role_code) AS resolved_staff_role_code,
+          -- `staff.role_code` is normalized from the staff profile. Prefer it
+          -- over session data because some API sessions contain a tenant-local
+          -- numeric role ID rather than a usable role code.
+          COALESCE(NULLIF(staff.role_code, ''), app_session.staff_role_code, app_tenant.role_code) AS resolved_staff_role_code,
           app_tenant.tenant_key,
           app_tenant.tenant_code,
           app_tenant.tenant_name,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../staff_selector/tablet_landscape/switch_staff_screen.dart';
 import '../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../../app/role_access/role_manager.dart';
 
@@ -239,111 +240,132 @@ class _ShiftGateScreenState extends State<ShiftGateScreen> {
   ) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        resizeToAvoidBottomInset: true,
-        body: SafeArea(
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 32,
-                ),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 520),
-                  child: Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
-                      side: BorderSide(color: Colors.grey.shade200),
+    return ValueListenableBuilder<ActiveShiftRecord?>(
+      valueListenable: ActiveShiftStore.instance.locationActiveShiftNotifier,
+      builder: (context, locationShift, _) {
+        final isOtherCashierShift =
+            locationShift != null &&
+            locationShift.staffRemoteId != session?.staffId;
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            backgroundColor: theme.scaffoldBackgroundColor,
+            resizeToAvoidBottomInset: true,
+            body: SafeArea(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 32,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(28),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 520),
+                      child: Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(28),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(28),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Container(
-                                width: 52,
-                                height: 52,
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Icon(
-                                  Icons.point_of_sale_rounded,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l10n.shiftGateTitle,
-                                      style: theme.textTheme.headlineSmall
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      l10n.shiftGateSubtitle,
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
-                                            color: Colors.grey.shade700,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (session != null) ...[
-                            const SizedBox(height: 20),
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: Colors.grey.shade200),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              Row(
                                 children: [
-                                  Text(
-                                    session.staffFullName ??
-                                        session.staffEmail ??
-                                        '-',
-                                    style: theme.textTheme.titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary
+                                          .withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    child: Icon(
+                                      Icons.point_of_sale_rounded,
+                                      color: theme.colorScheme.primary,
+                                    ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '${l10n.deviceIdLabel}: ${session.deviceId ?? '-'}',
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${l10n.locationLabel}: ${session.locationId}',
-                                    style: theme.textTheme.bodySmall,
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l10n.shiftGateTitle,
+                                          style: theme.textTheme.headlineSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          l10n.shiftGateSubtitle,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color: Colors.grey.shade700,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
-                          const SizedBox(height: 18),
-                          _buildShiftForm(context, theme, l10n),
-                        ],
+                              if (session != null) ...[
+                                const SizedBox(height: 20),
+                                Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF8FAFC),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        session.staffFullName ??
+                                            session.staffEmail ??
+                                            '-',
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '${l10n.deviceIdLabel}: ${session.deviceId ?? '-'}',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${l10n.locationLabel}: ${session.locationId}',
+                                        style: theme.textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                              const SizedBox(height: 18),
+                              if (isOtherCashierShift)
+                                _buildOtherCashierShiftNotice(
+                                  context,
+                                  theme,
+                                  locationShift,
+                                )
+                              else
+                                _buildShiftForm(context, theme, l10n),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -351,7 +373,64 @@ class _ShiftGateScreenState extends State<ShiftGateScreen> {
               ),
             ),
           ),
-        ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOtherCashierShiftNotice(
+    BuildContext context,
+    ThemeData theme,
+    ActiveShiftRecord shift,
+  ) {
+    final staffName = shift.staffName.trim().isEmpty
+        ? 'kasir lain'
+        : shift.staffName;
+    final shiftName = shift.shiftName.trim().isEmpty
+        ? 'Shift aktif'
+        : shift.shiftName;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFDBA74)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.lock_clock_rounded, color: Color(0xFFB45309)),
+              SizedBox(width: 10),
+              Text(
+                'Shift kasir lain masih aktif',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '$shiftName dibuka oleh $staffName. Kasir hanya dapat memakai dan menutup shift miliknya sendiri.',
+            style: TextStyle(color: Colors.grey.shade800, height: 1.4),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SwitchStaffScreen(lockedMode: true),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.switch_account_rounded),
+              label: const Text('Ganti akun kasir'),
+            ),
+          ),
+        ],
       ),
     );
   }

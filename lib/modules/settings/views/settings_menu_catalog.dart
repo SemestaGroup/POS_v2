@@ -18,13 +18,14 @@ import 'models/settings_menu.dart';
 List<SettingsMenuCategory> buildSettingsMenuCategories(BuildContext context) {
   final l10n = AppLocalizations.of(context)!;
   const ownerOnly = [AppRole.owner];
+  const ownerAndSupervisor = [AppRole.owner, AppRole.supervisor];
 
   return [
     SettingsMenuCategory(
       title: l10n.settingsGeneralTitle,
       subtitle: l10n.settingsGeneralSubtitle,
       icon: Icons.settings_rounded,
-      allowedRoles: ownerOnly,
+      allowedRoles: ownerAndSupervisor,
       subMenus: [
         SettingsSubMenu(
           title: l10n.generalSettingsMenu,
@@ -40,7 +41,7 @@ List<SettingsMenuCategory> buildSettingsMenuCategories(BuildContext context) {
       title: l10n.settingsStoreTitle,
       subtitle: l10n.settingsStoreSubtitle,
       icon: Icons.storefront_rounded,
-      allowedRoles: ownerOnly,
+      allowedRoles: ownerAndSupervisor,
       subMenus: [
         SettingsSubMenu(
           title: l10n.storeProfileMenu,
@@ -56,7 +57,7 @@ List<SettingsMenuCategory> buildSettingsMenuCategories(BuildContext context) {
       title: l10n.settingsPrinterTitle,
       subtitle: l10n.settingsPrinterSubtitle,
       icon: Icons.print_rounded,
-      allowedRoles: ownerOnly,
+      allowedRoles: ownerAndSupervisor,
       subMenus: [
         SettingsSubMenu(
           title: l10n.printerListMenu,

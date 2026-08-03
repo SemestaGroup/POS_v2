@@ -134,9 +134,14 @@ class _OwnerShellViewState extends State<OwnerShellView> {
       case 0:
         return const OwnerOverviewView(key: ValueKey('owner_overview'));
       case 1:
-        return PosWorkspaceView(
-          key: const ValueKey('owner_sales'),
-          isReadOnly: ActiveShiftStore.instance.isReadOnly,
+        return ValueListenableBuilder<bool>(
+          valueListenable: ActiveShiftStore.instance.readOnlyModeNotifier,
+          builder: (context, isReadOnly, _) {
+            return PosWorkspaceView(
+              key: const ValueKey('owner_sales'),
+              isReadOnly: isReadOnly,
+            );
+          },
         );
       case 2:
         return const OperationsShellView(key: ValueKey('owner_operations'));

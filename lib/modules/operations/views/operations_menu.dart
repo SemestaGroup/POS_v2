@@ -80,7 +80,7 @@ List<OperationsMenuDefinition> buildOperationsMenus(BuildContext context) {
       subtitle: 'Histori shift dari database lokal',
       icon: Icons.history_toggle_off_rounded,
       view: ShiftHistoryView(),
-      allowedRoles: [AppRole.owner, AppRole.supervisor, AppRole.cashier],
+      allowedRoles: [AppRole.owner, AppRole.supervisor],
     ),
     OperationsMenuDefinition(
       id: OperationsMenuId.cashFlow,
