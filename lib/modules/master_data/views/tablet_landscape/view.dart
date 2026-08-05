@@ -9,6 +9,7 @@ import '../../catalog/views/promos/tablet_landscape/view.dart';
 import '../../customers/views/customer_list/tablet_landscape/view.dart';
 import '../../staff/views/staff_list/tablet_landscape/view.dart';
 import '../../staff/views/staff_roles/tablet_landscape/view.dart';
+import '../../inventory/views/tablet_landscape/view.dart';
 
 class _SubMenuDefinition {
   final String title;
@@ -48,6 +49,11 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
       _SubMenuDefinition(
         title: l10n.brandsMenu,
         view: const BrandsView(),
+        allowedRoles: [AppRole.owner, AppRole.supervisor],
+      ),
+      _SubMenuDefinition(
+        title: l10n.inventoryMenu,
+        view: const InventoryShellView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
       ),
       _SubMenuDefinition(

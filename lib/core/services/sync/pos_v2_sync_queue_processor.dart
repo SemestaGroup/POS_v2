@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../network/v2_api_client.dart';
 import '../local/database_service.dart';
+import '../sync/pos_v2_runtime_session_store.dart';
 
 class PosV2SyncQueueProcessor {
   PosV2SyncQueueProcessor._();
@@ -15,7 +16,7 @@ class PosV2SyncQueueProcessor {
       '''
       SELECT COUNT(*) as c
       FROM sync_queue
-      WHERE status = 'pending' OR status = 'failed'
+      WHERE status IN ('pending', 'failed', 'deferred')
       ''',
     );
     if (rows.isEmpty) return 0;
@@ -36,6 +37,7 @@ class PosV2SyncQueueProcessor {
         SELECT *
         FROM sync_queue
         WHERE status = 'pending'
+           OR status = 'deferred'
            OR (
              status = 'failed'
              AND (
@@ -65,23 +67,61 @@ class PosV2SyncQueueProcessor {
       return;
     }
 
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session == null) {
+      return;
+    }
+
     _isRunning = true;
     try {
       // Find queue rows whose request_body_json contains the target id_pos.
-      // We rely on a JSON text-search since SQLite has no native JSON query.
-      final rows = await DatabaseService.instance.rawQuery(
+      // We prefer normal relational membership, but still fallback to JSON text-search.
+      final orderLocalIdRows = await DatabaseService.instance.rawQuery(
         '''
-        SELECT *
-        FROM sync_queue
-        WHERE (status = 'pending' OR status = 'failed')
-          AND (
-            request_body_json LIKE ?
-            OR entity_remote_id = ?
-          )
-        ORDER BY priority ASC, created_at ASC
-        LIMIT 10
+        SELECT id
+        FROM pos_order
+        WHERE tenant_id = ? AND id_pos = ?
+        LIMIT 1
         ''',
-        <Object?>['%"id_pos":"$idPos"%', idPos],
+        <Object?>[session.tenantId, idPos],
+      );
+
+      final orderLocalId = orderLocalIdRows.isEmpty
+          ? null
+          : orderLocalIdRows.first['id'] is int
+              ? orderLocalIdRows.first['id'] as int
+              : int.tryParse(orderLocalIdRows.first['id']?.toString() ?? '');
+
+      final queryArgs = <Object?>[session.tenantId, idPos];
+      final sql = StringBuffer()
+        ..write('''
+          SELECT *
+          FROM sync_queue
+          WHERE (status = 'pending' OR status = 'failed' OR status = 'deferred')
+            AND tenant_id = ?
+            AND (
+              entity_remote_id = ?
+      ''');
+
+      if (orderLocalId != null) {
+        sql.write('''
+              OR entity_local_id = ?
+              OR dependency_local_id = ?
+        ''');
+        queryArgs.addAll(<Object?>[orderLocalId, orderLocalId]);
+      }
+
+      queryArgs.add('%"id_pos":"$idPos"%');
+      sql.write('''
+              OR request_body_json LIKE ?
+            )
+          ORDER BY priority ASC, created_at ASC
+          LIMIT 10
+          ''');
+
+      final rows = await DatabaseService.instance.rawQuery(
+        sql.toString(),
+        queryArgs,
       );
 
       for (final row in rows) {
@@ -217,6 +257,9 @@ class PosV2SyncQueueProcessor {
         'sync_queue',
         <String, Object?>{
           'request_body_json': jsonEncode(requestBody),
+          'status': 'pending',
+          'next_retry_at': null,
+          'last_error': null,
           'updated_at': now,
         },
         where: 'id = ?',
@@ -236,6 +279,9 @@ class PosV2SyncQueueProcessor {
     return <String, Object?>{
       ...row,
       'request_body_json': jsonEncode(requestBody),
+      'status': 'pending',
+      'next_retry_at': null,
+      'last_error': null,
     };
   }
 

@@ -76,6 +76,12 @@ class DatabaseService {
     if (oldVersion < 8) {
       await _addColumnIfMissing(db, 'pos_cash_flow', 'shift_session_id', 'INTEGER');
     }
+    if (oldVersion < 11) {
+      await _addColumnIfMissing(db, 'marketplace_item', 'sku_code', 'TEXT');
+      await _addColumnIfMissing(db, 'marketplace_item', 'image_url', 'TEXT');
+      await _addColumnIfMissing(db, 'marketplace_item', 'can_be_inventory', 'TEXT');
+      await _addColumnIfMissing(db, 'marketplace_item', 'images_json', 'TEXT');
+    }
   }
 
   Future<void> _addColumnIfMissing(

@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 8;
+  static const int version = 11;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -399,6 +399,29 @@ CREATE TABLE IF NOT EXISTS pos_role (
   UNIQUE(tenant_id, role_id),
   FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS marketplace_item (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  item_remote_id TEXT,
+  description TEXT,
+  rate TEXT,
+  commodity_code TEXT,
+  sku_code TEXT,
+  group_name TEXT,
+  image_url TEXT,
+  can_be_inventory TEXT,
+  images_json TEXT,
+  raw_payload_json TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  UNIQUE(tenant_id, item_remote_id),
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_marketplace_item_tenant_created
+  ON marketplace_item(tenant_id, created_at);
 
 CREATE TABLE IF NOT EXISTS pos_promo (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1142,6 +1165,27 @@ CREATE INDEX IF NOT EXISTS idx_sync_queue_entity
 
 CREATE INDEX IF NOT EXISTS idx_sync_queue_endpoint
   ON sync_queue(tenant_id, endpoint, status);
+
+CREATE TABLE IF NOT EXISTS purchase_order_request (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  product_id INTEGER NOT NULL,
+  product_remote_id TEXT,
+  product_name TEXT,
+  product_sku TEXT,
+  quantity REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  sync_state TEXT NOT NULL DEFAULT 'dirty',
+  last_synced_at TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE,
+  FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_request_tenant_status
+  ON purchase_order_request(tenant_id, status);
 
 CREATE TABLE IF NOT EXISTS error_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

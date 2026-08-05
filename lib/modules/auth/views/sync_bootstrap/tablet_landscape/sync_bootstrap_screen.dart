@@ -6,6 +6,7 @@ import '../../../../../l10n/app_localizations.dart';
 import '../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../../../../../core/services/sync/pos_v2_sync_status_store.dart';
+import '../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../sales/shared/models/pos_catalog_store.dart';
 import '../../../../sales/shared/models/sales_order_store.dart';
 
@@ -26,6 +27,8 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
   static const String _fontRegular = 'popreg';
 
   bool _hasError = false;
+  bool _allowOfflineContinue = false;
+  bool _isAttemptingOffline = false;
   String _errorMessage = '';
   String _loadingStatus = '';
   double _progress = 0.0;
@@ -42,6 +45,8 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
     final l10n = AppLocalizations.of(context)!;
     setState(() {
       _hasError = false;
+      _allowOfflineContinue = false;
+      _isAttemptingOffline = false;
       _errorMessage = '';
       _loadingStatus = l10n.syncPreparingSettings;
       _progress = 0.05;
@@ -181,6 +186,47 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
         _errorMessage = e.toString();
       });
       PosV2SyncStatusStore.instance.fail(e.toString());
+      await _prepareOfflineState();
+      final hasLocalCache = await _hasLocalCache();
+      if (!mounted) return;
+      setState(() {
+        _allowOfflineContinue = hasLocalCache;
+      });
+    }
+  }
+
+  Future<void> _prepareOfflineState() async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session == null) {
+      return;
+    }
+    await PosCatalogStore.instance.refresh();
+    await SalesOrderStore.instance.refreshFromPersistence();
+  }
+
+  Future<bool> _hasLocalCache() async {
+    final snapshot = PosCatalogStore.instance.snapshotNotifier.value;
+    if (snapshot.hasData) {
+      return true;
+    }
+    return SalesOrderStore.instance.recordsNotifier.value.isNotEmpty;
+  }
+
+  Future<void> _enterOfflineMode() async {
+    if (_isAttemptingOffline) return;
+
+    setState(() {
+      _isAttemptingOffline = true;
+      _errorMessage = '';
+    });
+
+    try {
+      await _prepareOfflineState();
+      ActiveShiftStore.instance.enterReadOnlyMode();
+    } finally {
+      if (mounted) {
+        setState(() => _isAttemptingOffline = false);
+      }
     }
   }
 
@@ -276,7 +322,19 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      if (_allowOfflineContinue) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          'Cached data is available. You may continue in read-only mode.',
+                          style: TextStyle(
+                            fontFamily: _fontRegular,
+                            fontSize: 12,
+                            color: Colors.grey.shade700,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
@@ -299,6 +357,31 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
                           ),
                         ),
                       ),
+                      if (_allowOfflineContinue) ...[
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _isAttemptingOffline
+                                ? null
+                                : _enterOfflineMode,
+                            child: Text(
+                              l10n.enterWithoutShift,
+                              style: const TextStyle(
+                                fontFamily: _fontBold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _primaryColor,
+                              side: BorderSide(color: _primaryColor),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

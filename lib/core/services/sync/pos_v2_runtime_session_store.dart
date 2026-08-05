@@ -53,6 +53,42 @@ class PosV2RuntimeSession {
       staffFullName: staffFullName,
     );
   }
+
+  PosV2RuntimeSession copyWith({
+    int? tenantId,
+    String? tenantKey,
+    String? baseUrl,
+    String? authToken,
+    String? locationId,
+    String? tenantCode,
+    String? tenantName,
+    String? deviceId,
+    String? registerId,
+    String? deviceName,
+    String? staffId,
+    String? staffEmail,
+    String? staffFullName,
+    String? staffRoleCode,
+    String? lastBootstrapAt,
+  }) {
+    return PosV2RuntimeSession(
+      tenantId: tenantId ?? this.tenantId,
+      tenantKey: tenantKey ?? this.tenantKey,
+      baseUrl: baseUrl ?? this.baseUrl,
+      authToken: authToken ?? this.authToken,
+      locationId: locationId ?? this.locationId,
+      tenantCode: tenantCode ?? this.tenantCode,
+      tenantName: tenantName ?? this.tenantName,
+      deviceId: deviceId ?? this.deviceId,
+      registerId: registerId ?? this.registerId,
+      deviceName: deviceName ?? this.deviceName,
+      staffId: staffId ?? this.staffId,
+      staffEmail: staffEmail ?? this.staffEmail,
+      staffFullName: staffFullName ?? this.staffFullName,
+      staffRoleCode: staffRoleCode ?? this.staffRoleCode,
+      lastBootstrapAt: lastBootstrapAt ?? this.lastBootstrapAt,
+    );
+  }
 }
 
 /// A ValueNotifier that supports a silent write which updates the stored value

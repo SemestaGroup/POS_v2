@@ -716,6 +716,36 @@ abstract class AppLocalizations {
   /// **'Brands'**
   String get brandsMenu;
 
+  /// No description provided for @inventoryMenu.
+  ///
+  /// In en, this message translates to:
+  /// **'Inventory'**
+  String get inventoryMenu;
+
+  /// Purchase marketplace title
+  String get purchaseMarketplaceTitle;
+
+  /// Purchase marketplace subtitle
+  String get purchaseMarketplaceSubtitle;
+
+  /// Marketplace search hint
+  String get marketplaceSearchHint;
+
+  /// Marketplace empty title
+  String get marketplaceEmptyTitle;
+
+  /// Notice shown when offline
+  String get marketplaceOfflineNotice;
+
+  /// Purchase request saved message with item name
+  String purchaseRequestSavedMessage(String itemName);
+
+  /// Purchase request failed message with error
+  String purchaseRequestFailedMessage(String error);
+
+  /// Quantity must be greater than zero
+  String get quantityMustBeGreaterThanZero;
+
   /// No description provided for @promosMenu.
   ///
   /// In en, this message translates to:

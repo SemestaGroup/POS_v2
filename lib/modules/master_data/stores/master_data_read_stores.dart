@@ -33,8 +33,8 @@ class MasterDataListSnapshot<T> {
   }
 }
 
-abstract class _BaseMasterDataStore<T> {
-  _BaseMasterDataStore() {
+abstract class BaseMasterDataStore<T> {
+  BaseMasterDataStore() {
     PosV2RuntimeSessionStore.instance.sessionNotifier.addListener(_onSessionChanged);
   }
 
@@ -212,7 +212,7 @@ class CustomerListRecord {
   final int pointsBalance;
 }
 
-class ProductListStore extends _BaseMasterDataStore<ProductListRecord> {
+class ProductListStore extends BaseMasterDataStore<ProductListRecord> {
   ProductListStore._();
 
   static final ProductListStore instance = ProductListStore._();
@@ -344,7 +344,7 @@ class ProductListStore extends _BaseMasterDataStore<ProductListRecord> {
   }
 }
 
-class CategoryListStore extends _BaseMasterDataStore<CategoryListRecord> {
+class CategoryListStore extends BaseMasterDataStore<CategoryListRecord> {
   CategoryListStore._();
 
   static final CategoryListStore instance = CategoryListStore._();
@@ -398,7 +398,7 @@ class CategoryListStore extends _BaseMasterDataStore<CategoryListRecord> {
   }
 }
 
-class BrandListStore extends _BaseMasterDataStore<BrandListRecord> {
+class BrandListStore extends BaseMasterDataStore<BrandListRecord> {
   BrandListStore._();
 
   static final BrandListStore instance = BrandListStore._();
@@ -447,7 +447,7 @@ class BrandListStore extends _BaseMasterDataStore<BrandListRecord> {
   }
 }
 
-class PromoListStore extends _BaseMasterDataStore<PromoListRecord> {
+class PromoListStore extends BaseMasterDataStore<PromoListRecord> {
   PromoListStore._();
 
   static final PromoListStore instance = PromoListStore._();
@@ -501,7 +501,7 @@ class PromoListStore extends _BaseMasterDataStore<PromoListRecord> {
   }
 }
 
-class StaffListStore extends _BaseMasterDataStore<StaffListRecord> {
+class StaffListStore extends BaseMasterDataStore<StaffListRecord> {
   StaffListStore._();
 
   static final StaffListStore instance = StaffListStore._();
@@ -571,7 +571,7 @@ class StaffListStore extends _BaseMasterDataStore<StaffListRecord> {
   }
 }
 
-class CustomerListStore extends _BaseMasterDataStore<CustomerListRecord> {
+class CustomerListStore extends BaseMasterDataStore<CustomerListRecord> {
   CustomerListStore._();
 
   static final CustomerListStore instance = CustomerListStore._();
