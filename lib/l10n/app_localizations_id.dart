@@ -101,6 +101,16 @@ class AppLocalizationsId extends AppLocalizations {
   String get walkInCustomer => 'Pelanggan Biasa';
 
   @override
+  String get includeWalkIn => 'Tampilkan walk-in';
+
+  @override
+  String get walkInScopeDescription =>
+      'Mengubah seluruh metrik dan tren pelanggan';
+
+  @override
+  String get walkIn => 'Walk-in';
+
+  @override
   String get dineIn => 'Dine In';
 
   @override
@@ -1359,6 +1369,61 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get activeCustomers => 'Pelanggan Aktif';
+
+  @override
+  String get customerSummaryTitle => 'Ringkasan pelanggan';
+
+  @override
+  String get registeredCustomers => 'Pelanggan terdaftar';
+
+  @override
+  String get newCustomers => 'Pelanggan baru';
+
+  @override
+  String get returningCustomers => 'Pelanggan kembali';
+
+  @override
+  String get customerActivePeriodHint => 'Bertransaksi dalam periode terpilih';
+
+  @override
+  String get customerNewPeriodHint => 'Pada periode terpilih';
+
+  @override
+  String get customerReturningPeriodHint => '2× transaksi / 90 hari';
+
+  @override
+  String get customerTrendTitle => 'Tren pelanggan';
+
+  @override
+  String get customerTrendSubtitle =>
+      'Aktivitas pelanggan per hari dalam periode terpilih';
+
+  @override
+  String get topCustomersTitle => 'Pelanggan teraktif';
+
+  @override
+  String get topCustomersSubtitle =>
+      'Diurutkan dari jumlah transaksi terbanyak';
+
+  @override
+  String customerTransactionCount(int count) {
+    return '$count transaksi';
+  }
+
+  @override
+  String get topCustomersEmpty =>
+      'Belum ada transaksi pelanggan terdaftar pada periode ini.';
+
+  @override
+  String get customerMetricsEmptyTitle => 'Belum ada aktivitas pelanggan';
+
+  @override
+  String get customerMetricsEmptyMessage =>
+      'Transaksi pelanggan yang tercatat akan muncul sebagai insight di sini.';
+
+  @override
+  String get customerMetricsLoadError =>
+      'Ringkasan pelanggan belum dapat dimuat.';
 
   @override
   String get inLast30Days => 'Dalam 30 hari terakhir';

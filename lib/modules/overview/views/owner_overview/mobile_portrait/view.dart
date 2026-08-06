@@ -20,6 +20,7 @@ class OwnerOverviewMobileView extends StatefulWidget {
 class _OwnerOverviewMobileViewState extends State<OwnerOverviewMobileView> {
   int _selectedTab = 0; // 0 for Sales, 1 for Customer
   DateTimeRange? _selectedDateRange;
+  bool _includeWalkIns = false;
 
   @override
   void initState() {
@@ -123,7 +124,18 @@ class _OwnerOverviewMobileViewState extends State<OwnerOverviewMobileView> {
                         return SalesMetricsMobileView(snapshot: snapshot);
                       },
                     )
-                  : const CustomerMetricsMobileView(),
+                  : ValueListenableBuilder<OverviewSnapshot>(
+                      valueListenable: OverviewStore.instance.snapshotNotifier,
+                      builder: (context, snapshot, _) {
+                        return CustomerMetricsMobileView(
+                          snapshot: snapshot,
+                          includeWalkIns: _includeWalkIns,
+                          onIncludeWalkInsChanged: (value) {
+                            setState(() => _includeWalkIns = value);
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),

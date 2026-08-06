@@ -101,6 +101,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get walkInCustomer => 'Walk-In Customer';
 
   @override
+  String get includeWalkIn => 'Show walk-in';
+
+  @override
+  String get walkInScopeDescription =>
+      'Updates all customer metrics and trends';
+
+  @override
+  String get walkIn => 'Walk-in';
+
+  @override
   String get dineIn => 'Dine In';
 
   @override
@@ -1372,6 +1382,60 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get activeCustomers => 'Active Customers';
+
+  @override
+  String get customerSummaryTitle => 'Customer overview';
+
+  @override
+  String get registeredCustomers => 'Registered customers';
+
+  @override
+  String get newCustomers => 'New customers';
+
+  @override
+  String get returningCustomers => 'Returning customers';
+
+  @override
+  String get customerActivePeriodHint => 'Purchased during the selected period';
+
+  @override
+  String get customerNewPeriodHint => 'In the selected period';
+
+  @override
+  String get customerReturningPeriodHint => '2+ purchases / 90 days';
+
+  @override
+  String get customerTrendTitle => 'Customer trend';
+
+  @override
+  String get customerTrendSubtitle =>
+      'Daily customer activity in the selected period';
+
+  @override
+  String get topCustomersTitle => 'Most active customers';
+
+  @override
+  String get topCustomersSubtitle => 'Ranked by transaction count';
+
+  @override
+  String customerTransactionCount(int count) {
+    return '$count transactions';
+  }
+
+  @override
+  String get topCustomersEmpty =>
+      'No identified customer transactions in this period.';
+
+  @override
+  String get customerMetricsEmptyTitle => 'No customer activity yet';
+
+  @override
+  String get customerMetricsEmptyMessage =>
+      'Identified customer transactions will appear as insights here.';
+
+  @override
+  String get customerMetricsLoadError =>
+      'Customer overview could not be loaded.';
 
   @override
   String get inLast30Days => 'In the last 30 days';

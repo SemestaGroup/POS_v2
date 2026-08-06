@@ -266,6 +266,24 @@ abstract class AppLocalizations {
   /// **'Walk-In Customer'**
   String get walkInCustomer;
 
+  /// No description provided for @includeWalkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Show walk-in'**
+  String get includeWalkIn;
+
+  /// No description provided for @walkInScopeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Updates all customer metrics and trends'**
+  String get walkInScopeDescription;
+
+  /// No description provided for @walkIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Walk-in'**
+  String get walkIn;
+
   /// No description provided for @dineIn.
   ///
   /// In en, this message translates to:
@@ -2549,6 +2567,102 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Active Customers'**
   String get activeCustomers;
+
+  /// No description provided for @customerSummaryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer overview'**
+  String get customerSummaryTitle;
+
+  /// No description provided for @registeredCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'Registered customers'**
+  String get registeredCustomers;
+
+  /// No description provided for @newCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'New customers'**
+  String get newCustomers;
+
+  /// No description provided for @returningCustomers.
+  ///
+  /// In en, this message translates to:
+  /// **'Returning customers'**
+  String get returningCustomers;
+
+  /// No description provided for @customerActivePeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchased during the selected period'**
+  String get customerActivePeriodHint;
+
+  /// No description provided for @customerNewPeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'In the selected period'**
+  String get customerNewPeriodHint;
+
+  /// No description provided for @customerReturningPeriodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'2+ purchases / 90 days'**
+  String get customerReturningPeriodHint;
+
+  /// No description provided for @customerTrendTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer trend'**
+  String get customerTrendTitle;
+
+  /// No description provided for @customerTrendSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily customer activity in the selected period'**
+  String get customerTrendSubtitle;
+
+  /// No description provided for @topCustomersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Most active customers'**
+  String get topCustomersTitle;
+
+  /// No description provided for @topCustomersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Ranked by transaction count'**
+  String get topCustomersSubtitle;
+
+  /// No description provided for @customerTransactionCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} transactions'**
+  String customerTransactionCount(int count);
+
+  /// No description provided for @topCustomersEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No identified customer transactions in this period.'**
+  String get topCustomersEmpty;
+
+  /// No description provided for @customerMetricsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No customer activity yet'**
+  String get customerMetricsEmptyTitle;
+
+  /// No description provided for @customerMetricsEmptyMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Identified customer transactions will appear as insights here.'**
+  String get customerMetricsEmptyMessage;
+
+  /// No description provided for @customerMetricsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer overview could not be loaded.'**
+  String get customerMetricsLoadError;
 
   /// No description provided for @inLast30Days.
   ///

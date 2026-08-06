@@ -51,6 +51,9 @@
   "orders": "Orders",
   "customer": "Customer",
   "walkInCustomer": "Walk-In Customer",
+  "includeWalkIn": "Show walk-in",
+  "walkInScopeDescription": "Updates all customer metrics and trends",
+  "walkIn": "Walk-in",
   "dineIn": "Dine In",
   "orderNote": "Order Note",
   "subtotal": "Subtotal",
@@ -621,6 +624,29 @@
     }
   },
   "activeCustomers": "Active Customers",
+  "customerSummaryTitle": "Customer overview",
+  "registeredCustomers": "Registered customers",
+  "newCustomers": "New customers",
+  "returningCustomers": "Returning customers",
+  "customerActivePeriodHint": "Purchased during the selected period",
+  "customerNewPeriodHint": "In the selected period",
+  "customerReturningPeriodHint": "2+ purchases / 90 days",
+  "customerTrendTitle": "Customer trend",
+  "customerTrendSubtitle": "Daily customer activity in the selected period",
+  "topCustomersTitle": "Most active customers",
+  "topCustomersSubtitle": "Ranked by transaction count",
+  "customerTransactionCount": "{count} transactions",
+  "@customerTransactionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "topCustomersEmpty": "No identified customer transactions in this period.",
+  "customerMetricsEmptyTitle": "No customer activity yet",
+  "customerMetricsEmptyMessage": "Identified customer transactions will appear as insights here.",
+  "customerMetricsLoadError": "Customer overview could not be loaded.",
   "inLast30Days": "In the last 30 days",
   "averageVisits": "Average Visits",
   "visitsPerMonth": "Visits per month",

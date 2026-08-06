@@ -20,6 +20,7 @@ class _OwnerOverviewTabletLandscapeViewState
     extends State<OwnerOverviewTabletLandscapeView> {
   int _selectedTab = 0; // 0 for Sales, 1 for Customer
   DateTimeRange? _selectedDateRange;
+  bool _includeWalkIns = false;
 
   @override
   void initState() {
@@ -123,7 +124,18 @@ class _OwnerOverviewTabletLandscapeViewState
                         return SalesMetricsView(snapshot: snapshot);
                       },
                     )
-                  : const CustomerMetricsView(),
+                  : ValueListenableBuilder<OverviewSnapshot>(
+                      valueListenable: OverviewStore.instance.snapshotNotifier,
+                      builder: (context, snapshot, _) {
+                        return CustomerMetricsView(
+                          snapshot: snapshot,
+                          includeWalkIns: _includeWalkIns,
+                          onIncludeWalkInsChanged: (value) {
+                            setState(() => _includeWalkIns = value);
+                          },
+                        );
+                      },
+                    ),
             ),
           ],
         ),

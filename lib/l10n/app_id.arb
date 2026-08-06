@@ -27,6 +27,9 @@
   "orders": "Pesanan",
   "customer": "Pelanggan",
   "walkInCustomer": "Pelanggan Biasa",
+  "includeWalkIn": "Tampilkan walk-in",
+  "walkInScopeDescription": "Mengubah seluruh metrik dan tren pelanggan",
+  "walkIn": "Walk-in",
   "dineIn": "Dine In",
   "orderNote": "Catatan",
   "subtotal": "Subtotal",
@@ -572,6 +575,29 @@
     }
   },
   "activeCustomers": "Pelanggan Aktif",
+  "customerSummaryTitle": "Ringkasan pelanggan",
+  "registeredCustomers": "Pelanggan terdaftar",
+  "newCustomers": "Pelanggan baru",
+  "returningCustomers": "Pelanggan kembali",
+  "customerActivePeriodHint": "Bertransaksi dalam periode terpilih",
+  "customerNewPeriodHint": "Pada periode terpilih",
+  "customerReturningPeriodHint": "2× transaksi / 90 hari",
+  "customerTrendTitle": "Tren pelanggan",
+  "customerTrendSubtitle": "Aktivitas pelanggan per hari dalam periode terpilih",
+  "topCustomersTitle": "Pelanggan teraktif",
+  "topCustomersSubtitle": "Diurutkan dari jumlah transaksi terbanyak",
+  "customerTransactionCount": "{count} transaksi",
+  "@customerTransactionCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "topCustomersEmpty": "Belum ada transaksi pelanggan terdaftar pada periode ini.",
+  "customerMetricsEmptyTitle": "Belum ada aktivitas pelanggan",
+  "customerMetricsEmptyMessage": "Transaksi pelanggan yang tercatat akan muncul sebagai insight di sini.",
+  "customerMetricsLoadError": "Ringkasan pelanggan belum dapat dimuat.",
   "inLast30Days": "Dalam 30 hari terakhir",
   "averageVisits": "Rata-rata Kunjungan",
   "visitsPerMonth": "Kunjungan per bulan",

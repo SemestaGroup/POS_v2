@@ -46,6 +46,32 @@ class DailyTransactionRecord {
   DailyTransactionRecord(this.label, this.count);
 }
 
+class CustomerTrendRecord {
+  final String label;
+  final int activeCustomers;
+  final int newCustomers;
+
+  const CustomerTrendRecord({
+    required this.label,
+    required this.activeCustomers,
+    required this.newCustomers,
+  });
+}
+
+class TopCustomerRecord {
+  final String name;
+  final int transactionCount;
+  final int totalSales;
+  final bool isWalkIn;
+
+  const TopCustomerRecord({
+    required this.name,
+    required this.transactionCount,
+    required this.totalSales,
+    this.isWalkIn = false,
+  });
+}
+
 class OverviewSnapshot {
   final bool isLoading;
   final int salesToday;
@@ -57,6 +83,18 @@ class OverviewSnapshot {
   final List<RecentTransactionRecord> recentTransactions;
   final List<HourlySalesRecord> hourlySales;
   final List<DailyTransactionRecord> dailyTransactions;
+  final int totalCustomers;
+  final int newCustomers;
+  final int activeCustomers;
+  final int returningCustomers;
+  final List<CustomerTrendRecord> customerTrend;
+  final List<TopCustomerRecord> topCustomers;
+  final int totalCustomersIncludingWalkIns;
+  final int newCustomersIncludingWalkIns;
+  final int activeCustomersIncludingWalkIns;
+  final int returningCustomersIncludingWalkIns;
+  final List<CustomerTrendRecord> customerTrendIncludingWalkIns;
+  final List<TopCustomerRecord> topCustomersIncludingWalkIns;
   final String? errorMessage;
   final String periodLabel;
 
@@ -71,6 +109,18 @@ class OverviewSnapshot {
     this.recentTransactions = const [],
     this.hourlySales = const [],
     this.dailyTransactions = const [],
+    this.totalCustomers = 0,
+    this.newCustomers = 0,
+    this.activeCustomers = 0,
+    this.returningCustomers = 0,
+    this.customerTrend = const [],
+    this.topCustomers = const [],
+    this.totalCustomersIncludingWalkIns = 0,
+    this.newCustomersIncludingWalkIns = 0,
+    this.activeCustomersIncludingWalkIns = 0,
+    this.returningCustomersIncludingWalkIns = 0,
+    this.customerTrendIncludingWalkIns = const [],
+    this.topCustomersIncludingWalkIns = const [],
     this.errorMessage,
     this.periodLabel = 'Hari Ini',
   });
@@ -86,6 +136,18 @@ class OverviewSnapshot {
     List<RecentTransactionRecord>? recentTransactions,
     List<HourlySalesRecord>? hourlySales,
     List<DailyTransactionRecord>? dailyTransactions,
+    int? totalCustomers,
+    int? newCustomers,
+    int? activeCustomers,
+    int? returningCustomers,
+    List<CustomerTrendRecord>? customerTrend,
+    List<TopCustomerRecord>? topCustomers,
+    int? totalCustomersIncludingWalkIns,
+    int? newCustomersIncludingWalkIns,
+    int? activeCustomersIncludingWalkIns,
+    int? returningCustomersIncludingWalkIns,
+    List<CustomerTrendRecord>? customerTrendIncludingWalkIns,
+    List<TopCustomerRecord>? topCustomersIncludingWalkIns,
     String? errorMessage,
     String? periodLabel,
     bool clearError = false,
@@ -101,6 +163,26 @@ class OverviewSnapshot {
       recentTransactions: recentTransactions ?? this.recentTransactions,
       hourlySales: hourlySales ?? this.hourlySales,
       dailyTransactions: dailyTransactions ?? this.dailyTransactions,
+      totalCustomers: totalCustomers ?? this.totalCustomers,
+      newCustomers: newCustomers ?? this.newCustomers,
+      activeCustomers: activeCustomers ?? this.activeCustomers,
+      returningCustomers: returningCustomers ?? this.returningCustomers,
+      customerTrend: customerTrend ?? this.customerTrend,
+      topCustomers: topCustomers ?? this.topCustomers,
+      totalCustomersIncludingWalkIns:
+          totalCustomersIncludingWalkIns ?? this.totalCustomersIncludingWalkIns,
+      newCustomersIncludingWalkIns:
+          newCustomersIncludingWalkIns ?? this.newCustomersIncludingWalkIns,
+      activeCustomersIncludingWalkIns:
+          activeCustomersIncludingWalkIns ??
+          this.activeCustomersIncludingWalkIns,
+      returningCustomersIncludingWalkIns:
+          returningCustomersIncludingWalkIns ??
+          this.returningCustomersIncludingWalkIns,
+      customerTrendIncludingWalkIns:
+          customerTrendIncludingWalkIns ?? this.customerTrendIncludingWalkIns,
+      topCustomersIncludingWalkIns:
+          topCustomersIncludingWalkIns ?? this.topCustomersIncludingWalkIns,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       periodLabel: periodLabel ?? this.periodLabel,
     );
@@ -335,11 +417,341 @@ class OverviewStore {
         );
       }
 
-      // 7. Status Sync
+      // 7. Customer overview. The POS stores its default walk-in customer
+      // with remote_id '1'. Both registered-only and inclusive values are
+      // prepared so the UI can switch the entire customer overview instantly.
+      const customerKey =
+          "COALESCE(NULLIF(customer_remote_id, ''), CAST(customer_id AS TEXT))";
+      const orderDate =
+          "REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ')";
+
+      final totalCustomersResult = await db.rawQuery(
+        '''
+        SELECT COUNT(id) AS count
+        FROM customer
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND COALESCE(remote_id, '') <> '1'
+        ''',
+        [tenantId],
+      );
+      final totalCustomers =
+          (totalCustomersResult.first['count'] as num?)?.toInt() ?? 0;
+      final totalCustomersIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT COUNT(id) AS count
+        FROM customer
+        WHERE tenant_id = ? AND deleted_at IS NULL
+        ''',
+        [tenantId],
+      );
+      final totalCustomersIncludingWalkIns =
+          (totalCustomersIncludingWalkInsResult.first['count'] as num?)
+              ?.toInt() ??
+          0;
+
+      final newCustomersResult = await db.rawQuery(
+        '''
+        SELECT COUNT(id) AS count
+        FROM customer
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND COALESCE(remote_id, '') <> '1'
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') <= ?
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final newCustomers =
+          (newCustomersResult.first['count'] as num?)?.toInt() ?? 0;
+      final newCustomersIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT COUNT(id) AS count
+        FROM customer
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') <= ?
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final newCustomersIncludingWalkIns =
+          (newCustomersIncludingWalkInsResult.first['count'] as num?)
+              ?.toInt() ??
+          0;
+
+      final activeCustomersResult = await db.rawQuery(
+        '''
+        SELECT COUNT(DISTINCT $customerKey) AS count
+        FROM pos_order
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND status_code IN ('2', '4')
+          AND $customerKey IS NOT NULL
+          AND COALESCE(NULLIF(customer_remote_id, ''), '') <> '1'
+          AND $orderDate >= ?
+          AND $orderDate <= ?
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final activeCustomers =
+          (activeCustomersResult.first['count'] as num?)?.toInt() ?? 0;
+      final activeCustomersIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT COUNT(DISTINCT $customerKey) AS count
+        FROM pos_order
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND status_code IN ('2', '4')
+          AND $customerKey IS NOT NULL
+          AND $orderDate >= ?
+          AND $orderDate <= ?
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final activeCustomersIncludingWalkIns =
+          (activeCustomersIncludingWalkInsResult.first['count'] as num?)
+              ?.toInt() ??
+          0;
+
+      final topCustomersResult = await db.rawQuery(
+        '''
+        SELECT
+          COALESCE(NULLIF(c.display_name, ''), NULLIF(c.company_name, ''), '') AS customer_name,
+          COUNT(o.id) AS transaction_count,
+          SUM(o.total_amount) AS total_sales
+        FROM pos_order o
+        LEFT JOIN customer c ON c.tenant_id = o.tenant_id
+          AND c.deleted_at IS NULL
+          AND (
+            c.id = o.customer_id
+            OR (o.customer_id IS NULL AND c.remote_id = o.customer_remote_id)
+          )
+        WHERE o.tenant_id = ?
+          AND o.deleted_at IS NULL
+          AND o.status_code IN ('2', '4')
+          AND COALESCE(NULLIF(o.customer_remote_id, ''), CAST(o.customer_id AS TEXT)) IS NOT NULL
+          AND COALESCE(NULLIF(o.customer_remote_id, ''), '') <> '1'
+          AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= ?
+        GROUP BY COALESCE(NULLIF(o.customer_remote_id, ''), CAST(o.customer_id AS TEXT)), customer_name
+        ORDER BY transaction_count DESC, total_sales DESC
+        LIMIT 5
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final topCustomers = topCustomersResult
+          .map(
+            (row) => TopCustomerRecord(
+              name: row['customer_name']?.toString().trim() ?? '',
+              transactionCount:
+                  (row['transaction_count'] as num?)?.toInt() ?? 0,
+              totalSales: (row['total_sales'] as num?)?.toInt() ?? 0,
+            ),
+          )
+          .toList();
+
+      final topCustomersIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT
+          COALESCE(NULLIF(c.display_name, ''), NULLIF(c.company_name, ''), '') AS customer_name,
+          COUNT(o.id) AS transaction_count,
+          SUM(o.total_amount) AS total_sales,
+          CASE
+            WHEN COALESCE(NULLIF(o.customer_remote_id, ''), '') = '1' THEN 1
+            ELSE 0
+          END AS is_walk_in
+        FROM pos_order o
+        LEFT JOIN customer c ON c.tenant_id = o.tenant_id
+          AND c.deleted_at IS NULL
+          AND (
+            c.id = o.customer_id
+            OR (o.customer_id IS NULL AND c.remote_id = o.customer_remote_id)
+          )
+        WHERE o.tenant_id = ?
+          AND o.deleted_at IS NULL
+          AND o.status_code IN ('2', '4')
+          AND COALESCE(NULLIF(o.customer_remote_id, ''), CAST(o.customer_id AS TEXT)) IS NOT NULL
+          AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= ?
+        GROUP BY COALESCE(NULLIF(o.customer_remote_id, ''), CAST(o.customer_id AS TEXT)), customer_name
+        ORDER BY transaction_count DESC, total_sales DESC
+        LIMIT 5
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final topCustomersIncludingWalkIns = topCustomersIncludingWalkInsResult
+          .map(
+            (row) => TopCustomerRecord(
+              name: row['customer_name']?.toString().trim() ?? '',
+              transactionCount:
+                  (row['transaction_count'] as num?)?.toInt() ?? 0,
+              totalSales: (row['total_sales'] as num?)?.toInt() ?? 0,
+              isWalkIn: (row['is_walk_in'] as num?)?.toInt() == 1,
+            ),
+          )
+          .toList();
+
+      final returningStartStr = _dbDate(
+        endRange.subtract(const Duration(days: 89)),
+      );
+      final returningCustomersResult = await db.rawQuery(
+        '''
+        SELECT COUNT(*) AS count
+        FROM (
+          SELECT $customerKey AS customer_key
+          FROM pos_order
+          WHERE tenant_id = ?
+            AND deleted_at IS NULL
+            AND status_code IN ('2', '4')
+            AND $customerKey IS NOT NULL
+            AND COALESCE(NULLIF(customer_remote_id, ''), '') <> '1'
+            AND $orderDate >= ?
+            AND $orderDate <= ?
+          GROUP BY customer_key
+          HAVING COUNT(id) >= 2
+        )
+        ''',
+        [tenantId, returningStartStr, endStr],
+      );
+      final returningCustomers =
+          (returningCustomersResult.first['count'] as num?)?.toInt() ?? 0;
+      final returningCustomersIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT COUNT(*) AS count
+        FROM (
+          SELECT $customerKey AS customer_key
+          FROM pos_order
+          WHERE tenant_id = ?
+            AND deleted_at IS NULL
+            AND status_code IN ('2', '4')
+            AND $customerKey IS NOT NULL
+            AND $orderDate >= ?
+            AND $orderDate <= ?
+          GROUP BY customer_key
+          HAVING COUNT(id) >= 2
+        )
+        ''',
+        [tenantId, returningStartStr, endStr],
+      );
+      final returningCustomersIncludingWalkIns =
+          (returningCustomersIncludingWalkInsResult.first['count'] as num?)
+              ?.toInt() ??
+          0;
+
+      final activeCustomerTrendResult = await db.rawQuery(
+        '''
+        SELECT date($orderDate) AS day_date,
+               COUNT(DISTINCT $customerKey) AS count
+        FROM pos_order
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND status_code IN ('2', '4')
+          AND $customerKey IS NOT NULL
+          AND COALESCE(NULLIF(customer_remote_id, ''), '') <> '1'
+          AND $orderDate >= ?
+          AND $orderDate <= ?
+        GROUP BY day_date
+        ORDER BY day_date ASC
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final newCustomerTrendResult = await db.rawQuery(
+        '''
+        SELECT date(REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ')) AS day_date,
+               COUNT(id) AS count
+        FROM customer
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND COALESCE(remote_id, '') <> '1'
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') <= ?
+        GROUP BY day_date
+        ORDER BY day_date ASC
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final activeCustomerTrendIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT date($orderDate) AS day_date,
+               COUNT(DISTINCT $customerKey) AS count
+        FROM pos_order
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND status_code IN ('2', '4')
+          AND $customerKey IS NOT NULL
+          AND $orderDate >= ?
+          AND $orderDate <= ?
+        GROUP BY day_date
+        ORDER BY day_date ASC
+        ''',
+        [tenantId, startStr, endStr],
+      );
+      final newCustomerTrendIncludingWalkInsResult = await db.rawQuery(
+        '''
+        SELECT date(REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ')) AS day_date,
+               COUNT(id) AS count
+        FROM customer
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') >= ?
+          AND REPLACE(COALESCE(NULLIF(created_at, ''), updated_at), 'T', ' ') <= ?
+        GROUP BY day_date
+        ORDER BY day_date ASC
+        ''',
+        [tenantId, startStr, endStr],
+      );
+
+      final activeCustomerTrend = <String, int>{
+        for (final row in activeCustomerTrendResult)
+          if (row['day_date'] != null)
+            row['day_date'].toString(): (row['count'] as num?)?.toInt() ?? 0,
+      };
+      final newCustomerTrend = <String, int>{
+        for (final row in newCustomerTrendResult)
+          if (row['day_date'] != null)
+            row['day_date'].toString(): (row['count'] as num?)?.toInt() ?? 0,
+      };
+      final activeCustomerTrendIncludingWalkIns = <String, int>{
+        for (final row in activeCustomerTrendIncludingWalkInsResult)
+          if (row['day_date'] != null)
+            row['day_date'].toString(): (row['count'] as num?)?.toInt() ?? 0,
+      };
+      final newCustomerTrendIncludingWalkIns = <String, int>{
+        for (final row in newCustomerTrendIncludingWalkInsResult)
+          if (row['day_date'] != null)
+            row['day_date'].toString(): (row['count'] as num?)?.toInt() ?? 0,
+      };
+      final customerTrend = <CustomerTrendRecord>[];
+      final customerTrendIncludingWalkIns = <CustomerTrendRecord>[];
+      for (int i = 0; i <= totalDays; i++) {
+        final day = startRange.add(Duration(days: i));
+        final dayKey = DateFormat('yyyy-MM-dd').format(day);
+        customerTrend.add(
+          CustomerTrendRecord(
+            label: totalDays <= 7
+                ? DateFormat('EEE').format(day)
+                : DateFormat('dd/MM').format(day),
+            activeCustomers: activeCustomerTrend[dayKey] ?? 0,
+            newCustomers: newCustomerTrend[dayKey] ?? 0,
+          ),
+        );
+        customerTrendIncludingWalkIns.add(
+          CustomerTrendRecord(
+            label: totalDays <= 7
+                ? DateFormat('EEE').format(day)
+                : DateFormat('dd/MM').format(day),
+            activeCustomers: activeCustomerTrendIncludingWalkIns[dayKey] ?? 0,
+            newCustomers: newCustomerTrendIncludingWalkIns[dayKey] ?? 0,
+          ),
+        );
+      }
+
+      // 8. Status Sync
       final pendingCount = await PosV2SyncQueueProcessor.instance
           .getPendingSyncCount();
 
-      // 8. Active Shift
+      // 9. Active Shift
       final openShiftRows = await db.rawQuery(
         '''
         SELECT id FROM shift_session
@@ -361,6 +773,19 @@ class OverviewStore {
           recentTransactions: recentTransactions,
           hourlySales: hourlySales,
           dailyTransactions: dailyTransactions,
+          totalCustomers: totalCustomers,
+          newCustomers: newCustomers,
+          activeCustomers: activeCustomers,
+          returningCustomers: returningCustomers,
+          customerTrend: customerTrend,
+          topCustomers: topCustomers,
+          totalCustomersIncludingWalkIns: totalCustomersIncludingWalkIns,
+          newCustomersIncludingWalkIns: newCustomersIncludingWalkIns,
+          activeCustomersIncludingWalkIns: activeCustomersIncludingWalkIns,
+          returningCustomersIncludingWalkIns:
+              returningCustomersIncludingWalkIns,
+          customerTrendIncludingWalkIns: customerTrendIncludingWalkIns,
+          topCustomersIncludingWalkIns: topCustomersIncludingWalkIns,
           periodLabel: label,
         ),
       );
