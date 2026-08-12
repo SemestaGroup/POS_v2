@@ -445,34 +445,6 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get inventoryMenu => 'Inventaris';
 
-    @override
-    String get purchaseMarketplaceTitle => 'Marketplace Pembelian';
-
-    @override
-    String get purchaseMarketplaceSubtitle => 'Daftar barang tersedia dari vendor pusat.';
-
-    @override
-    String get marketplaceSearchHint => 'Cari bahan baku pusat...';
-
-    @override
-    String get marketplaceEmptyTitle => 'Marketplace kosong';
-
-    @override
-    String get marketplaceOfflineNotice => 'Offline dapat melihat daftar, tetapi permintaan hanya dikirim saat online.';
-
-    @override
-    String purchaseRequestSavedMessage(String itemName) {
-        return 'Permintaan pembelian untuk $itemName akan disimpan dan dikirim saat online.';
-    }
-
-    @override
-    String purchaseRequestFailedMessage(String error) {
-        return 'Gagal membuat permintaan: $error';
-    }
-
-    @override
-    String get quantityMustBeGreaterThanZero => 'Jumlah harus lebih besar dari nol.';
-
   @override
   String get promosMenu => 'Promo';
 
@@ -1880,4 +1852,33 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get unstackablePromoAlreadySelected =>
       'Sudah ada promo yang tidak bisa ditumpuk terpilih.';
+
+  @override
+  String get purchaseMarketplaceTitle => 'Marketplace Pembelian';
+
+  @override
+  String get purchaseMarketplaceSubtitle => 'Pesan stok dari vendor pusat.';
+
+  @override
+  String get marketplaceSearchHint => 'Cari item marketplace...';
+
+  @override
+  String get marketplaceOfflineNotice =>
+      'Menampilkan item lokal saat marketplace belum tersedia.';
+
+  @override
+  String get marketplaceEmptyTitle => 'Belum ada item marketplace.';
+
+  @override
+  String get quantityMustBeGreaterThanZero => 'Jumlah harus lebih dari nol.';
+
+  @override
+  String purchaseRequestSavedMessage(String itemName) {
+    return 'Permintaan pembelian $itemName berhasil disimpan.';
+  }
+
+  @override
+  String purchaseRequestFailedMessage(String error) {
+    return 'Gagal membuat permintaan pembelian: $error';
+  }
 }

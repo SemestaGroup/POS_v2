@@ -814,5 +814,23 @@
   "startDate": "Start Date",
   "endDate": "End Date",
   "promoNotStackable": "This promo cannot be stacked with other promos.",
-  "unstackablePromoAlreadySelected": "An unstackable promo is already selected."
+  "unstackablePromoAlreadySelected": "An unstackable promo is already selected.",
+  "purchaseMarketplaceTitle": "Purchase Marketplace",
+  "purchaseMarketplaceSubtitle": "Order stock from the central vendor.",
+  "marketplaceSearchHint": "Search marketplace items...",
+  "marketplaceOfflineNotice": "Showing locally available items while the marketplace is unavailable.",
+  "marketplaceEmptyTitle": "No marketplace items available.",
+  "quantityMustBeGreaterThanZero": "Quantity must be greater than zero.",
+  "purchaseRequestSavedMessage": "Purchase request for {itemName} saved.",
+  "@purchaseRequestSavedMessage": {
+    "placeholders": {
+      "itemName": {"type": "String"}
+    }
+  },
+  "purchaseRequestFailedMessage": "Failed to create purchase request: {error}",
+  "@purchaseRequestFailedMessage": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
 }

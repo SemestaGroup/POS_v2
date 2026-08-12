@@ -765,5 +765,23 @@
   "startDate": "Dari Tanggal",
   "endDate": "Sampai Tanggal",
   "promoNotStackable": "Promo ini tidak bisa ditumpuk dengan promo lain.",
-  "unstackablePromoAlreadySelected": "Sudah ada promo yang tidak bisa ditumpuk terpilih."
+  "unstackablePromoAlreadySelected": "Sudah ada promo yang tidak bisa ditumpuk terpilih.",
+  "purchaseMarketplaceTitle": "Marketplace Pembelian",
+  "purchaseMarketplaceSubtitle": "Pesan stok dari vendor pusat.",
+  "marketplaceSearchHint": "Cari item marketplace...",
+  "marketplaceOfflineNotice": "Menampilkan item lokal saat marketplace belum tersedia.",
+  "marketplaceEmptyTitle": "Belum ada item marketplace.",
+  "quantityMustBeGreaterThanZero": "Jumlah harus lebih dari nol.",
+  "purchaseRequestSavedMessage": "Permintaan pembelian {itemName} berhasil disimpan.",
+  "@purchaseRequestSavedMessage": {
+    "placeholders": {
+      "itemName": {"type": "String"}
+    }
+  },
+  "purchaseRequestFailedMessage": "Gagal membuat permintaan pembelian: {error}",
+  "@purchaseRequestFailedMessage": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  }
 }
