@@ -46,3 +46,9 @@ app.*.map.json
 
 # CocoIndex-Code local settings and cache
 .cocoindex_code/
+
+# Agent Skills
+.agents/skills/
+.claude/skills/
+agent/skills/
+skills-lock.json
