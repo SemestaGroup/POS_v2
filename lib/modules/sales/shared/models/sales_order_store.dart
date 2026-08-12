@@ -416,6 +416,9 @@ class SalesOrderStore {
       taxPercentage: taxPercentage,
       items: List<SalesOrderLineItem>.from(items),
     );
+    debugPrint(
+      '[POS_ORDER_LOG] Order Created: id=${record.id}, subtotal=${record.subtotalAmount}, discount=${record.orderLevelDiscountAmount}, taxAmount=${record.taxAmount}, taxName=${record.taxName}, taxPercentage=${record.taxPercentage}%, totalPay=${record.totalAmount}',
+    );
 
     if (!isUpdate) {
       _sequence += 1;
@@ -1037,6 +1040,13 @@ class SalesOrderStore {
       PosV2RuntimeSessionStore.instance.currentSession?.staffId ?? '',
     );
     final session = PosV2RuntimeSessionStore.instance.currentSession;
+    final itemTaxArr = (record.taxAmount > 0 &&
+            (record.taxName ?? '').isNotEmpty &&
+            record.taxPercentage > 0)
+        ? ['${record.taxName}|${record.taxPercentage.toStringAsFixed(2)}']
+        : [];
+    debugPrint('[POS_ORDER_PAYLOAD_LOG] Order API Payload taxname: $itemTaxArr, total: ${record.totalAmount}');
+
     return <String, Object?>{
       'id_pos': record.id,
       'clientid': int.tryParse(record.customerRemoteId) ?? 0,
@@ -1071,11 +1081,17 @@ class SalesOrderStore {
             return <String, Object?>{
               'itemid': item.productRemoteId,
               'description': item.name,
+              'unit': '',
               'long_description': '',
               'qty': item.quantity,
               'rate': item.activeUnitPrice,
-              'unit': '',
-              'taxname': const <String>[],
+              'taxname': (record.taxAmount > 0 &&
+                      (record.taxName ?? '').isNotEmpty &&
+                      record.taxPercentage > 0)
+                  ? <String>[
+                      '${record.taxName}|${record.taxPercentage.toStringAsFixed(2)}'
+                    ]
+                  : const <String>[],
               'order': index + 1,
             };
           })

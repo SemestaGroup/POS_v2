@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
+
 
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -16,6 +18,7 @@ class PrinterRenderingService {
     PrinterDocumentData document,
   ) async {
     final previewText = _buildPreviewText(printer, document);
+    debugPrint('======== [POS_LOGCAT_PRINT] ========\n$previewText\n====================================');
     final pdfBytes = await _buildPdf(printer, document);
     final rawBytes = _buildRawBytes(printer, previewText);
 

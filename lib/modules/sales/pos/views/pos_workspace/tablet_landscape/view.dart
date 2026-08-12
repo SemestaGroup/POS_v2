@@ -419,6 +419,9 @@ class _PosWorkspaceTabletLandscapeViewState
         _taxName = taxName;
         _autoPrint = autoPrint;
       });
+      debugPrint(
+        '[POS_TAX_LOG] Loaded Tax Settings (Tablet): autoTax=$_autoTax, taxName=$_taxName, taxRate=$_taxPercentage%',
+      );
     }
   }
 

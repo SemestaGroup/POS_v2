@@ -103,6 +103,32 @@ class ShiftReportBuilder {
         ? _asInt(cashPaymentRows.first['cash_sales'])
         : 0;
 
+    // Tax calculation
+    final orderTaxRows = await db.rawQuery(
+      '''
+      SELECT custom_fields_json
+      FROM pos_order
+      WHERE tenant_id = ? AND shift_session_id = ?
+        AND status_code IN ('2', '4')
+        AND deleted_at IS NULL
+    ''',
+      <Object?>[tenantId, shiftSessionId],
+    );
+    int totalTax = 0;
+    for (final row in orderTaxRows) {
+      final customFields = row['custom_fields_json']?.toString();
+      if (customFields != null && customFields.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(customFields);
+          if (decoded is Map<String, dynamic>) {
+            final taxAmt =
+                int.tryParse(decoded['tax_amount']?.toString() ?? '0') ?? 0;
+            totalTax += taxAmt;
+          }
+        } catch (_) {}
+      }
+    }
+
     final infoRows = <PrinterInfoRow>[
       PrinterInfoRow(label: 'Shift', value: shiftName),
       PrinterInfoRow(label: 'Kasir', value: staffName),
@@ -134,6 +160,11 @@ class ShiftReportBuilder {
         label: 'Fisik (Actual)',
         value: currencyFmt.format(actualCash),
       ),
+      if (totalTax > 0)
+        PrinterSummaryRow(
+          label: 'Total Pajak',
+          value: currencyFmt.format(totalTax),
+        ),
       PrinterSummaryRow(
         label: 'Selisih',
         value: currencyFmt.format(variance),

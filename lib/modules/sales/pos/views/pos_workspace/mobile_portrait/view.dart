@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,8 @@ import '../../../../../settings/printers/controllers/printer_settings_controller
 import '../../../../../operations/shift/services/expense_service.dart';
 import '../../../../../operations/shift/widgets/kas_keluar_dialog.dart';
 import '../../../../../operations/shift/widgets/kas_masuk_dialog.dart';
+import '../../../../../../core/services/sync/pos_v2_options_service.dart';
+import '../../../widgets/pos_settings_dialog.dart';
 
 enum _MobilePosStage { catalog, cart, payment }
 
@@ -767,6 +770,13 @@ class _MobileOrdersPageState extends State<_MobileOrdersPage> {
                           valueColor: const Color(0xFFB91C1C),
                         ),
                       ],
+                      if (order.taxAmount > 0) ...[
+                        const SizedBox(height: 7),
+                        _buildDetailTotalRow(
+                          order.taxName ?? 'Pajak',
+                          _formatCurrency(order.taxAmount),
+                        ),
+                      ],
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 10),
                         child: Divider(height: 1, color: Color(0xFFEEF2F7)),
@@ -873,6 +883,69 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   bool _isPromoFilterActive = false;
   bool _isSyncingQuickData = false;
 
+  bool _isTaxSettingsLoading = true;
+  bool _autoTax = false;
+  double _taxPercentage = 0.0;
+  String? _taxName;
+
+  Future<void> _loadTaxSettings() async {
+    if (mounted && !_isTaxSettingsLoading) {
+      setState(() => _isTaxSettingsLoading = true);
+    }
+
+    var autoTax = false;
+    var taxPercentage = 0.0;
+    String? taxName;
+
+    try {
+      final options = await PosV2OptionsService.instance.getLocalOptions();
+      final raw = options['pos_app_settings'];
+      Map<String, dynamic> appSettings = {};
+      try {
+        if (raw is Map) {
+          appSettings = Map<String, dynamic>.from(raw);
+        } else if (raw is String && raw.isNotEmpty) {
+          appSettings = jsonDecode(raw) as Map<String, dynamic>;
+        }
+      } catch (_) {}
+
+      final taxSetting = appSettings['tax'] is Map<String, dynamic>
+          ? appSettings['tax'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      autoTax = taxSetting['auto_tax'] ?? false;
+      final selectedTaxId = taxSetting['tax_id']?.toString();
+
+      if (autoTax && selectedTaxId != null && selectedTaxId.isNotEmpty) {
+        final db = DatabaseService.instance;
+        final taxes = await db.rawQuery(
+          'SELECT * FROM pos_tax WHERE remote_id = ? LIMIT 1',
+          [selectedTaxId],
+        );
+        if (taxes.isNotEmpty) {
+          final tax = taxes.first;
+          taxName = tax['name']?.toString();
+          taxPercentage =
+              double.tryParse(tax['taxrate']?.toString() ?? '0') ?? 0.0;
+        }
+      }
+    } catch (error) {
+      debugPrint('[POS_TAX_LOG] Failed to load tax settings: $error');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isTaxSettingsLoading = false;
+        _autoTax = autoTax;
+        _taxPercentage = taxPercentage;
+        _taxName = taxName;
+      });
+      debugPrint(
+        '[POS_TAX_LOG] Loaded Tax Settings (Mobile): autoTax=$_autoTax, taxName=$_taxName, taxRate=$_taxPercentage%',
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -885,6 +958,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
     _handlePendingResumeOrder();
     _ensureDefaultCustomerSelected();
+    _loadTaxSettings();
   }
 
   @override
@@ -1029,9 +1103,18 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     0,
     (sum, item) => sum + (item.activeUnitPrice * item.quantity),
   );
+  int get _taxAmount {
+    if (!_autoTax || _taxPercentage <= 0) return 0;
+    final base = (_subtotalAmount - _orderLevelDiscountAmount).clamp(
+      0,
+      1 << 31,
+    );
+    return (base * (_taxPercentage / 100)).round();
+  }
 
   int get _totalPay =>
-      (_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31);
+      ((_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31)) +
+      _taxAmount;
 
   String _formatCurrency(int amount) {
     final formatter = NumberFormat.currency(
@@ -1704,6 +1787,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   Future<void> _proceedToPaymentStage() async {
     final l10n = AppLocalizations.of(context)!;
     if (_cartItems.isEmpty) return;
+    if (_isTaxSettingsLoading) {
+      _showFeedback('Memuat pengaturan pajak. Tunggu sebentar.');
+      return;
+    }
 
     setState(() => _isCommitting = true);
     try {
@@ -1784,6 +1871,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   }
 
   Future<void> _confirmAndCommitOrder() async {
+    if (_isTaxSettingsLoading) {
+      _showFeedback('Memuat pengaturan pajak. Tunggu sebentar.');
+      return;
+    }
     if (_selectedPaymentOption == null) return;
     if (_tenderAmount < _totalPay) {
       setState(() {
@@ -1821,6 +1912,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     bool processQueueNow = false,
   }) async {
     if (_isCommitting || _cartItems.isEmpty) return null;
+    if (_isTaxSettingsLoading) {
+      _showFeedback('Memuat pengaturan pajak. Tunggu sebentar.');
+      return null;
+    }
 
     final l10n = AppLocalizations.of(context)!;
     setState(() => _isCommitting = true);
@@ -1869,6 +1964,9 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         existingCreatedAt: _editingOrderCreatedAt,
         orderType: _selectedOrderType,
         note: _orderNote,
+        taxAmount: _taxAmount,
+        taxName: _taxName,
+        taxPercentage: _taxPercentage,
         orderLevelDiscountAmount: _orderLevelDiscountAmount,
         paymentModeRemoteId: paymentMode?.remoteId,
         paymentModeName: paymentMode?.name,
@@ -1918,6 +2016,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   Future<void> _sendToKitchen() async {
     if (_cartItems.isEmpty || _isCommitting) return;
+    if (_isTaxSettingsLoading) {
+      _showFeedback('Memuat pengaturan pajak. Tunggu sebentar.');
+      return;
+    }
 
     await PrinterSettingsController.instance.refresh(silent: true);
     final printerState = PrinterSettingsController.instance.stateNotifier.value;
@@ -2401,6 +2503,11 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
               PrinterSummaryRow(
                 label: 'Diskon',
                 value: '-${_formatCurrency(_orderLevelDiscountAmount)}',
+              ),
+            if (_taxAmount > 0)
+              PrinterSummaryRow(
+                label: _taxName ?? 'Pajak',
+                value: _formatCurrency(_taxAmount),
               ),
             PrinterSummaryRow(
               label: 'Total',
@@ -3365,7 +3472,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
   }
 
-  void _handleMobileQuickAction(_MobilePosQuickAction action) {
+  Future<void> _handleMobileQuickAction(_MobilePosQuickAction action) async {
     final l10n = AppLocalizations.of(context)!;
     switch (action) {
       case _MobilePosQuickAction.discount:
@@ -3390,7 +3497,11 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         _showFeedback(l10n.featureNotWiredMessage(l10n.closeOutletAction));
         return;
       case _MobilePosQuickAction.settings:
-        _showFeedback(l10n.featureNotWiredMessage(l10n.settings));
+        await showDialog<void>(
+          context: context,
+          builder: (context) => const PosSettingsDialog(),
+        );
+        await _loadTaxSettings();
         return;
     }
   }
@@ -4318,6 +4429,13 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                       valueColor: const Color(0xFFDC2626),
                     ),
                   ],
+                  if (_taxAmount > 0) ...[
+                    const SizedBox(height: 7),
+                    _buildTotalRow(
+                      _taxName ?? 'Pajak',
+                      _formatCurrency(_taxAmount),
+                    ),
+                  ],
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 11),
                     child: Divider(height: 1, color: Color(0xFFE8EDF5)),
@@ -4333,7 +4451,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: _cartItems.isEmpty || _isCommitting
+                          onPressed:
+                              _cartItems.isEmpty ||
+                                  _isCommitting ||
+                                  _isTaxSettingsLoading
                               ? null
                               : _saveActiveOrder,
                           icon: const Icon(
@@ -4358,7 +4479,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: FilledButton.tonalIcon(
-                          onPressed: _cartItems.isEmpty || _isCommitting
+                          onPressed:
+                              _cartItems.isEmpty ||
+                                  _isCommitting ||
+                                  _isTaxSettingsLoading
                               ? null
                               : _sendToKitchen,
                           icon: const Icon(Icons.restaurant_outlined, size: 18),
@@ -4384,7 +4508,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                     width: double.infinity,
                     height: 48,
                     child: FilledButton.icon(
-                      onPressed: _cartItems.isEmpty || _isCommitting
+                      onPressed:
+                          _cartItems.isEmpty ||
+                              _isCommitting ||
+                              _isTaxSettingsLoading
                           ? null
                           : _proceedToPaymentStage,
                       icon: _isCommitting
