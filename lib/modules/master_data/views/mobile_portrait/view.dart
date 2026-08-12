@@ -42,6 +42,8 @@ class MasterDataMobileView extends StatelessWidget {
         return const Color(0xFFF5F3FF);
       case MasterDataMenuId.brands:
         return const Color(0xFFF0FDF4);
+      case MasterDataMenuId.inventory:
+        return const Color(0xFFF0FDFA);
       case MasterDataMenuId.promos:
         return const Color(0xFFFFFBEB);
       case MasterDataMenuId.customers:
@@ -61,6 +63,8 @@ class MasterDataMobileView extends StatelessWidget {
         return const Color(0xFF7C3AED);
       case MasterDataMenuId.brands:
         return const Color(0xFF16A34A);
+      case MasterDataMenuId.inventory:
+        return const Color(0xFF0F766E);
       case MasterDataMenuId.promos:
         return const Color(0xFFD97706);
       case MasterDataMenuId.customers:

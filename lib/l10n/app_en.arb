@@ -214,6 +214,7 @@
   "productsMenu": "Products",
   "categoriesMenu": "Categories",
   "brandsMenu": "Brands",
+  "inventoryMenu": "Inventory",
   "promosMenu": "Promos",
   "customerListMenu": "Customer List",
   "customerDetailMenu": "Customer Detail",

@@ -42,8 +42,8 @@ class SyncCenterController {
     try {
       final session = await _requireSession();
       final pending = await DatabaseService.instance.rawQuery(
-        'SELECT COUNT(*) as total FROM sync_queue WHERE tenant_id = ? AND status = ?',
-        <Object?>[session.tenantId, 'pending'],
+        'SELECT COUNT(*) as total FROM sync_queue WHERE tenant_id = ? AND status IN (?, ?)',
+        <Object?>[session.tenantId, 'pending', 'deferred'],
       );
       final failed = await DatabaseService.instance.rawQuery(
         'SELECT COUNT(*) as total FROM sync_queue WHERE tenant_id = ? AND status = ?',
