@@ -162,7 +162,7 @@ Backend ada di `back_end_web_office` (PHP CodeIgniter 3), dengan endpoint di `/a
 | Promotions | `GET /api/v2/pos-promotions` |
 | Customers | `GET/POST/PUT/DELETE /api/v2/pos-customers` |
 | Shift Sessions | via `tblcustom_pos_shift_sessions` |
-| Options | `GET/PUT /api/v2/pos-options` |
+| Options | `GET/PUT/POST /api/v2/pos-options` (`POST` khusus lifecycle QR request laporan WhatsApp) |
 | Reports | `GET /api/v2/pos-reports?type=invoices_report\|items_report\|payments_report\|customers_report` |
 | Self-Order | `GET/POST /api/v2/pos-self-order-sessions` |
 | Service Tables | `GET /api/v2/backoffice/pos-service-tables` |

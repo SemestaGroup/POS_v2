@@ -64,12 +64,28 @@ class V2ApiDebugLogger {
     if (entry.error != null) {
       buffer.writeln(_truncateChars(entry.error!));
     } else if (entry.responseBody != null) {
-      buffer.writeln(_truncateChars(jsonEncode(entry.responseBody)));
+      buffer.writeln(_truncateChars(jsonEncode(_sanitizeResponse(entry))));
     } else {
       buffer.writeln('Status: ${entry.statusCode}');
     }
     
     debugPrint(buffer.toString());
+  }
+
+  Object? _sanitizeResponse(V2ApiDebugEntry entry) {
+    final isGeneratedReportKey =
+        entry.method == 'POST' &&
+        Uri.tryParse(entry.url)?.path.endsWith('/api/v2/pos-options') == true;
+    final response = entry.responseBody;
+    if (!isGeneratedReportKey || response is! Map) {
+      return response;
+    }
+
+    final sanitized = Map<Object?, Object?>.from(response);
+    if (sanitized.containsKey('data')) {
+      sanitized['data'] = '<redacted>';
+    }
+    return sanitized;
   }
 
   String _truncateChars(String text, {int maxChars = 1000}) {

@@ -5,10 +5,19 @@ import 'package:http/http.dart' as http;
 import 'v2_api_debug_logger.dart';
 
 class V2ApiClient {
-  const V2ApiClient({required this.baseUrl, required this.authToken});
+  const V2ApiClient({
+    required this.baseUrl,
+    required this.authToken,
+    @visibleForTesting this.httpClient,
+  });
 
   final String baseUrl;
   final String authToken;
+  final http.Client? httpClient;
+
+  static final http.Client _defaultHttpClient = http.Client();
+
+  http.Client get _client => httpClient ?? _defaultHttpClient;
 
   Uri _buildUri(String path, [Map<String, dynamic>? query]) {
     final normalizedBase = baseUrl.endsWith('/') ? baseUrl : '$baseUrl/';
@@ -47,7 +56,9 @@ class V2ApiClient {
       uri: uri,
       headers: _plainHeaders,
       requestBody: null,
-      send: () => http.get(uri, headers: _plainHeaders).timeout(const Duration(seconds: 60)),
+      send: () => _client
+          .get(uri, headers: _plainHeaders)
+          .timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -58,7 +69,9 @@ class V2ApiClient {
       uri: uri,
       headers: _plainHeaders,
       requestBody: null,
-      send: () => http.get(uri, headers: _plainHeaders).timeout(const Duration(seconds: 60)),
+      send: () => _client
+          .get(uri, headers: _plainHeaders)
+          .timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -73,8 +86,9 @@ class V2ApiClient {
       uri: uri,
       headers: _jsonHeaders,
       requestBody: requestBody,
-      send: () =>
-          http.post(uri, headers: _jsonHeaders, body: jsonEncode(requestBody)).timeout(const Duration(seconds: 60)),
+      send: () => _client
+          .post(uri, headers: _jsonHeaders, body: jsonEncode(requestBody))
+          .timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -89,8 +103,9 @@ class V2ApiClient {
       uri: uri,
       headers: _jsonHeaders,
       requestBody: requestBody,
-      send: () =>
-          http.put(uri, headers: _jsonHeaders, body: jsonEncode(requestBody)).timeout(const Duration(seconds: 60)),
+      send: () => _client
+          .put(uri, headers: _jsonHeaders, body: jsonEncode(requestBody))
+          .timeout(const Duration(seconds: 60)),
     );
   }
 
@@ -109,7 +124,9 @@ class V2ApiClient {
         final request = http.Request('DELETE', uri);
         request.headers.addAll(_jsonHeaders);
         request.body = jsonEncode(requestBody);
-        final streamed = await request.send().timeout(const Duration(seconds: 60));
+        final streamed = await _client
+            .send(request)
+            .timeout(const Duration(seconds: 60));
         return http.Response.fromStream(streamed);
       },
     );

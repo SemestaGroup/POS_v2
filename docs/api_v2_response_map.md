@@ -55,6 +55,7 @@ Validation and business errors usually use:
 | --- | --- | --- | --- |
 | `GET /api/v2/pos-options` | `data` is a flat option map | Option key to raw string value map | `meta.count` only. Values may still be raw strings even when they contain JSON. Supports `name` and `names` filters. |
 | `PUT /api/v2/pos-options` | `data` is the updated option subset | Same option key map | Arrays are stored server-side as JSON strings. New keys prefixed with `pos_` are auto-created with `autoload = 1`. |
+| `POST /api/v2/pos-options` | `data` is a temporary report-request auth key when the body is empty; success acknowledgement when `auth_key` is empty | `data` key or `status` | Dedicated WhatsApp Report Request QR lifecycle: empty body generates a key; `{"auth_key": ""}` revokes it. Tenant comes from the POS auth header; key expires after five minutes and must not be persisted or logged. |
 | `GET /api/v2/pos-policies` | `data` object | `role_matrix`, `approval_policy`, `discount_policy`, `refund_policy` | This endpoint returns parsed JSON policy bundles, unlike `pos-options`, which returns raw option strings. |
 
 ## Reference And Master Data

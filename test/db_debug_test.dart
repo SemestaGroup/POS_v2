@@ -1,11 +1,15 @@
+import 'package:flinkpos_v2/core/services/local/v2_sqlite_schema.dart';
 import 'package:flutter_test/flutter_test.dart';
-// import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-// void main() {
-//   test('dump db', () async {
-//     sqfliteFfiInit();
-//     final dbFactory = databaseFactoryFfi;
-//     final db = await dbFactory.openDatabase('C:\\Users\\user\\AppData\\Local\\com.flinkaja.pos\\pos_v2.db'); // Not sure the exact path on windows.
-//     // Let's actually use sqflite to find the default path? Actually on Windows Desktop flutter apps, the DB path is usually under Documents or AppData.
-//   });
-// }
+void main() {
+  test('SQLite schema contains the core offline and sync tables', () {
+    final schema = V2SqliteSchema.createStatements.join('\n');
+
+    expect(V2SqliteSchema.version, greaterThan(0));
+    expect(schema, contains('CREATE TABLE IF NOT EXISTS app_session'));
+    expect(schema, contains('CREATE TABLE IF NOT EXISTS pos_order'));
+    expect(schema, contains('CREATE TABLE IF NOT EXISTS pos_order_payment'));
+    expect(schema, contains('CREATE TABLE IF NOT EXISTS sync_queue'));
+    expect(schema, contains('CREATE TABLE IF NOT EXISTS sync_checkpoint'));
+  });
+}

@@ -11,6 +11,7 @@ import '../../settings/printers/views/printer_mapping/printer_mapping_view.dart'
 import '../../settings/printers/views/printer_test/tablet_landscape/view.dart';
 import '../../settings/store/views/shift_config/shift_config_view.dart';
 import '../../settings/store/views/store_profile/store_profile_view.dart';
+import '../../settings/store/views/wa_report_request/wa_report_request_view.dart';
 import '../../settings/sync/views/sync_center/sync_center_view.dart';
 import '../../settings/sync/views/sync_history/sync_history_view.dart';
 import 'models/settings_menu.dart';
@@ -50,6 +51,10 @@ List<SettingsMenuCategory> buildSettingsMenuCategories(BuildContext context) {
         SettingsSubMenu(
           title: l10n.shiftConfigMenu,
           view: const ShiftConfigView(),
+        ),
+        const SettingsSubMenu(
+          title: 'Request Laporan WA',
+          view: WaReportRequestView(),
         ),
       ],
     ),

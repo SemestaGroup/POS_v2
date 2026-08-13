@@ -46,6 +46,7 @@ abstract final class AppRoutes {
   static const profileSettings = '/settings/profile';
   static const storeProfile = '/settings/store/profile';
   static const shiftConfig = '/settings/store/shift-config';
+  static const waReportRequest = '/settings/store/wa-report-request';
   static const printerList = '/settings/printers/list';
   static const printerMapping = '/settings/printers/mapping';
   static const printerTest = '/settings/printers/test';
