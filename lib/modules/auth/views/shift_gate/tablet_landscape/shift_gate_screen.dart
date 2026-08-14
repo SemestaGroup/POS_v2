@@ -140,7 +140,7 @@ class _ShiftGateScreenState extends State<ShiftGateScreen> {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Halo, $name ??',
+                      'Halo, $name',
                       style: theme.textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),

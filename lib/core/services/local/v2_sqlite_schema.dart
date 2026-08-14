@@ -1,5 +1,5 @@
 abstract final class V2SqliteSchema {
-  static const int version = 11;
+  static const int version = 12;
 
   static final List<String> createStatements = _parseStatements(_schemaSql);
 
@@ -364,27 +364,6 @@ CREATE TABLE IF NOT EXISTS brand (
 
 CREATE INDEX IF NOT EXISTS idx_brand_name
   ON brand(tenant_id, name);
-
-CREATE TABLE IF NOT EXISTS staff (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  tenant_id INTEGER NOT NULL,
-  remote_id TEXT NOT NULL,
-  role_name TEXT,
-  role_code TEXT,
-  first_name TEXT,
-  last_name TEXT,
-  full_name TEXT,
-  email TEXT,
-  phone_number TEXT,
-  is_active INTEGER NOT NULL DEFAULT 1,
-  raw_payload_json TEXT,
-  last_synced_at TEXT,
-  created_at TEXT,
-  updated_at TEXT,
-  deleted_at TEXT,
-  UNIQUE(tenant_id, remote_id),
-  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
-);
 
 CREATE TABLE IF NOT EXISTS pos_role (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -963,13 +942,6 @@ CREATE INDEX IF NOT EXISTS idx_approval_request_location_status
 CREATE INDEX IF NOT EXISTS idx_approval_request_requester_device
   ON approval_request(tenant_id, requester_device_id, updated_at);
 
-CREATE TABLE IF NOT EXISTS pos_tax (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  remote_id TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  taxrate TEXT NOT NULL
-);
-
 CREATE TABLE IF NOT EXISTS pos_order_item (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id INTEGER NOT NULL,
@@ -1166,14 +1138,33 @@ CREATE INDEX IF NOT EXISTS idx_sync_queue_entity
 CREATE INDEX IF NOT EXISTS idx_sync_queue_endpoint
   ON sync_queue(tenant_id, endpoint, status);
 
+CREATE TABLE IF NOT EXISTS purchase_order (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  po_code TEXT,
+  item_count INTEGER NOT NULL DEFAULT 0,
+  total_amount INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  sync_state TEXT NOT NULL DEFAULT 'dirty',
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_purchase_order_tenant_created
+  ON purchase_order(tenant_id, created_at);
+
 CREATE TABLE IF NOT EXISTS purchase_order_request (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   tenant_id INTEGER NOT NULL,
-  product_id INTEGER NOT NULL,
+  purchase_order_id INTEGER,
+  product_id INTEGER,
   product_remote_id TEXT,
   product_name TEXT,
   product_sku TEXT,
   quantity REAL NOT NULL DEFAULT 0,
+  unit_cost_amount INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending',
   sync_state TEXT NOT NULL DEFAULT 'dirty',
   last_synced_at TEXT,
@@ -1181,7 +1172,7 @@ CREATE TABLE IF NOT EXISTS purchase_order_request (
   updated_at TEXT,
   deleted_at TEXT,
   FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE,
-  FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE
+  FOREIGN KEY (purchase_order_id) REFERENCES purchase_order(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_purchase_order_request_tenant_status
