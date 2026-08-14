@@ -4,14 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:flinkpos_v2/modules/master_data/shared/widgets/master_data_page_widgets.dart';
 import 'package:flinkpos_v2/modules/master_data/inventory/stores/inventory_read_stores.dart';
 import 'package:flinkpos_v2/modules/master_data/stores/master_data_read_stores.dart';
-import 'dart:convert';
-
-import 'package:flinkpos_v2/core/network/v2_api_client.dart';
-import 'package:flinkpos_v2/core/services/sync/pos_v2_runtime_session_store.dart';
-import 'package:flinkpos_v2/core/services/local/database_service.dart';
+import 'package:flinkpos_v2/modules/master_data/inventory/models/marketplace_item.dart';
+import 'package:flinkpos_v2/modules/master_data/inventory/services/marketplace_service.dart';
 import 'package:flinkpos_v2/l10n/app_localizations.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:async';
 
 class PurchaseMarketplaceView extends StatefulWidget {
   const PurchaseMarketplaceView({super.key});
@@ -20,36 +16,6 @@ class PurchaseMarketplaceView extends StatefulWidget {
   State<PurchaseMarketplaceView> createState() => _PurchaseMarketplaceViewState();
 }
 
-class _CartEntry {
-  _CartEntry({
-    required this.key,
-    required this.name,
-    required this.sku,
-    this.productId,
-    this.remoteId,
-    required this.unitCost,
-    this.imageUrl,
-    this.group,
-  });
-
-  final String key;
-  final String name;
-  final String sku;
-  final int? productId;
-  final String? remoteId;
-  final int unitCost;
-  final String? imageUrl;
-  final String? group;
-
-  PurchaseOrderInputLine toInputLine(int qty) => PurchaseOrderInputLine(
-        productId: productId,
-        productRemoteId: remoteId,
-        productName: name,
-        productSku: sku,
-        quantity: qty.toDouble(),
-        unitCostAmount: unitCost,
-      );
-}
 
 class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
   final InventoryListStore _store = InventoryListStore.instance;
@@ -57,10 +23,9 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
   final TextEditingController _searchController = TextEditingController();
   List<MarketplaceItem> _remoteItems = <MarketplaceItem>[];
   bool _submitting = false;
-  static const int _pruneDays = 30;
 
   final Map<String, int> _cartQty = <String, int>{};
-  final Map<String, _CartEntry> _cartEntries = <String, _CartEntry>{};
+  final Map<String, CartEntry> _cartEntries = <String, CartEntry>{};
 
   int get _cartTotalQty =>
       _cartQty.values.fold(0, (sum, v) => sum + v);
@@ -89,7 +54,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
     super.dispose();
   }
 
-  void _addToCart(_CartEntry entry) {
+  void _addToCart(CartEntry entry) {
     setState(() {
       _cartEntries[entry.key] = entry;
       _cartQty[entry.key] = (_cartQty[entry.key] ?? 0) + 1;
@@ -171,7 +136,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
             ? _remoteItems.map(_entryFromRemote).toList(growable: false)
             : records
                 .map((r) => _entryFromLocal(r))
-                .whereType<_CartEntry>()
+                .whereType<CartEntry>()
                 .toList(growable: false);
 
         return Column(
@@ -236,7 +201,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
     );
   }
 
-  Widget _buildItemCard(ThemeData theme, Color primaryColor, _CartEntry entry) {
+  Widget _buildItemCard(ThemeData theme, Color primaryColor, CartEntry entry) {
     final qty = _qtyFor(entry.key);
     return Container(
       decoration: BoxDecoration(
@@ -362,7 +327,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
     );
   }
 
-  Widget _buildItemImage(_CartEntry entry, Color primaryColor) {
+  Widget _buildItemImage(CartEntry entry, Color primaryColor) {
     final hasImage = entry.imageUrl != null && entry.imageUrl!.isNotEmpty;
     final initial = entry.name.isNotEmpty ? entry.name[0].toUpperCase() : '?';
     return Container(
@@ -446,8 +411,8 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
     );
   }
 
-  _CartEntry _entryFromRemote(MarketplaceItem item) {
-    return _CartEntry(
+  CartEntry _entryFromRemote(MarketplaceItem item) {
+    return CartEntry(
       key: 'r:${item.itemId}',
       name: item.displayName,
       sku: item.commodityCode ?? item.skuCode ?? '',
@@ -458,8 +423,8 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
     );
   }
 
-  _CartEntry? _entryFromLocal(InventoryItemRecord item) {
-    return _CartEntry(
+  CartEntry? _entryFromLocal(InventoryItemRecord item) {
+    return CartEntry(
       key: 'l:${item.id}',
       name: item.name,
       sku: item.sku,
@@ -471,179 +436,22 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
   }
 
   Future<void> _fetchMarketplace() async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession;
-    if (session == null) return;
-
-    try {
-      final client = V2ApiClient(baseUrl: session.baseUrl, authToken: session.authToken);
-      final data = await client
-          .getJson('api/items', query: {'type': 'can_be_purchased'})
-          .timeout(const Duration(seconds: 15));
-      if (data is List) {
-        final items = data.map((e) {
-          final map = e as Map<String, dynamic>;
-          return MarketplaceItem.fromJson(map);
-        }).toList(growable: false);
-        // persist into local cache
-        try {
-          await DatabaseService.instance.transaction((txn) async {
-            for (final itm in items) {
-              await DatabaseService.instance.upsertByUnique(
-                txn,
-                'marketplace_item',
-                where: 'tenant_id = ? AND item_remote_id = ?',
-                whereArgs: <Object?>[session.tenantId, itm.itemId],
-                insertValues: <String, Object?>{
-                  'tenant_id': session.tenantId,
-                  'item_remote_id': itm.itemId,
-                  'description': itm.description,
-                  'rate': itm.rate,
-                  'commodity_code': itm.commodityCode,
-                  'sku_code': itm.skuCode,
-                  'group_name': itm.groupName,
-                  'image_url': itm.imageUrl,
-                  'can_be_inventory': itm.canBeInventory ? '1' : '0',
-                  'images_json': jsonEncode(itm.images ?? []),
-                  'raw_payload_json': itmRawJson(itm),
-                  'created_at': DateTime.now().toIso8601String(),
-                  'updated_at': DateTime.now().toIso8601String(),
-                },
-                updateValues: <String, Object?>{
-                  'description': itm.description,
-                  'rate': itm.rate,
-                  'commodity_code': itm.commodityCode,
-                  'sku_code': itm.skuCode,
-                  'group_name': itm.groupName,
-                  'image_url': itm.imageUrl,
-                  'can_be_inventory': itm.canBeInventory ? '1' : '0',
-                  'images_json': jsonEncode(itm.images ?? []),
-                  'raw_payload_json': itmRawJson(itm),
-                  'updated_at': DateTime.now().toIso8601String(),
-                },
-              );
-            }
-            // prune old cache entries older than _pruneDays
-            try {
-              final cutoff = DateTime.now().subtract(Duration(days: _pruneDays)).toIso8601String();
-              await txn.delete(
-                'marketplace_item',
-                where: 'tenant_id = ? AND updated_at < ?',
-                whereArgs: <Object?>[session.tenantId, cutoff],
-              );
-            } catch (_) {}
-          });
-        } catch (_) {
-          // ignore DB write errors
-        }
-
-        if (!mounted) return;
-        setState(() {
-          _remoteItems = items;
-        });
-      }
-    } catch (e) {
-      // ignore and keep local fallback
+    final items = await MarketplaceService.instance.fetchRemoteItems();
+    if (items != null && mounted) {
+      setState(() {
+        _remoteItems = items;
+      });
     }
-  }
-
-  static String itmRawJson(MarketplaceItem itm) {
-    return '''{"itemid":"${itm.itemId}","rate":"${itm.rate}","group_name":"${itm.groupName ?? ''}","description":"${itm.description}","commodity_code":"${itm.commodityCode ?? ''}"}''';
   }
 
   Future<void> _loadCachedMarketplace() async {
-    final session = PosV2RuntimeSessionStore.instance.currentSession;
-    if (session == null) return;
-    try {
-      final rows = await DatabaseService.instance.query(
-        'marketplace_item',
-        where: 'tenant_id = ?',
-        whereArgs: <Object?>[session.tenantId],
-        orderBy: 'created_at DESC',
-      );
-
-      final items = rows.map((r) {
-        return MarketplaceItem.fromDbRow(r);
-      }).toList(growable: false);
-
-      if (mounted) {
-        setState(() {
-          _remoteItems = items;
-        });
-      }
-    } catch (_) {
-      // ignore
-    }
-  }
-}
-
-class MarketplaceItem {
-  MarketplaceItem({
-    required this.itemId,
-    required this.rate,
-    this.groupName,
-    required this.description,
-    this.commodityCode,
-    this.skuCode,
-    this.imageUrl,
-    this.images,
-    this.canBeInventory = false,
-  });
-
-  final String itemId;
-  final String rate;
-  final String? groupName;
-  final String description;
-  final String? commodityCode;
-  final String? skuCode;
-  final String? imageUrl;
-  final List<dynamic>? images;
-  final bool canBeInventory;
-
-  String get displayName => description;
-
-  int get rateCents {
-    // rate provided as decimal string like "20000.00"
-    final asDouble = double.tryParse(rate) ?? 0.0;
-    return asDouble.toInt();
-  }
-
-  String get rateFormatted {
-    try {
-      final v = double.tryParse(rate) ?? 0.0;
-      final rounded = v.toInt();
-      return rounded.toString();
-    } catch (_) {
-      return rate;
+    final items = await MarketplaceService.instance.loadCachedItems();
+    if (mounted) {
+      setState(() {
+        _remoteItems = items;
+      });
     }
   }
 
-  factory MarketplaceItem.fromJson(Map<String, dynamic> json) {
-    return MarketplaceItem(
-      itemId: json['itemid']?.toString() ?? '',
-      rate: json['rate']?.toString() ?? '0',
-      groupName: json['group_name']?.toString(),
-      description: json['description']?.toString() ?? '',
-      commodityCode: json['commodity_code']?.toString(),
-      skuCode: json['sku_code']?.toString(),
-      imageUrl: json['image_url']?.toString(),
-      images: json['images'] is List ? json['images'] as List<dynamic> : null,
-      canBeInventory: (json['can_be_inventory']?.toString() ?? '').isNotEmpty,
-    );
-  }
-
-  factory MarketplaceItem.fromDbRow(Map<String, Object?> row) {
-    return MarketplaceItem(
-      itemId: row['item_remote_id']?.toString() ?? '',
-      rate: row['rate']?.toString() ?? '0',
-      groupName: row['group_name']?.toString(),
-      description: row['description']?.toString() ?? '',
-      commodityCode: row['commodity_code']?.toString(),
-      skuCode: row['sku_code']?.toString(),
-      imageUrl: row['image_url']?.toString(),
-      images: row['images_json'] != null && row['images_json'] is String && (row['images_json'] as String).isNotEmpty
-          ? jsonDecode(row['images_json'] as String) as List<dynamic>
-          : null,
-      canBeInventory: row['can_be_inventory']?.toString() == '1',
-    );
-  }
 }
+
