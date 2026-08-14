@@ -346,34 +346,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get inventoryMenu => 'Inventory';
 
-    @override
-    String get purchaseMarketplaceTitle => 'Purchase Marketplace';
-
-    @override
-    String get purchaseMarketplaceSubtitle => 'Listings available from the central vendor.';
-
-    @override
-    String get marketplaceSearchHint => 'Search central items...';
-
-    @override
-    String get marketplaceEmptyTitle => 'Marketplace is empty';
-
-    @override
-    String get marketplaceOfflineNotice => 'Offline can view listings, requests are only sent when online.';
-
-    @override
-    String purchaseRequestSavedMessage(String itemName) {
-        return 'Purchase request for $itemName will be saved and sent when online.';
-    }
-
-    @override
-    String purchaseRequestFailedMessage(String error) {
-        return 'Failed to create request: $error';
-    }
-
-    @override
-    String get quantityMustBeGreaterThanZero => 'Quantity must be greater than zero.';
-
   @override
   String get promosMenu => 'Promos';
 
@@ -854,6 +826,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get syncPreparingError => 'Failed to download data:';
+
+  @override
+  String get purchaseMarketplaceTitle => 'Purchase Marketplace';
+
+  @override
+  String get purchaseMarketplaceSubtitle =>
+      'Order from the central vendor catalog.';
+
+  @override
+  String get marketplaceSearchHint => 'Search marketplace items';
+
+  @override
+  String get marketplaceOfflineNotice =>
+      'Marketplace items are currently unavailable offline. Use the local catalog when needed.';
+
+  @override
+  String get marketplaceEmptyTitle => 'No marketplace items available';
+
+  @override
+  String get quantityMustBeGreaterThanZero =>
+      'Quantity must be greater than zero.';
+
+  @override
+  String purchaseRequestSavedMessage(String itemName) {
+    return 'Purchase request saved for $itemName.';
+  }
+
+  @override
+  String purchaseRequestFailedMessage(String error) {
+    return 'Purchase request failed: $error';
+  }
 
   @override
   String get retryAction => 'Try Again';

@@ -306,6 +306,30 @@
   "syncPreparingCatalog": "Mengunduh katalog produk...",
   "syncPreparingLocalCache": "Memuat cache lokal...",
   "syncPreparingError": "Gagal mengunduh data:",
+  "purchaseMarketplaceTitle": "Marketplace Pembelian",
+  "purchaseMarketplaceSubtitle": "Pesan dari katalog vendor pusat.",
+  "marketplaceSearchHint": "Cari item marketplace",
+  "marketplaceOfflineNotice": "Item marketplace sedang tidak tersedia secara offline. Gunakan katalog lokal bila diperlukan.",
+  "marketplaceEmptyTitle": "Tidak ada item marketplace",
+  "quantityMustBeGreaterThanZero": "Kuantitas harus lebih dari nol.",
+  "purchaseRequestSavedMessage": "Permintaan pembelian tersimpan untuk {itemName}.",
+  "@purchaseRequestSavedMessage": {
+    "placeholders": {
+      "itemName": {
+        "type": "String",
+        "example": "Kopi"
+      }
+    }
+  },
+  "purchaseRequestFailedMessage": "Permintaan pembelian gagal: {error}",
+  "@purchaseRequestFailedMessage": {
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "error jaringan"
+      }
+    }
+  },
   "retryAction": "Coba Lagi",
   "syncStatusIdle": "Sync Idle",
   "syncStatusPreparing": "Menyiapkan POS",

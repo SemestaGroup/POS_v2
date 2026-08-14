@@ -15,11 +15,13 @@ class _SubMenuDefinition {
   final String title;
   final Widget view;
   final List<AppRole> allowedRoles;
+  final bool fullScreen;
 
   _SubMenuDefinition({
     required this.title,
     required this.view,
     required this.allowedRoles,
+    this.fullScreen = false,
   });
 }
 
@@ -53,8 +55,9 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
       ),
       _SubMenuDefinition(
         title: l10n.inventoryMenu,
-        view: const InventoryShellView(),
+        view: const InventoryScreen(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
+        fullScreen: true,
       ),
       _SubMenuDefinition(
         title: l10n.promosMenu,
@@ -208,6 +211,15 @@ class _MasterDataShellViewState extends State<MasterDataShellView> {
 
                 return InkWell(
                   onTap: () {
+                    final menu = filteredSubMenus[index];
+                    if (menu.fullScreen) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => menu.view,
+                        ),
+                      );
+                      return;
+                    }
                     setState(() {
                       _selectedSubMenuIndex = index;
                     });

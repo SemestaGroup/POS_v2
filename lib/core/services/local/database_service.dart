@@ -82,6 +82,76 @@ class DatabaseService {
       await _addColumnIfMissing(db, 'marketplace_item', 'can_be_inventory', 'TEXT');
       await _addColumnIfMissing(db, 'marketplace_item', 'images_json', 'TEXT');
     }
+    if (oldVersion < 12) {
+      await _addColumnIfMissing(
+        db,
+        'purchase_order_request',
+        'purchase_order_id',
+        'INTEGER',
+      );
+      await _addColumnIfMissing(
+        db,
+        'purchase_order_request',
+        'unit_cost_amount',
+        'INTEGER NOT NULL DEFAULT 0',
+      );
+      // Rebuild the table to relax product_id (NOT NULL + FK to product)
+      // so marketplace items without a local product can still be ordered.
+      await _rebuildPurchaseOrderRequestTable(db);
+      // purchase_order table will be created by schema application
+    }
+  }
+
+  Future<void> _rebuildPurchaseOrderRequestTable(Database db) async {
+    final tableExists = await _tableExists(db, 'purchase_order_request');
+    if (!tableExists) {
+      return;
+    }
+    await db.execute(
+      'ALTER TABLE purchase_order_request RENAME TO purchase_order_request_v11',
+    );
+    await db.execute('''
+CREATE TABLE IF NOT EXISTS purchase_order_request (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  tenant_id INTEGER NOT NULL,
+  purchase_order_id INTEGER,
+  product_id INTEGER,
+  product_remote_id TEXT,
+  product_name TEXT,
+  product_sku TEXT,
+  quantity REAL NOT NULL DEFAULT 0,
+  unit_cost_amount INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
+  sync_state TEXT NOT NULL DEFAULT 'dirty',
+  last_synced_at TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  deleted_at TEXT,
+  FOREIGN KEY (tenant_id) REFERENCES app_tenant(id) ON DELETE CASCADE,
+  FOREIGN KEY (purchase_order_id) REFERENCES purchase_order(id) ON DELETE CASCADE
+)
+''');
+    await db.execute('''
+INSERT INTO purchase_order_request (
+  id, tenant_id, purchase_order_id, product_id, product_remote_id,
+  product_name, product_sku, quantity, unit_cost_amount, status,
+  sync_state, last_synced_at, created_at, updated_at, deleted_at
+)
+SELECT
+  id, tenant_id, NULL, product_id, product_remote_id,
+  product_name, product_sku, quantity, 0, status,
+  sync_state, last_synced_at, created_at, updated_at, deleted_at
+FROM purchase_order_request_v11
+''');
+    await db.execute('DROP TABLE purchase_order_request_v11');
+  }
+
+  Future<bool> _tableExists(Database db, String table) async {
+    final rows = await db.rawQuery(
+      'SELECT name FROM sqlite_master WHERE type = ? AND name = ?',
+      <Object?>['table', table],
+    );
+    return rows.isNotEmpty;
   }
 
   Future<void> _addColumnIfMissing(
@@ -255,23 +325,5 @@ class DatabaseService {
     return rows
         .map((row) => row.map((key, value) => MapEntry(key, value)))
         .toList(growable: false);
-  }
-
-  Future<int?> resolveLatestActiveTenantId() async {
-    final rows = await rawQuery('''
-      SELECT app_session.tenant_id
-      FROM app_session
-      WHERE app_session.status = 'active'
-      ORDER BY COALESCE(app_session.updated_at, app_session.logged_in_at) DESC
-      LIMIT 1
-      ''');
-    if (rows.isEmpty) {
-      return null;
-    }
-    final value = rows.first['tenant_id'];
-    if (value is int) {
-      return value;
-    }
-    return int.tryParse(value.toString());
   }
 }

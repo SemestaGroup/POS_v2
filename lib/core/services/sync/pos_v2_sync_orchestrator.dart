@@ -349,26 +349,6 @@ class PosV2SyncOrchestrator {
     );
   }
 
-  Future<List<V2SyncResult>> syncCoreSnapshot(
-    V2SyncContext context, {
-    bool pullOrderDetails = false,
-  }) async {
-    return <V2SyncResult>[
-      await syncBootstrap(context),
-      await syncBrands(context),
-      await syncCategories(context),
-      await syncItems(context),
-      await syncPromotions(context),
-      await syncStaff(context),
-      await syncRoles(context),
-      await syncCustomers(context),
-      await syncOrders(context, pullDetails: pullOrderDetails),
-      await syncPayments(context),
-      await syncShiftSessions(context),
-      await syncSelfOrderSessions(context),
-    ];
-  }
-
   Future<List<V2SyncResult>> syncPartialStartup(
     V2SyncContext context, {
     int initialCatalogPages = 1,

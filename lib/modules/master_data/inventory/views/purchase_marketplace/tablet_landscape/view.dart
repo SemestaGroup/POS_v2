@@ -20,14 +20,58 @@ class PurchaseMarketplaceView extends StatefulWidget {
   State<PurchaseMarketplaceView> createState() => _PurchaseMarketplaceViewState();
 }
 
+class _CartEntry {
+  _CartEntry({
+    required this.key,
+    required this.name,
+    required this.sku,
+    this.productId,
+    this.remoteId,
+    required this.unitCost,
+    this.imageUrl,
+    this.group,
+  });
+
+  final String key;
+  final String name;
+  final String sku;
+  final int? productId;
+  final String? remoteId;
+  final int unitCost;
+  final String? imageUrl;
+  final String? group;
+
+  PurchaseOrderInputLine toInputLine(int qty) => PurchaseOrderInputLine(
+        productId: productId,
+        productRemoteId: remoteId,
+        productName: name,
+        productSku: sku,
+        quantity: qty.toDouble(),
+        unitCostAmount: unitCost,
+      );
+}
+
 class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
   final InventoryListStore _store = InventoryListStore.instance;
   final PurchaseOrderRequestStore _requestStore = PurchaseOrderRequestStore.instance;
   final TextEditingController _searchController = TextEditingController();
   List<MarketplaceItem> _remoteItems = <MarketplaceItem>[];
-  bool _remoteLoading = false;
-  static const int _cacheTTLHours = 24;
+  bool _submitting = false;
   static const int _pruneDays = 30;
+
+  final Map<String, int> _cartQty = <String, int>{};
+  final Map<String, _CartEntry> _cartEntries = <String, _CartEntry>{};
+
+  int get _cartTotalQty =>
+      _cartQty.values.fold(0, (sum, v) => sum + v);
+
+  int get _cartTotalAmount {
+    var total = 0;
+    _cartQty.forEach((key, qty) {
+      total += (_cartEntries[key]?.unitCost ?? 0) * qty;
+    });
+    return total;
+  }
 
   @override
   void initState() {
@@ -45,10 +89,71 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
     super.dispose();
   }
 
+  void _addToCart(_CartEntry entry) {
+    setState(() {
+      _cartEntries[entry.key] = entry;
+      _cartQty[entry.key] = (_cartQty[entry.key] ?? 0) + 1;
+    });
+  }
+
+  void _increment(String key) {
+    setState(() {
+      _cartQty[key] = (_cartQty[key] ?? 0) + 1;
+    });
+  }
+
+  void _decrement(String key) {
+    setState(() {
+      final current = _cartQty[key] ?? 0;
+      if (current <= 1) {
+        _cartQty.remove(key);
+        _cartEntries.remove(key);
+      } else {
+        _cartQty[key] = current - 1;
+      }
+    });
+  }
+
+  int _qtyFor(String key) => _cartQty[key] ?? 0;
+
+  Future<void> _submitOrder() async {
+    if (_submitting || _cartQty.isEmpty) return;
+    setState(() => _submitting = true);
+    final l10n = AppLocalizations.of(context)!;
+    try {
+      final lines = <PurchaseOrderInputLine>[
+        for (final entry in _cartEntries.entries)
+          if ((_cartQty[entry.key] ?? 0) > 0)
+            entry.value.toInputLine(_cartQty[entry.key]!),
+      ];
+      final poCode = await _requestStore.createOrder(lines: lines);
+      _requestStore.refresh();
+      PurchaseOrderStore.instance.refresh();
+      setState(() {
+        _cartQty.clear();
+        _cartEntries.clear();
+        _submitting = false;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Purchase order $poCode berhasil dibuat.'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (error) {
+      setState(() => _submitting = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.purchaseRequestFailedMessage(error.toString())),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final currencyFmt = NumberFormat('#,###', 'id_ID');
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
 
@@ -57,532 +162,323 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
       builder: (context, snapshot, _) {
         final records = snapshot.records;
 
-        if (snapshot.isLoading && records.isEmpty) {
+        if (snapshot.isLoading && records.isEmpty && _remoteItems.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.errorMessage != null && records.isEmpty) {
-          return MasterDataErrorView(message: snapshot.errorMessage!);
-        }
-
-        // If remote marketplace items are available, show them instead of local records
-        if (_remoteLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (_remoteItems.isNotEmpty) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                    color: Colors.white,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.purchaseMarketplaceTitle,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          l10n.purchaseMarketplaceSubtitle,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: _remoteItems.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final itm = _remoteItems[index];
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                                  width: 46,
-                                  height: 46,
-                                  decoration: BoxDecoration(
-                                    color: primaryColor.withValues(alpha: 0.10),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: itm.imageUrl != null && itm.imageUrl!.isNotEmpty
-                                        ? CachedNetworkImage(
-                                            imageUrl: itm.imageUrl!,
-                                            fit: BoxFit.cover,
-                                            placeholder: (context, url) => Container(
-                                              color: primaryColor.withOpacity(0.08),
-                                              child: Center(
-                                                child: Text(
-                                                  itm.displayName.isNotEmpty ? itm.displayName[0].toUpperCase() : '?',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w900,
-                                                    color: primaryColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            errorWidget: (context, url, error) => Container(
-                                              color: primaryColor.withOpacity(0.08),
-                                              child: Center(
-                                                child: Text(
-                                                  itm.displayName.isNotEmpty ? itm.displayName[0].toUpperCase() : '?',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w900,
-                                                    color: primaryColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                        : Center(
-                                            child: Text(
-                                              itm.displayName.isNotEmpty ? itm.displayName[0].toUpperCase() : '?',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w900,
-                                                color: primaryColor,
-                                              ),
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  itm.displayName,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: Color(0xFF111827),
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  itm.groupName ?? '',
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF6B7280),
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        'Harga: Rp ${itm.rateFormatted}',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => _showPurchaseRequestFromRemote(itm),
-                                      style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 18,
-                                          vertical: 12,
-                                        ),
-                                        backgroundColor: primaryColor.withOpacity(0.08),
-                                        foregroundColor: primaryColor,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                      ),
-                                      child: const Text('Pesan'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          );
-        }
+        final hasRemote = _remoteItems.isNotEmpty;
+        final entries = hasRemote
+            ? _remoteItems.map(_entryFromRemote).toList(growable: false)
+            : records
+                .map((r) => _entryFromLocal(r))
+                .whereType<_CartEntry>()
+                .toList(growable: false);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-              color: Colors.white,
+            MasterDataSearchHeader(
+              searchController: _searchController,
+              searchHint: hasRemote
+                  ? 'Cari item marketplace'
+                  : 'Cari stok inventory',
+              onSearchChanged: _store.setSearchQuery,
+              countText:
+                  hasRemote ? '${entries.length} listing' : '${entries.length} stok',
+              onRefresh: _store.refresh,
+            ),
+            const Divider(height: 1, color: Color(0xFFF1F5F9)),
+            if (!hasRemote)
+              Container(
+                width: double.infinity,
+                color: const Color(0xFFFEF3C7),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warehouse_rounded, size: 18, color: Color(0xFF92400E)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Marketplace sedang offline. Menggunakan katalog lokal untuk pemesanan.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFF92400E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            Expanded(
+              child: entries.isEmpty
+                  ? MasterDataEmptyState(
+                      icon: Icons.shopping_bag_outlined,
+                      title: 'Tidak ada item untuk dipesan.',
+                    )
+                  : GridView.builder(
+                      padding: const EdgeInsets.all(16),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 320,
+                        mainAxisSpacing: 14,
+                        crossAxisSpacing: 14,
+                        childAspectRatio: 0.92,
+                      ),
+                      itemCount: entries.length,
+                      itemBuilder: (context, index) {
+                        final entry = entries[index];
+                        return _buildItemCard(theme, primaryColor, entry);
+                      },
+                    ),
+            ),
+            if (_cartTotalQty > 0) _buildCartBar(theme, primaryColor),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildItemCard(ThemeData theme, Color primaryColor, _CartEntry entry) {
+    final qty = _qtyFor(entry.key);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 4,
+            child: _buildItemImage(entry, primaryColor),
+          ),
+          Expanded(
+            flex: 6,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Purchase Marketplace',
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    entry.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
                       fontWeight: FontWeight.w800,
+                      color: Color(0xFF111827),
                     ),
                   ),
+                  if (entry.group != null && entry.group!.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      entry.group!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   Text(
-                    'Semua pembelian hanya dari vendor pusat. Item ini tersedia untuk pemesanan ulang.',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: Colors.grey.shade600,
+                    'Rp ${NumberFormat('#,###', 'id_ID').format(entry.unitCost)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: primaryColor,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            MasterDataSearchHeader(
-              searchController: _searchController,
-              searchHint: l10n.marketplaceSearchHint,
-              onSearchChanged: _store.setSearchQuery,
-              countText: '${records.length} listing',
-              onRefresh: _store.refresh,
-            ),
-            Container(
-              width: double.infinity,
-              color: const Color(0xFFFEF3C7),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  const Icon(Icons.warehouse_rounded, size: 18, color: Color(0xFF92400E)),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                            l10n.marketplaceOfflineNotice,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFF92400E),
+                  const Spacer(),
+                  if (qty == 0)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 34,
+                      child: FilledButton.tonalIcon(
+                        onPressed: () => _addToCart(entry),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: primaryColor.withValues(alpha: 0.10),
+                          foregroundColor: primaryColor,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add_shopping_cart_rounded, size: 16),
+                        label: const Text(
+                          'Tambahkan ke Keranjang',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    )
+                  else
+                    Container(
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: primaryColor.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () => _decrement(entry.key),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minHeight: 32),
+                              icon: Icon(Icons.remove_rounded, size: 18, color: primaryColor),
                             ),
                           ),
-                  ),
+                          Text(
+                            '$qty',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: primaryColor,
+                            ),
+                          ),
+                          Expanded(
+                            child: IconButton(
+                              onPressed: () => _increment(entry.key),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minHeight: 32),
+                              icon: Icon(Icons.add_rounded, size: 18, color: primaryColor),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),
-            Expanded(
-              child: records.isEmpty
-                  ? MasterDataEmptyState(
-                      icon: Icons.shopping_bag_outlined,
-                      title: l10n.marketplaceEmptyTitle,
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: records.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final item = records[index];
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 46,
-                                height: 46,
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withValues(alpha: 0.10),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    item.displayName.isNotEmpty
-                                        ? item.displayName[0].toUpperCase()
-                                        : '?',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w900,
-                                      color: primaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.displayName,
-                                      style: const TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFF111827),
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      item.categoryName,
-                                      style: const TextStyle(
-                                        fontSize: 11,
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Harga pusat',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            'Stok pusat',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            'Rp ${currencyFmt.format(item.costAmount)}',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Text(
-                                            item.stockQuantity.toStringAsFixed(0),
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => _showPurchaseRequest(item),
-                                style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 18,
-                                    vertical: 12,
-                                  ),
-                                  backgroundColor: primaryColor.withOpacity(0.08),
-                                  foregroundColor: primaryColor,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                child: const Text('Pesan'),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 
-  Future<void> _showPurchaseRequest(InventoryItemRecord item) async {
-    final l10n = AppLocalizations.of(context)!;
-    final qtyController = TextEditingController(text: '1');
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(l10n.purchaseMarketplaceTitle),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('${l10n.purchaseMarketplaceSubtitle}'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: qtyController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: l10n.quantity,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(l10n.cancel),
+  Widget _buildItemImage(_CartEntry entry, Color primaryColor) {
+    final hasImage = entry.imageUrl != null && entry.imageUrl!.isNotEmpty;
+    final initial = entry.name.isNotEmpty ? entry.name[0].toUpperCase() : '?';
+    return Container(
+      color: primaryColor.withValues(alpha: 0.07),
+      child: hasImage
+          ? CachedNetworkImage(
+              imageUrl: entry.imageUrl!,
+              fit: BoxFit.cover,
+              placeholder: (context, url) =>
+                  Center(child: Text(initial, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: primaryColor))),
+              errorWidget: (context, url, error) =>
+                  Center(child: Text(initial, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: primaryColor))),
+            )
+          : Center(
+              child: Icon(Icons.inventory_2_outlined, size: 28, color: primaryColor.withValues(alpha: 0.5)),
             ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(l10n.continueAction),
-            ),
-          ],
-        );
-      },
     );
-
-    if (result == true) {
-      final quantity = double.tryParse(qtyController.text) ?? 0;
-      if (quantity <= 0) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.quantityMustBeGreaterThanZero),
-          ),
-        );
-        return;
-      }
-
-      try {
-        await _requestStore.createRequest(item, quantity);
-        _requestStore.refresh();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.purchaseRequestSavedMessage(item.displayName)),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.purchaseRequestFailedMessage(error.toString())),
-          ),
-        );
-      }
-    }
   }
 
-  Future<void> _showPurchaseRequestFromRemote(MarketplaceItem item) async {
-    final l10n = AppLocalizations.of(context)!;
-    final qtyController = TextEditingController(text: '1');
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(l10n.purchaseMarketplaceTitle),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('${l10n.purchaseMarketplaceSubtitle}'),
-              const SizedBox(height: 16),
-              TextField(
-                controller: qtyController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: l10n.quantity,
+  Widget _buildCartBar(ThemeData theme, Color primaryColor) {
+    final currencyFmt = NumberFormat('#,###', 'id_ID');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Colors.grey.shade200)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: primaryColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.shopping_cart_outlined, size: 20, color: primaryColor),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$_cartTotalQty item dipilih',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
                 ),
+                const SizedBox(height: 2),
+                Text(
+                  'Rp ${currencyFmt.format(_cartTotalAmount)}',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: primaryColor),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            height: 40,
+            child: FilledButton(
+              onPressed: _submitting ? null : _submitOrder,
+              style: FilledButton.styleFrom(
+                backgroundColor: primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-            ],
+              child: _submitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Buat Purchase Order', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(l10n.cancel),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(l10n.continueAction),
-            ),
-          ],
-        );
-      },
+        ],
+      ),
     );
+  }
 
-    if (result == true) {
-      final quantity = double.tryParse(qtyController.text) ?? 0;
-      if (quantity <= 0) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.quantityMustBeGreaterThanZero),
-          ),
-        );
-        return;
-      }
+  _CartEntry _entryFromRemote(MarketplaceItem item) {
+    return _CartEntry(
+      key: 'r:${item.itemId}',
+      name: item.displayName,
+      sku: item.commodityCode ?? item.skuCode ?? '',
+      remoteId: item.itemId,
+      unitCost: item.rateCents,
+      imageUrl: item.imageUrl,
+      group: item.groupName,
+    );
+  }
 
-      try {
-        // Create a local purchase request using available remote id if present
-        final localItem = InventoryItemRecord(
-          id: int.tryParse(item.itemId) ?? 0,
-          name: item.displayName,
-          sku: item.commodityCode ?? '',
-          remoteId: item.itemId,
-          categoryName: item.groupName ?? '',
-          costAmount: item.rateCents,
-          priceAmount: item.rateCents,
-          stockQuantity: 0,
-          minStockLevel: 0,
-          status: 'active',
-          isAvailable: true,
-        );
-
-        await _requestStore.createRequest(localItem, quantity);
-        _requestStore.refresh();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.purchaseRequestSavedMessage(item.displayName)),
-          ),
-        );
-      } catch (error) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.purchaseRequestFailedMessage(error.toString())),
-          ),
-        );
-      }
-    }
+  _CartEntry? _entryFromLocal(InventoryItemRecord item) {
+    return _CartEntry(
+      key: 'l:${item.id}',
+      name: item.name,
+      sku: item.sku,
+      productId: item.id,
+      remoteId: item.remoteId,
+      unitCost: item.costAmount,
+      group: item.displayName,
+    );
   }
 
   Future<void> _fetchMarketplace() async {
     final session = PosV2RuntimeSessionStore.instance.currentSession;
     if (session == null) return;
-    setState(() {
-      _remoteLoading = true;
-    });
 
     try {
       final client = V2ApiClient(baseUrl: session.baseUrl, authToken: session.authToken);
-      final data = await client.getJson('api/items', query: {'type': 'can_be_purchased'});
+      final data = await client
+          .getJson('api/items', query: {'type': 'can_be_purchased'})
+          .timeout(const Duration(seconds: 15));
       if (data is List) {
         final items = data.map((e) {
           final map = e as Map<String, dynamic>;
@@ -640,18 +536,13 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
           // ignore DB write errors
         }
 
+        if (!mounted) return;
         setState(() {
           _remoteItems = items;
         });
       }
     } catch (e) {
       // ignore and keep local fallback
-    } finally {
-      if (mounted) {
-        setState(() {
-          _remoteLoading = false;
-        });
-      }
     }
   }
 
@@ -756,4 +647,3 @@ class MarketplaceItem {
     );
   }
 }
- 

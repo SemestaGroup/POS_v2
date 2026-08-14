@@ -355,6 +355,30 @@
   "syncPreparingCatalog": "Downloading product catalog...",
   "syncPreparingLocalCache": "Loading local cache...",
   "syncPreparingError": "Failed to download data:",
+  "purchaseMarketplaceTitle": "Purchase Marketplace",
+  "purchaseMarketplaceSubtitle": "Order from the central vendor catalog.",
+  "marketplaceSearchHint": "Search marketplace items",
+  "marketplaceOfflineNotice": "Marketplace items are currently unavailable offline. Use the local catalog when needed.",
+  "marketplaceEmptyTitle": "No marketplace items available",
+  "quantityMustBeGreaterThanZero": "Quantity must be greater than zero.",
+  "purchaseRequestSavedMessage": "Purchase request saved for {itemName}.",
+  "@purchaseRequestSavedMessage": {
+    "placeholders": {
+      "itemName": {
+        "type": "String",
+        "example": "Coffee"
+      }
+    }
+  },
+  "purchaseRequestFailedMessage": "Purchase request failed: {error}",
+  "@purchaseRequestFailedMessage": {
+    "placeholders": {
+      "error": {
+        "type": "String",
+        "example": "network error"
+      }
+    }
+  },
   "retryAction": "Try Again",
   "syncStatusIdle": "Sync Idle",
   "syncStatusPreparing": "Preparing POS",

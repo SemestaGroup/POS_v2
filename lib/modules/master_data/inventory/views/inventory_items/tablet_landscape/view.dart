@@ -75,7 +75,7 @@ class _InventoryItemsViewState extends State<InventoryItemsView> {
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: records.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      separatorBuilder: (_, _) => const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final item = records[index];
                         final statusLabel = item.isOutOfStock
@@ -144,7 +144,7 @@ class _InventoryItemsViewState extends State<InventoryItemsView> {
                                             vertical: 4,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: statusColor.withOpacity(0.12),
+                                            color: statusColor.withValues(alpha: 0.12),
                                             borderRadius: BorderRadius.circular(8),
                                           ),
                                           child: Text(
@@ -251,7 +251,7 @@ class _InventoryItemsViewState extends State<InventoryItemsView> {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  backgroundColor: primaryColor.withOpacity(0.08),
+                                  backgroundColor: primaryColor.withValues(alpha: 0.08),
                                   foregroundColor: primaryColor,
                                 ),
                                 child: const Text('Detail'),

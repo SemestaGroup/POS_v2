@@ -11,15 +11,9 @@ import 'v2_sync_context.dart';
 import 'v2_sync_utils.dart';
 
 class PosV2LoginResult {
-  const PosV2LoginResult({
-    required this.session,
-    required this.loginEnvelope,
-    required this.bootstrapEnvelope,
-  });
+  const PosV2LoginResult({required this.session});
 
   final PosV2RuntimeSession session;
-  final Map<String, dynamic> loginEnvelope;
-  final Map<String, dynamic> bootstrapEnvelope;
 }
 
 class PosV2AuthService extends BaseV2SyncAdapter {
@@ -478,11 +472,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       forceLogoutOtherSession: forceLogoutOtherSession,
     );
     await runBootstrapSync(session);
-    return PosV2LoginResult(
-      session: session,
-      loginEnvelope: const <String, dynamic>{},
-      bootstrapEnvelope: const <String, dynamic>{},
-    );
+    return PosV2LoginResult(session: session);
   }
 
   Future<PosV2RuntimeSession> pinLoginOnly({
@@ -686,11 +676,7 @@ class PosV2AuthService extends BaseV2SyncAdapter {
       forceLogoutOtherSession: forceLogoutOtherSession,
     );
     await runBootstrapSync(session);
-    return PosV2LoginResult(
-      session: session,
-      loginEnvelope: const <String, dynamic>{},
-      bootstrapEnvelope: const <String, dynamic>{},
-    );
+    return PosV2LoginResult(session: session);
   }
 
   String _resolveRegisterId({

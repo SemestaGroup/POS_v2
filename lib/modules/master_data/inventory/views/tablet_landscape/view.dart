@@ -1,45 +1,30 @@
 import 'package:flutter/material.dart';
 
-import 'package:flinkpos_v2/modules/master_data/shared/widgets/master_data_page_widgets.dart';
 import 'package:flinkpos_v2/modules/master_data/inventory/views/inventory_items/tablet_landscape/view.dart';
 import 'package:flinkpos_v2/modules/master_data/inventory/views/purchase_marketplace/tablet_landscape/view.dart';
 import 'package:flinkpos_v2/modules/master_data/inventory/views/purchase_orders/tablet_landscape/view.dart';
 
-class _InventoryMenuDefinition {
-  final String title;
-  final Widget view;
-
-  const _InventoryMenuDefinition({
-    required this.title,
-    required this.view,
-  });
-}
-
-class InventoryShellView extends StatefulWidget {
-  const InventoryShellView({super.key});
+class InventoryScreen extends StatefulWidget {
+  const InventoryScreen({super.key});
 
   @override
-  State<InventoryShellView> createState() => _InventoryShellViewState();
+  State<InventoryScreen> createState() => _InventoryScreenState();
 }
 
-class _InventoryShellViewState extends State<InventoryShellView> {
-  int _selectedTabIndex = 0;
+class _InventoryScreenState extends State<InventoryScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
 
-  List<_InventoryMenuDefinition> get _menuItems {
-    return const [
-      _InventoryMenuDefinition(
-        title: 'Inventory Items',
-        view: InventoryItemsView(),
-      ),
-      _InventoryMenuDefinition(
-        title: 'Marketplace',
-        view: PurchaseMarketplaceView(),
-      ),
-      _InventoryMenuDefinition(
-        title: 'Purchase Orders',
-        view: PurchaseOrdersView(),
-      ),
-    ];
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -49,72 +34,54 @@ class _InventoryShellViewState extends State<InventoryShellView> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 240,
-            padding: const EdgeInsets.fromLTRB(24, 24, 16, 16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                right: BorderSide(color: theme.dividerColor.withOpacity(0.45)),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded),
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
+              child: Icon(Icons.inventory_2_rounded, size: 18, color: primaryColor),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 4),
-                Text(
-                  'Inventory',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Kelola stok dan pembelian pusat dalam satu interface.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                for (var i = 0; i < _menuItems.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: InkWell(
-                      onTap: () => setState(() => _selectedTabIndex = i),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: _selectedTabIndex == i
-                              ? primaryColor.withOpacity(0.08)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Text(
-                          _menuItems[i].title,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: _selectedTabIndex == i
-                                ? primaryColor
-                                : const Color(0xFF374151),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+            const SizedBox(width: 10),
+            const Text(
+              'Inventory',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
-          ),
-          Expanded(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: _menuItems[_selectedTabIndex].view,
-            ),
-          ),
+          ],
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: primaryColor,
+          unselectedLabelColor: Colors.grey.shade600,
+          labelStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+          indicatorColor: primaryColor,
+          indicatorSize: TabBarIndicatorSize.label,
+          tabs: const [
+            Tab(text: 'Inventory Items'),
+            Tab(text: 'Marketplace'),
+            Tab(text: 'Purchase Orders'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: const [
+          InventoryItemsView(),
+          PurchaseMarketplaceView(),
+          PurchaseOrdersView(),
         ],
       ),
     );

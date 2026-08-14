@@ -722,30 +722,6 @@ abstract class AppLocalizations {
   /// **'Inventory'**
   String get inventoryMenu;
 
-  /// Purchase marketplace title
-  String get purchaseMarketplaceTitle;
-
-  /// Purchase marketplace subtitle
-  String get purchaseMarketplaceSubtitle;
-
-  /// Marketplace search hint
-  String get marketplaceSearchHint;
-
-  /// Marketplace empty title
-  String get marketplaceEmptyTitle;
-
-  /// Notice shown when offline
-  String get marketplaceOfflineNotice;
-
-  /// Purchase request saved message with item name
-  String purchaseRequestSavedMessage(String itemName);
-
-  /// Purchase request failed message with error
-  String purchaseRequestFailedMessage(String error);
-
-  /// Quantity must be greater than zero
-  String get quantityMustBeGreaterThanZero;
-
   /// No description provided for @promosMenu.
   ///
   /// In en, this message translates to:
@@ -1639,6 +1615,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to download data:'**
   String get syncPreparingError;
+
+  /// No description provided for @purchaseMarketplaceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase Marketplace'**
+  String get purchaseMarketplaceTitle;
+
+  /// No description provided for @purchaseMarketplaceSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Order from the central vendor catalog.'**
+  String get purchaseMarketplaceSubtitle;
+
+  /// No description provided for @marketplaceSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search marketplace items'**
+  String get marketplaceSearchHint;
+
+  /// No description provided for @marketplaceOfflineNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Marketplace items are currently unavailable offline. Use the local catalog when needed.'**
+  String get marketplaceOfflineNotice;
+
+  /// No description provided for @marketplaceEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No marketplace items available'**
+  String get marketplaceEmptyTitle;
+
+  /// No description provided for @quantityMustBeGreaterThanZero.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity must be greater than zero.'**
+  String get quantityMustBeGreaterThanZero;
+
+  /// No description provided for @purchaseRequestSavedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase request saved for {itemName}.'**
+  String purchaseRequestSavedMessage(String itemName);
+
+  /// No description provided for @purchaseRequestFailedMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Purchase request failed: {error}'**
+  String purchaseRequestFailedMessage(String error);
 
   /// No description provided for @retryAction.
   ///

@@ -345,34 +345,6 @@ class AppLocalizationsId extends AppLocalizations {
   @override
   String get inventoryMenu => 'Inventaris';
 
-    @override
-    String get purchaseMarketplaceTitle => 'Marketplace Pembelian';
-
-    @override
-    String get purchaseMarketplaceSubtitle => 'Daftar barang tersedia dari vendor pusat.';
-
-    @override
-    String get marketplaceSearchHint => 'Cari bahan baku pusat...';
-
-    @override
-    String get marketplaceEmptyTitle => 'Marketplace kosong';
-
-    @override
-    String get marketplaceOfflineNotice => 'Offline dapat melihat daftar, tetapi permintaan hanya dikirim saat online.';
-
-    @override
-    String purchaseRequestSavedMessage(String itemName) {
-        return 'Permintaan pembelian untuk $itemName akan disimpan dan dikirim saat online.';
-    }
-
-    @override
-    String purchaseRequestFailedMessage(String error) {
-        return 'Gagal membuat permintaan: $error';
-    }
-
-    @override
-    String get quantityMustBeGreaterThanZero => 'Jumlah harus lebih besar dari nol.';
-
   @override
   String get promosMenu => 'Promo';
 
@@ -855,6 +827,35 @@ class AppLocalizationsId extends AppLocalizations {
 
   @override
   String get syncPreparingError => 'Gagal mengunduh data:';
+
+  @override
+  String get purchaseMarketplaceTitle => 'Marketplace Pembelian';
+
+  @override
+  String get purchaseMarketplaceSubtitle => 'Pesan dari katalog vendor pusat.';
+
+  @override
+  String get marketplaceSearchHint => 'Cari item marketplace';
+
+  @override
+  String get marketplaceOfflineNotice =>
+      'Item marketplace sedang tidak tersedia secara offline. Gunakan katalog lokal bila diperlukan.';
+
+  @override
+  String get marketplaceEmptyTitle => 'Tidak ada item marketplace';
+
+  @override
+  String get quantityMustBeGreaterThanZero => 'Kuantitas harus lebih dari nol.';
+
+  @override
+  String purchaseRequestSavedMessage(String itemName) {
+    return 'Permintaan pembelian tersimpan untuk $itemName.';
+  }
+
+  @override
+  String purchaseRequestFailedMessage(String error) {
+    return 'Permintaan pembelian gagal: $error';
+  }
 
   @override
   String get retryAction => 'Coba Lagi';

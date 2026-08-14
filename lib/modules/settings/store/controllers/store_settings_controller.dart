@@ -102,10 +102,11 @@ class ShiftConfigController {
       } else if (shiftConfig is String && shiftConfig.isNotEmpty) {
         shiftConfigJson = shiftConfig;
         try {
-          final parsed = Map<String, dynamic>.from(
-              (shiftConfig.startsWith('{') ? {} : {}));
-          shiftScheduleEnabled =
-              _asBool(parsed['schedule_enabled'], fallback: false);
+          final parsed = jsonDecode(shiftConfig);
+          if (parsed is Map) {
+            shiftScheduleEnabled =
+                _asBool(parsed['schedule_enabled'], fallback: false);
+          }
         } catch (_) {}
       }
 
