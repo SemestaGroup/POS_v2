@@ -183,7 +183,9 @@ class PrinterRenderingService {
     }
     for (final item in document.items) {
       final hasQtyPrefix = RegExp(r'^\d+x\s').hasMatch(item.label);
-      final itemTitle = hasQtyPrefix ? item.label : '${item.quantity}x ${item.label}';
+      final itemTitle = hasQtyPrefix
+          ? item.label
+          : (item.quantity > 0 ? '${item.quantity}x ${item.label}' : item.label);
 
       if (item.amount != null) {
         lines.add(_row(itemTitle, _formatMoney(item.amount!), maxChars));
@@ -192,10 +194,10 @@ class PrinterRenderingService {
       }
 
       if (item.discountAmount != null && item.discountAmount! > 0) {
-        final labelStr = (item.discountLabel ?? 'Diskon Produk').trim();
+        final labelStr = (item.discountLabel ?? '').trim().isNotEmpty
+            ? item.discountLabel!.trim()
+            : 'Diskon Produk';
         lines.add(_row('  $labelStr', '-${_formatMoney(item.discountAmount!)}', maxChars));
-      } else if ((item.discountLabel ?? '').trim().isNotEmpty) {
-        lines.addAll(_wrap('  ${item.discountLabel!.trim()}', maxChars));
       }
 
       if ((item.note ?? '').trim().isNotEmpty) {

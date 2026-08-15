@@ -13,6 +13,7 @@ import '../../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../shared/models/pos_catalog_store.dart';
 import '../../../../shared/models/pos_promotion_service.dart';
 import '../../../../shared/models/sales_order_store.dart';
+import '../../../../shared/models/pos_tax_selection_resolver.dart';
 import '../../../../shared/widgets/customer_picker_dialog.dart';
 import '../../../../orders/shared/orders_history_sync_service.dart';
 import '../../../../../../core/services/sync/pos_v2_options_service.dart';
@@ -181,7 +182,6 @@ class _PosWorkspaceTabletLandscapeViewState
   bool _autoTax = false;
   double _taxPercentage = 0.0;
   String? _taxName;
-  String? _selectedTaxId;
   bool _autoPrint = true;
 
   String? _activeMenuId;
@@ -249,7 +249,7 @@ class _PosWorkspaceTabletLandscapeViewState
           final brandId = metadata is Map
               ? metadata['brand_remote_id']?.toString() ?? ''
               : '';
-              
+
           final originalDiscountedPrice =
               productIndex[item.productRemoteId!]?['discountedPrice'];
           int? parsedDiscounted;
@@ -395,13 +395,16 @@ class _PosWorkspaceTabletLandscapeViewState
     double taxPercentage = 0.0;
     String? taxName;
 
-    if (autoTax && selectedTaxId != null && selectedTaxId.isNotEmpty) {
-      final db = DatabaseService.instance;
-      final taxes = await db.rawQuery('SELECT * FROM pos_tax WHERE remote_id = ? LIMIT 1', [selectedTaxId]);
-      if (taxes.isNotEmpty) {
-        final tax = taxes.first;
-        taxName = tax['name']?.toString();
-        taxPercentage = double.tryParse(tax['taxrate']?.toString() ?? '0') ?? 0.0;
+    if (autoTax) {
+      final taxSelection = await PosTaxSelectionResolver.resolve(
+        autoTax: autoTax,
+        selectedTaxId: selectedTaxId,
+      );
+      autoTax = taxSelection.isEnabled;
+      taxName = taxSelection.name;
+      taxPercentage = taxSelection.percentage;
+      if (taxSelection.issue != null) {
+        debugPrint('[POS_TAX_LOG] ${taxSelection.issue}');
       }
     }
 
@@ -414,7 +417,6 @@ class _PosWorkspaceTabletLandscapeViewState
         _showProductStock = display['show_stock'] ?? true;
         _showProductPrice = display['show_price'] ?? true;
         _autoTax = autoTax;
-        _selectedTaxId = selectedTaxId;
         _taxPercentage = taxPercentage;
         _taxName = taxName;
         _autoPrint = autoPrint;
@@ -509,12 +511,16 @@ class _PosWorkspaceTabletLandscapeViewState
 
   int get _taxAmount {
     if (!_autoTax || _taxPercentage <= 0) return 0;
-    final base = (_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31);
+    final base = (_subtotalAmount - _orderLevelDiscountAmount).clamp(
+      0,
+      1 << 31,
+    );
     return (base * (_taxPercentage / 100)).round();
   }
 
   int get _totalPay =>
-      ((_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31)) + _taxAmount;
+      ((_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31)) +
+      _taxAmount;
 
   int get _openOrdersCount => SalesOrderStore.instance.countForStatuses({1, 6});
 
@@ -786,7 +792,8 @@ class _PosWorkspaceTabletLandscapeViewState
       final Map<String, _PosCartItem> productRefMap = {};
       final aggregatedMatchItems = <PosPromotionMatchItem>[];
       for (final item in rawItems) {
-        if (item.productRemoteId == null || item.productRemoteId!.isEmpty) continue;
+        if (item.productRemoteId == null || item.productRemoteId!.isEmpty)
+          continue;
         final existing = productRefMap[item.productRemoteId!];
         if (existing != null) {
           // Remove old entry and re-add with combined qty
@@ -795,28 +802,34 @@ class _PosWorkspaceTabletLandscapeViewState
             quantity: existing.quantity + item.quantity,
           );
           productRefMap[item.productRemoteId!] = combined;
-          final metadata = productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
-          aggregatedMatchItems.add(PosPromotionMatchItem(
-            refId: combined.id,
-            productRemoteId: combined.productRemoteId!,
-            productName: combined.name,
-            categoryRemoteId: metadata['categoryRemoteId']?.toString(),
-            brandRemoteId: metadata['brandRemoteId']?.toString(),
-            activeUnitPrice: combined.activeUnitPrice,
-            quantity: combined.quantity,
-          ));
+          final metadata =
+              productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
+          aggregatedMatchItems.add(
+            PosPromotionMatchItem(
+              refId: combined.id,
+              productRemoteId: combined.productRemoteId!,
+              productName: combined.name,
+              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
+              brandRemoteId: metadata['brandRemoteId']?.toString(),
+              activeUnitPrice: combined.activeUnitPrice,
+              quantity: combined.quantity,
+            ),
+          );
         } else {
           productRefMap[item.productRemoteId!] = item;
-          final metadata = productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
-          aggregatedMatchItems.add(PosPromotionMatchItem(
-            refId: item.id,
-            productRemoteId: item.productRemoteId!,
-            productName: item.name,
-            categoryRemoteId: metadata['categoryRemoteId']?.toString(),
-            brandRemoteId: metadata['brandRemoteId']?.toString(),
-            activeUnitPrice: item.activeUnitPrice,
-            quantity: item.quantity,
-          ));
+          final metadata =
+              productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
+          aggregatedMatchItems.add(
+            PosPromotionMatchItem(
+              refId: item.id,
+              productRemoteId: item.productRemoteId!,
+              productName: item.name,
+              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
+              brandRemoteId: metadata['brandRemoteId']?.toString(),
+              activeUnitPrice: item.activeUnitPrice,
+              quantity: item.quantity,
+            ),
+          );
         }
       }
 
@@ -831,9 +844,9 @@ class _PosWorkspaceTabletLandscapeViewState
       for (final allocated in allocation.allocatedItems) {
         // Find the productRemoteId via refId (first rawItem of that product)
         final refItem = rawItems.cast<_PosCartItem?>().firstWhere(
-              (r) => r?.id == allocated.refId,
-              orElse: () => null,
-            );
+          (r) => r?.id == allocated.refId,
+          orElse: () => null,
+        );
         final productId = refItem?.productRemoteId ?? allocated.refId;
         promoByProduct[productId] = {
           'appliedPromoId': allocated.appliedPromoId,
@@ -1822,6 +1835,8 @@ class _PosWorkspaceTabletLandscapeViewState
     required PosCustomerRecord customer,
     required SalesPaymentModeSnapshot paymentSnapshot,
   }) async {
+    final shiftSessionId =
+        ActiveShiftStore.instance.activeShiftNotifier.value?.id;
     await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         fullscreenDialog: true,
@@ -1878,6 +1893,10 @@ class _PosWorkspaceTabletLandscapeViewState
                       orderType: _selectedOrderType,
                       note: _orderNote,
                       orderLevelDiscountAmount: _orderLevelDiscountAmount,
+                      taxAmount: _taxAmount,
+                      taxName: _taxName,
+                      taxPercentage: _taxPercentage,
+                      shiftSessionId: shiftSessionId,
                       paymentModeRemoteId: paymentMode.remoteId,
                       paymentModeName: paymentMode.name,
                       processQueueNow: true,
@@ -1899,7 +1918,10 @@ class _PosWorkspaceTabletLandscapeViewState
     );
   }
 
-  Future<SalesOrderRecord?> _commitOrder(int statusCode, {bool clearCart = true}) async {
+  Future<SalesOrderRecord?> _commitOrder(
+    int statusCode, {
+    bool clearCart = true,
+  }) async {
     if (_isCommitting) return null;
     final l10n = AppLocalizations.of(context)!;
 
@@ -1990,6 +2012,7 @@ class _PosWorkspaceTabletLandscapeViewState
             taxAmount: _taxAmount,
             taxName: _taxName,
             taxPercentage: _taxPercentage,
+            shiftSessionId: activeShift?.id,
           )
           .timeout(const Duration(seconds: 15));
 
@@ -2035,8 +2058,12 @@ class _PosWorkspaceTabletLandscapeViewState
     await PrinterSettingsController.instance.refresh(silent: true);
     final printerState = PrinterSettingsController.instance.stateNotifier.value;
 
-    final activePrinters = printerState.printers.where((p) => p.isActive).toList();
-    final kitchenPrinters = activePrinters.where((p) => p.roles.contains('kitchen')).toList();
+    final activePrinters = printerState.printers
+        .where((p) => p.isActive)
+        .toList();
+    final kitchenPrinters = activePrinters
+        .where((p) => p.roles.contains('kitchen'))
+        .toList();
 
     if (kitchenPrinters.isEmpty) {
       if (!mounted) return;
@@ -2045,10 +2072,16 @@ class _PosWorkspaceTabletLandscapeViewState
         builder: (ctx) {
           return AlertDialog(
             backgroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             title: const Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                Icon(
+                  Icons.warning_amber_rounded,
+                  color: Colors.amber,
+                  size: 24,
+                ),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -2114,9 +2147,16 @@ class _PosWorkspaceTabletLandscapeViewState
     }
 
     // Commit order first if not read-only to obtain id_pos
-    final committedRecord = !isReadOnly ? await _commitOrder(1, clearCart: false) : null;
-    final rawOrderId = committedRecord?.id ?? _editingOrderId ?? 'POS-${DateTime.now().millisecondsSinceEpoch}';
-    final receiptNo = rawOrderId.length >= 8 ? rawOrderId.substring(rawOrderId.length - 8) : rawOrderId;
+    final committedRecord = !isReadOnly
+        ? await _commitOrder(1, clearCart: false)
+        : null;
+    final rawOrderId =
+        committedRecord?.id ??
+        _editingOrderId ??
+        'POS-${DateTime.now().millisecondsSinceEpoch}';
+    final receiptNo = rawOrderId.length >= 8
+        ? rawOrderId.substring(rawOrderId.length - 8)
+        : rawOrderId;
 
     // Kitchen printers exist! Filter items for each kitchen printer according to roleBrandFilters['kitchen']
     bool printedAny = false;
@@ -2150,35 +2190,49 @@ class _PosWorkspaceTabletLandscapeViewState
           subtitle: 'Pesanan Dapur',
           infoRows: [
             PrinterInfoRow(label: 'No. Struk', value: receiptNo),
-            PrinterInfoRow(label: 'Tipe Order', value: _orderTypeLabel(context)),
+            PrinterInfoRow(
+              label: 'Tipe Order',
+              value: _orderTypeLabel(context),
+            ),
             PrinterInfoRow(
               label: 'Pelanggan',
               value: _selectedCustomer?.name ?? 'Walk-in Customer',
             ),
             PrinterInfoRow(
               label: 'Waktu',
-              value: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+              value:
+                  '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
             ),
             if (_orderNote.trim().isNotEmpty)
               PrinterInfoRow(label: 'Catatan Order', value: _orderNote.trim()),
           ],
           items: itemsForPrinter
-              .map((item) => PrinterLineItem(
-                    label: item.displayName,
-                    quantity: item.quantity,
-                    note: item.note,
-                  ))
+              .map(
+                (item) => PrinterLineItem(
+                  label: item.displayName,
+                  quantity: item.quantity,
+                  note: item.note,
+                ),
+              )
               .toList(),
           footerLines: const ['Sinkronisasi Dapur FlinkPOS'],
         );
 
-        final renderOutput = await PrinterRenderingService.instance.render(printer, doc);
-        final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+        final renderOutput = await PrinterRenderingService.instance.render(
+          printer,
+          doc,
+        );
+        final dispatchResult = await PrinterTransportService.instance.dispatch(
+          printer,
+          renderOutput,
+        );
 
         if (dispatchResult.success) {
           printedAny = true;
         } else {
-          failedMessages.add('${printer.displayName}: ${dispatchResult.message ?? "Gagal koneksi"}');
+          failedMessages.add(
+            '${printer.displayName}: ${dispatchResult.message ?? "Gagal koneksi"}',
+          );
         }
       } catch (e) {
         failedMessages.add('${printer.displayName}: $e');
@@ -2186,7 +2240,9 @@ class _PosWorkspaceTabletLandscapeViewState
     }
 
     // Also send to label printers if any active printer has role 'label'
-    final labelPrinters = activePrinters.where((p) => p.roles.contains('label')).toList();
+    final labelPrinters = activePrinters
+        .where((p) => p.roles.contains('label'))
+        .toList();
     for (final printer in labelPrinters) {
       final allowedBrands = printer.roleBrandFilters['label'] ?? <String>[];
       final itemsForPrinter = _cartItems.where((item) {
@@ -2209,33 +2265,49 @@ class _PosWorkspaceTabletLandscapeViewState
         final labelDoc = PrinterDocumentData(
           type: PrinterDocumentType.label,
           title: 'LABEL STIKER',
-          subtitle: '${_orderTypeLabel(context)} | ${_selectedCustomer?.name ?? "Walk-in"}',
+          subtitle:
+              '${_orderTypeLabel(context)} | ${_selectedCustomer?.name ?? "Walk-in"}',
           infoRows: [
             PrinterInfoRow(label: 'No. Struk', value: receiptNo),
             PrinterInfoRow(
               label: 'Waktu',
-              value: '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
+              value:
+                  '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
             ),
           ],
           items: itemsForPrinter
-              .map((item) => PrinterLineItem(
-                    label: item.displayName,
-                    quantity: item.quantity,
-                    note: item.note,
-                  ))
+              .map(
+                (item) => PrinterLineItem(
+                  label: item.displayName,
+                  quantity: item.quantity,
+                  note: item.note,
+                ),
+              )
               .toList(),
         );
 
-        final renderOutput = await PrinterRenderingService.instance.render(printer, labelDoc);
-        final dispatchResult = await PrinterTransportService.instance.dispatch(printer, renderOutput);
+        final renderOutput = await PrinterRenderingService.instance.render(
+          printer,
+          labelDoc,
+        );
+        final dispatchResult = await PrinterTransportService.instance.dispatch(
+          printer,
+          renderOutput,
+        );
         if (dispatchResult.success) printedAny = true;
       } catch (_) {}
     }
 
-    if (!printedAny && (kitchenPrinters.isNotEmpty || labelPrinters.isNotEmpty) && failedMessages.isEmpty) {
-      _showOrderActionFeedback('Perhatian: Tidak ada printer dapur/label yang cocok dengan Brand produk di keranjang ini.');
+    if (!printedAny &&
+        (kitchenPrinters.isNotEmpty || labelPrinters.isNotEmpty) &&
+        failedMessages.isEmpty) {
+      _showOrderActionFeedback(
+        'Perhatian: Tidak ada printer dapur/label yang cocok dengan Brand produk di keranjang ini.',
+      );
     } else if (failedMessages.isNotEmpty && !printedAny) {
-      _showOrderActionFeedback('Gagal mencetak ke printer dapur: ${failedMessages.join("; ")}');
+      _showOrderActionFeedback(
+        'Gagal mencetak ke printer dapur: ${failedMessages.join("; ")}',
+      );
     }
 
     if (printedAny) {
@@ -2272,19 +2344,19 @@ class _PosWorkspaceTabletLandscapeViewState
       } catch (e) {
         debugPrint('Failed to sync categories: $e');
       }
-      
+
       try {
         await orchestrator.syncBrands(contextSync);
       } catch (e) {
         debugPrint('Failed to sync brands: $e');
       }
-      
+
       try {
         await orchestrator.syncTaxes(contextSync);
       } catch (e) {
         debugPrint('Failed to sync taxes: $e');
       }
-      
+
       try {
         await orchestrator.syncItemsPaged(
           contextSync,
@@ -2296,20 +2368,21 @@ class _PosWorkspaceTabletLandscapeViewState
       } catch (e) {
         debugPrint('Failed to sync items: $e');
       }
-      
+
       try {
         await orchestrator.syncPromotions(
           contextSync,
           query: <String, dynamic>{
             'status': '1',
-            if (session.locationId.isNotEmpty) 'id_location': session.locationId,
+            if (session.locationId.isNotEmpty)
+              'id_location': session.locationId,
           },
           allowNotFoundEmpty: true,
         );
       } catch (e) {
         debugPrint('Failed to sync promotions: $e');
       }
-      
+
       try {
         await orchestrator.syncCustomers(contextSync);
       } catch (e) {
@@ -2421,7 +2494,9 @@ class _PosWorkspaceTabletLandscapeViewState
     final session = PosV2RuntimeSessionStore.instance.currentSession;
 
     List<Map<String, dynamic>>? paymentModes;
-    if (session != null && session.baseUrl.isNotEmpty && session.authToken.isNotEmpty) {
+    if (session != null &&
+        session.baseUrl.isNotEmpty &&
+        session.authToken.isNotEmpty) {
       try {
         final expenseService = ExpenseService(
           baseUrl: session.baseUrl,
@@ -2444,7 +2519,8 @@ class _PosWorkspaceTabletLandscapeViewState
       final tenantId = session?.tenantId;
       final locationId = session?.locationId;
       final staffId = session?.staffId;
-      final shiftSessionId = ActiveShiftStore.instance.activeShiftNotifier.value?.id;
+      final shiftSessionId =
+          ActiveShiftStore.instance.activeShiftNotifier.value?.id;
 
       if (tenantId != null) {
         await DatabaseService.instance.rawInsert(
@@ -2458,7 +2534,9 @@ class _PosWorkspaceTabletLandscapeViewState
             locationId,
             shiftSessionId,
             inputData.amount,
-            inputData.catatan.isNotEmpty ? '${inputData.nama} - ${inputData.catatan}' : inputData.nama,
+            inputData.catatan.isNotEmpty
+                ? '${inputData.nama} - ${inputData.catatan}'
+                : inputData.nama,
             staffId,
             inputData.tanggal.toIso8601String(),
             DateTime.now().toIso8601String(),
@@ -2492,7 +2570,9 @@ class _PosWorkspaceTabletLandscapeViewState
     final session = PosV2RuntimeSessionStore.instance.currentSession;
 
     List<Map<String, dynamic>>? paymentModes;
-    if (session != null && session.baseUrl.isNotEmpty && session.authToken.isNotEmpty) {
+    if (session != null &&
+        session.baseUrl.isNotEmpty &&
+        session.authToken.isNotEmpty) {
       try {
         final expenseService = ExpenseService(
           baseUrl: session.baseUrl,
@@ -2515,7 +2595,8 @@ class _PosWorkspaceTabletLandscapeViewState
       final tenantId = session?.tenantId;
       final locationId = session?.locationId;
       final staffId = session?.staffId;
-      final shiftSessionId = ActiveShiftStore.instance.activeShiftNotifier.value?.id;
+      final shiftSessionId =
+          ActiveShiftStore.instance.activeShiftNotifier.value?.id;
 
       if (tenantId != null) {
         await DatabaseService.instance.rawInsert(
@@ -2529,7 +2610,9 @@ class _PosWorkspaceTabletLandscapeViewState
             locationId,
             shiftSessionId,
             inputData.amount,
-            inputData.catatan.isNotEmpty ? '${inputData.nama} - ${inputData.catatan}' : inputData.nama,
+            inputData.catatan.isNotEmpty
+                ? '${inputData.nama} - ${inputData.catatan}'
+                : inputData.nama,
             staffId,
             inputData.tanggal.toIso8601String(),
             DateTime.now().toIso8601String(),
@@ -2537,16 +2620,20 @@ class _PosWorkspaceTabletLandscapeViewState
         );
       }
 
-      if (session != null && session.baseUrl.isNotEmpty && session.authToken.isNotEmpty) {
+      if (session != null &&
+          session.baseUrl.isNotEmpty &&
+          session.authToken.isNotEmpty) {
         final expenseService = ExpenseService(
           baseUrl: session.baseUrl,
           authToken: session.authToken,
         );
         unawaited(
-          expenseService.postExpense(
-            inputData: inputData,
-            paymentModeId: inputData.paymentModeId,
-          ).catchError((_) => <String, dynamic>{}),
+          expenseService
+              .postExpense(
+                inputData: inputData,
+                paymentModeId: inputData.paymentModeId,
+              )
+              .catchError((_) => <String, dynamic>{}),
         );
       }
 
@@ -3781,7 +3868,7 @@ class _PosWorkspaceTabletLandscapeViewState
       final promoLabel = p['promo']?.toString();
       final remoteId = p['remoteId']?.toString();
       final catId = p['categoryRemoteId']?.toString();
-      
+
       if (parentId != null && parentId.isNotEmpty && parentId != 'null') {
         if (promoLabel != null) {
           parentPromoMap[parentId] = promoLabel;
@@ -3800,10 +3887,12 @@ class _PosWorkspaceTabletLandscapeViewState
         }
       }
     }
-    
+
     for (var i = 0; i < products.length; i++) {
       final id = products[i]['remoteId']?.toString();
-      if (id != null && parentPromoMap.containsKey(id) && products[i]['promo'] == null) {
+      if (id != null &&
+          parentPromoMap.containsKey(id) &&
+          products[i]['promo'] == null) {
         products[i] = Map<String, dynamic>.from(products[i]);
         products[i]['promo'] = parentPromoMap[id];
       }

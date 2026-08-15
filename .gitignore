@@ -52,3 +52,7 @@ app.*.map.json
 .claude/skills/
 agent/skills/
 skills-lock.json
+
+.slim/deepwork/
+
+.ignore

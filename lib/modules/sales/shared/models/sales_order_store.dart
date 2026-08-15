@@ -7,7 +7,6 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/services/local/database_service.dart';
 import '../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
-import '../../../operations/shift/models/active_shift_store.dart';
 import '../../../operations/stores/operations_read_stores.dart';
 
 class SalesOrderLineItem {
@@ -93,13 +92,32 @@ class SalesOrderRecord {
   final String? taxName;
   final double taxPercentage;
 
+  int get itemDiscountTotal => items.fold<int>(
+    0,
+    (sum, item) =>
+        sum +
+        ((item.isDiscountEnabled && item.discountedUnitPrice != null)
+            ? (item.regularUnitPrice - item.discountedUnitPrice!).clamp(
+                    0,
+                    1 << 31,
+                  ) *
+                  item.quantity
+            : 0),
+  );
+
+  int get totalDiscountAmount => itemDiscountTotal + orderLevelDiscountAmount;
+
   int get subtotalAmount => items.isNotEmpty
-      ? items.fold(0, (sum, item) => sum + item.totalPrice)
+      ? items.fold<int>(
+          0,
+          (sum, item) => sum + (item.regularUnitPrice * item.quantity),
+        )
       : (fallbackSubtotalAmount ?? 0);
 
   int get totalAmount => items.isNotEmpty
-      ? (subtotalAmount - orderLevelDiscountAmount + taxAmount).clamp(0, 1 << 31)
+      ? (subtotalAmount - totalDiscountAmount + taxAmount).clamp(0, 1 << 31)
       : (fallbackTotalAmount ?? 0);
+
   int get totalQuantity => items.fold(0, (sum, item) => sum + item.quantity);
 }
 
@@ -342,9 +360,21 @@ class SalesOrderStore {
             orderLevelDiscountAmount: _asInt(row['manual_discount_value']) ?? 0,
             fallbackSubtotalAmount: _asInt(row['subtotal_amount']),
             fallbackTotalAmount: _asInt(row['total_amount']),
-            taxAmount: _asInt(_extractCustomField(row['custom_fields_json'], 'tax_amount')) ?? 0,
+            taxAmount:
+                _asInt(
+                  _extractCustomField(row['custom_fields_json'], 'tax_amount'),
+                ) ??
+                0,
             taxName: _extractCustomField(row['custom_fields_json'], 'tax_name'),
-            taxPercentage: double.tryParse(_extractCustomField(row['custom_fields_json'], 'tax_percentage') ?? '') ?? 0.0,
+            taxPercentage:
+                double.tryParse(
+                  _extractCustomField(
+                        row['custom_fields_json'],
+                        'tax_percentage',
+                      ) ??
+                      '',
+                ) ??
+                0.0,
             items: items,
           ),
         );
@@ -382,6 +412,7 @@ class SalesOrderStore {
     int taxAmount = 0,
     String? taxName,
     double taxPercentage = 0.0,
+    int? shiftSessionId,
     bool processQueueNow = false,
   }) async {
     if (items.isEmpty) {
@@ -431,6 +462,7 @@ class SalesOrderStore {
       record,
       paymentModeRemoteId: paymentModeRemoteId,
       paymentModeName: paymentModeName,
+      shiftSessionId: shiftSessionId,
       processQueueNow: processQueueNow,
     );
     return record;
@@ -493,6 +525,7 @@ class SalesOrderStore {
     SalesOrderRecord record, {
     String? paymentModeRemoteId,
     String? paymentModeName,
+    int? shiftSessionId,
     bool processQueueNow = false,
   }) async {
     final session =
@@ -501,7 +534,6 @@ class SalesOrderStore {
     if (session == null) {
       return;
     }
-
     final now = _formatSqlDateTime(DateTime.now());
     await DatabaseService.instance.transaction((txn) async {
       final existingRows = await txn.query(
@@ -528,7 +560,7 @@ class SalesOrderStore {
           'customer_id': record.customerLocalId,
           'sale_staff_id': saleStaffId,
           'id_pos': record.id,
-          'shift_session_id': ActiveShiftStore.instance.activeShiftNotifier.value?.id,
+          'shift_session_id': shiftSessionId,
           'location_id': session.locationId,
           'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
@@ -547,6 +579,7 @@ class SalesOrderStore {
           'status_code': record.statusCode.toString(),
           'status_text': record.statusCode.toString(),
           'subtotal_amount': record.subtotalAmount,
+          'discount_total_amount': record.totalDiscountAmount,
           'manual_discount_value': record.orderLevelDiscountAmount,
           'total_amount': record.totalAmount,
           'amount_received': record.statusCode == 2 ? record.totalAmount : 0,
@@ -563,7 +596,7 @@ class SalesOrderStore {
         updateValues: <String, Object?>{
           'customer_id': record.customerLocalId,
           'sale_staff_id': saleStaffId,
-          'shift_session_id': ActiveShiftStore.instance.activeShiftNotifier.value?.id,
+          'shift_session_id': shiftSessionId,
           'location_id': session.locationId,
           'register_id': session.registerId,
           'customer_remote_id': record.customerRemoteId,
@@ -582,6 +615,7 @@ class SalesOrderStore {
           'status_code': record.statusCode.toString(),
           'status_text': record.statusCode.toString(),
           'subtotal_amount': record.subtotalAmount,
+          'discount_total_amount': record.totalDiscountAmount,
           'manual_discount_value': record.orderLevelDiscountAmount,
           'total_amount': record.totalAmount,
           'amount_received': record.statusCode == 2 ? record.totalAmount : 0,
@@ -1048,12 +1082,15 @@ class SalesOrderStore {
       PosV2RuntimeSessionStore.instance.currentSession?.staffId ?? '',
     );
     final session = PosV2RuntimeSessionStore.instance.currentSession;
-    final itemTaxArr = (record.taxAmount > 0 &&
+    final itemTaxArr =
+        (record.taxAmount > 0 &&
             (record.taxName ?? '').isNotEmpty &&
             record.taxPercentage > 0)
         ? ['${record.taxName}|${record.taxPercentage.toStringAsFixed(2)}']
         : [];
-    debugPrint('[POS_ORDER_PAYLOAD_LOG] Order API Payload taxname: $itemTaxArr, total: ${record.totalAmount}');
+    debugPrint(
+      '[POS_ORDER_PAYLOAD_LOG] Order API Payload taxname: $itemTaxArr, total: ${record.totalAmount}',
+    );
 
     return <String, Object?>{
       'id_pos': record.id,
@@ -1093,11 +1130,12 @@ class SalesOrderStore {
               'long_description': '',
               'qty': item.quantity,
               'rate': item.activeUnitPrice,
-              'taxname': (record.taxAmount > 0 &&
+              'taxname':
+                  (record.taxAmount > 0 &&
                       (record.taxName ?? '').isNotEmpty &&
                       record.taxPercentage > 0)
                   ? <String>[
-                      '${record.taxName}|${record.taxPercentage.toStringAsFixed(2)}'
+                      '${record.taxName}|${record.taxPercentage.toStringAsFixed(2)}',
                     ]
                   : const <String>[],
               'order': index + 1,

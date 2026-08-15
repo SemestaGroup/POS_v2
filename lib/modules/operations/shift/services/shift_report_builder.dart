@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../../../core/printing/models/printer_render_models.dart';
 import '../../../../../../core/services/local/database_service.dart';
+import 'shift_report_calculations.dart';
 
 class ShiftReportBuilder {
   ShiftReportBuilder._();
@@ -58,11 +59,11 @@ class ShiftReportBuilder {
     // Gross sales, Discounts, Voids/Refunds, Net Sales
     final orderRows = await db.rawQuery(
       '''
-      SELECT 
+      SELECT
         SUM(subtotal_amount) as gross_sales,
-        SUM(discount_total_amount) as total_discount,
+        SUM(COALESCE(NULLIF(discount_total_amount, 0), manual_discount_value, 0)) as total_discount,
         SUM(total_amount) as net_sales
-      FROM pos_order 
+      FROM pos_order
       WHERE tenant_id = ? AND shift_session_id = ? AND status_code IN ('2', '4') AND deleted_at IS NULL
     ''',
       <Object?>[tenantId, shiftSessionId],
@@ -89,24 +90,31 @@ class ShiftReportBuilder {
     // Cash Sales
     final cashPaymentRows = await db.rawQuery(
       '''
-      SELECT SUM(p.amount) as cash_sales 
+      SELECT
+        COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas') as name,
+        SUM(p.amount) as total
       FROM pos_order_payment p
       JOIN pos_order o ON p.order_id = o.id
+      LEFT JOIN payment_mode pm ON pm.remote_id = p.payment_mode_remote_id AND pm.tenant_id = p.tenant_id
       WHERE p.tenant_id = ? AND o.shift_session_id = ? 
         AND o.status_code IN ('2', '4')
         AND p.deleted_at IS NULL
-        AND (LOWER(p.payment_mode_name_snapshot) LIKE '%cash%' OR LOWER(p.payment_mode_name_snapshot) LIKE '%tunai%')
+      GROUP BY COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas')
     ''',
       <Object?>[tenantId, shiftSessionId],
     );
-    final cashSales = cashPaymentRows.isNotEmpty
-        ? _asInt(cashPaymentRows.first['cash_sales'])
-        : 0;
+    final cashSales = cashPaymentRows
+        .where(
+          (row) => ShiftReportCalculations.isCashPaymentName(
+            row['name']?.toString(),
+          ),
+        )
+        .fold<int>(0, (sum, row) => sum + _asInt(row['total']));
 
     // Tax calculation
     final orderTaxRows = await db.rawQuery(
       '''
-      SELECT custom_fields_json
+      SELECT total_amount, subtotal_amount, discount_total_amount, manual_discount_value, custom_fields_json
       FROM pos_order
       WHERE tenant_id = ? AND shift_session_id = ?
         AND status_code IN ('2', '4')
@@ -114,21 +122,9 @@ class ShiftReportBuilder {
     ''',
       <Object?>[tenantId, shiftSessionId],
     );
-    int totalTax = 0;
-    for (final row in orderTaxRows) {
-      final customFields = row['custom_fields_json']?.toString();
-      if (customFields != null && customFields.isNotEmpty) {
-        try {
-          final decoded = jsonDecode(customFields);
-          if (decoded is Map<String, dynamic>) {
-            final taxAmt =
-                int.tryParse(decoded['tax_amount']?.toString() ?? '0') ?? 0;
-            totalTax += taxAmt;
-          }
-        } catch (_) {}
-      }
-    }
-
+    final totalTax = ShiftReportCalculations.totalTaxFromOrderRows(
+      orderTaxRows,
+    );
     final infoRows = <PrinterInfoRow>[
       PrinterInfoRow(label: 'Shift', value: shiftName),
       PrinterInfoRow(label: 'Kasir', value: staffName),
@@ -160,11 +156,10 @@ class ShiftReportBuilder {
         label: 'Fisik (Actual)',
         value: currencyFmt.format(actualCash),
       ),
-      if (totalTax > 0)
-        PrinterSummaryRow(
-          label: 'Total Pajak',
-          value: currencyFmt.format(totalTax),
-        ),
+      PrinterSummaryRow(
+        label: 'Total Pajak',
+        value: currencyFmt.format(totalTax),
+      ),
       PrinterSummaryRow(
         label: 'Selisih',
         value: currencyFmt.format(variance),
@@ -177,13 +172,17 @@ class ShiftReportBuilder {
     // 4. Fetch Payment Methods Breakdown
     final paymentBreakdown = await db.rawQuery(
       '''
-      SELECT p.payment_mode_name_snapshot as name, SUM(p.amount) as total, COUNT(p.id) as qty 
+      SELECT
+        COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas') as name,
+        SUM(p.amount) as total,
+        COUNT(p.id) as qty
       FROM pos_order_payment p
       JOIN pos_order o ON p.order_id = o.id
-      WHERE p.tenant_id = ? AND o.shift_session_id = ? 
+      LEFT JOIN payment_mode pm ON pm.remote_id = p.payment_mode_remote_id AND pm.tenant_id = p.tenant_id
+      WHERE p.tenant_id = ? AND o.shift_session_id = ?
         AND o.status_code IN ('2', '4')
         AND p.deleted_at IS NULL
-      GROUP BY p.payment_mode_name_snapshot
+      GROUP BY COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas')
     ''',
       <Object?>[tenantId, shiftSessionId],
     );
@@ -197,12 +196,14 @@ class ShiftReportBuilder {
         ),
       );
       for (final row in paymentBreakdown) {
-        final name = row['name']?.toString() ?? 'Lainnya';
+        final name = (row['name']?.toString() ?? '').trim();
+        final displayName = name.isNotEmpty ? name : 'Tunai/Kas';
         final total = _asInt(row['total']);
+        final qty = _asDouble(row['qty']).round();
         items.add(
           PrinterLineItem(
-            label: name,
-            quantity: 0,
+            label: displayName,
+            quantity: qty,
             amount: total,
             note: ' ',
           ),
@@ -226,19 +227,17 @@ class ShiftReportBuilder {
 
     if (itemsBreakdown.isNotEmpty) {
       items.add(
-        const PrinterLineItem(
-          label: 'ITEM TERJUAL',
-          quantity: 0,
-          amount: null,
-        ),
+        const PrinterLineItem(label: 'ITEM TERJUAL', quantity: 0, amount: null),
       );
       for (final row in itemsBreakdown) {
         final name = row['name']?.toString() ?? 'Produk';
+        final qty = _asDouble(row['qty']).round();
+        final total = _asInt(row['total']);
         items.add(
           PrinterLineItem(
             label: name,
-            quantity: 0,
-            amount: null,
+            quantity: qty > 0 ? qty : 1,
+            amount: total > 0 ? total : null,
             note: ' ',
           ),
         );
@@ -257,22 +256,13 @@ class ShiftReportBuilder {
 
     if (cashOutRows.isNotEmpty) {
       items.add(
-        const PrinterLineItem(
-          label: 'PENGELUARAN',
-          quantity: 0,
-          amount: null,
-        ),
+        const PrinterLineItem(label: 'PENGELUARAN', quantity: 0, amount: null),
       );
       for (final row in cashOutRows) {
         final note = row['note']?.toString() ?? 'Kas Keluar';
         final amount = _asInt(row['amount']);
         items.add(
-          PrinterLineItem(
-            label: note,
-            quantity: 0,
-            amount: amount,
-            note: ' ',
-          ),
+          PrinterLineItem(label: note, quantity: 0, amount: amount, note: ' '),
         );
       }
     }
@@ -321,10 +311,7 @@ class ShiftReportBuilder {
   }
 
   int _asInt(Object? value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is double) return value.round();
-    return int.tryParse(value.toString().split('.').first) ?? 0;
+    return ShiftReportCalculations.asInt(value);
   }
 
   double _asDouble(Object? value) {
@@ -338,9 +325,23 @@ class ShiftReportBuilder {
     required dynamic archive,
     required int tenantId,
   }) async {
-    // We'll parse the summary_json from EodArchiveRecord (dynamic to avoid direct import here if not needed, but better to just use dynamic for duck typing)
     final currencyFmt = NumberFormat('#,###', 'id_ID');
     final dateFmt = DateFormat('dd MMM yyyy HH:mm', 'id_ID');
+    Map<String, dynamic>? summary;
+    final rawSummary = archive.summaryJson?.toString();
+    if (rawSummary != null && rawSummary.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawSummary);
+        if (decoded is Map<String, dynamic>) {
+          summary = decoded;
+        }
+      } on FormatException {
+        // Old archives with invalid JSON retain their saved top-level totals.
+      }
+    }
+    final archivedTotals = summary == null
+        ? null
+        : EodReportTotals.fromJson(summary);
 
     final infoRows = <PrinterInfoRow>[
       PrinterInfoRow(label: 'EOD Code', value: archive.eodCode.toString()),
@@ -350,41 +351,43 @@ class ShiftReportBuilder {
       ),
     ];
 
-    // Fetch shifts that are part of this EOD
-    final db = DatabaseService.instance;
-    final shiftRows = await db.rawQuery(
-      'SELECT shift_name, pos_staff_name_snapshot, opened_at, closed_at FROM shift_session WHERE eod_group_id = ? AND tenant_id = ? ORDER BY id ASC',
-      <Object?>[archive.eodCode, tenantId],
-    );
-
-    if (shiftRows.isNotEmpty) {
+    final archivedShifts = summary?['shifts'];
+    if (archivedShifts is List) {
+      for (final rawShift in archivedShifts) {
+        if (rawShift is Map) {
+          _addEodShiftInfo(
+            infoRows,
+            Map<String, dynamic>.from(rawShift),
+            dateFmt,
+          );
+        }
+      }
+    } else {
+      // Compatibility for reports created before shift details were archived.
+      final shiftRows = await DatabaseService.instance.rawQuery(
+        'SELECT shift_name, pos_staff_name_snapshot, opened_at, closed_at FROM shift_session WHERE eod_group_id = ? AND tenant_id = ? ORDER BY id ASC',
+        <Object?>[archive.eodCode, tenantId],
+      );
       for (final shift in shiftRows) {
-        final shiftName = shift['shift_name']?.toString() ?? '—';
-        final staffName = shift['pos_staff_name_snapshot']?.toString() ?? '—';
-        final openedAtRaw = shift['opened_at']?.toString();
-        final closedAtRaw = shift['closed_at']?.toString();
-        DateTime? openedAt = openedAtRaw != null
-            ? DateTime.tryParse(openedAtRaw.replaceFirst(' ', 'T'))
-            : null;
-        DateTime? closedAt = closedAtRaw != null && closedAtRaw.isNotEmpty
-            ? DateTime.tryParse(closedAtRaw.replaceFirst(' ', 'T'))
-            : null;
-
-        infoRows.add(const PrinterInfoRow(label: '---', value: ''));
-        infoRows.add(PrinterInfoRow(label: 'Shift', value: shiftName));
-        infoRows.add(PrinterInfoRow(label: 'Kasir', value: staffName));
-        if (openedAt != null)
-          infoRows.add(
-            PrinterInfoRow(label: 'Buka', value: dateFmt.format(openedAt)),
-          );
-        if (closedAt != null)
-          infoRows.add(
-            PrinterInfoRow(label: 'Tutup', value: dateFmt.format(closedAt)),
-          );
+        _addEodShiftInfo(infoRows, shift, dateFmt);
       }
     }
 
     final summaryRows = <PrinterSummaryRow>[
+      if (archivedTotals != null) ...[
+        PrinterSummaryRow(
+          label: 'Gross Sales',
+          value: currencyFmt.format(archivedTotals.grossSales),
+        ),
+        PrinterSummaryRow(
+          label: 'Total Diskon',
+          value: currencyFmt.format(archivedTotals.totalDiscount),
+        ),
+        PrinterSummaryRow(
+          label: 'Net Sales',
+          value: currencyFmt.format(archivedTotals.netSales),
+        ),
+      ],
       PrinterSummaryRow(
         label: 'Total Transaksi',
         value: archive.totalTransactions.toString(),
@@ -394,78 +397,17 @@ class ShiftReportBuilder {
         value: currencyFmt.format(archive.totalRevenue),
         highlighted: true,
       ),
+      if (archivedTotals != null)
+        PrinterSummaryRow(
+          label: 'Total Pajak',
+          value: currencyFmt.format(archivedTotals.totalTax),
+        ),
     ];
-
     final items = <PrinterLineItem>[];
 
-    if (archive.summaryJson != null && archive.summaryJson!.isNotEmpty) {
-      try {
-        final Map<String, dynamic> summary = jsonDecode(archive.summaryJson!);
-
-        // 1. Payments
-        if (summary['payments'] != null) {
-          final List<dynamic> payments = summary['payments'];
-          if (payments.isNotEmpty) {
-            items.add(
-              const PrinterLineItem(
-                label: 'METODE PEMBAYARAN',
-                quantity: 0,
-                amount: null,
-              ),
-            );
-            for (final p in payments) {
-              final name = p['name']?.toString() ?? 'Lainnya';
-              final amount = _asInt(p['amount']);
-              final qty = _asDouble(p['qty']).round();
-              items.add(
-                PrinterLineItem(
-                  label: '${qty}x $name',
-                  quantity: 0,
-                  amount: amount,
-                  note: ' ',
-                ),
-              );
-            }
-          }
-        }
-
-        // 2. Items
-        if (summary['items'] != null) {
-          final List<dynamic> products = summary['items'];
-          if (products.isNotEmpty) {
-            items.add(
-              const PrinterLineItem(
-                label: 'ITEM TERJUAL',
-                quantity: 0,
-                amount: null,
-              ),
-            );
-            for (final p in products) {
-              final name = p['name']?.toString() ?? 'Produk';
-              final qty = _asDouble(p['qty']).round();
-              // amount is null for items in EOD as requested
-              items.add(
-                PrinterLineItem(
-                  label: '${qty}x $name',
-                  quantity: 0,
-                  amount: null,
-                  note: ' ',
-                ),
-              );
-            }
-          }
-        }
-
-        if (summary['gross_sales'] != null) {
-          summaryRows.insert(
-            0,
-            PrinterSummaryRow(
-              label: 'Gross Sales',
-              value: currencyFmt.format(_asInt(summary['gross_sales'])),
-            ),
-          );
-        }
-      } catch (_) {}
+    if (summary != null) {
+      _addEodPaymentItems(items, summary['payments']);
+      _addEodProductItems(items, summary['items']);
     }
 
     return PrinterDocumentData(
@@ -477,5 +419,87 @@ class ShiftReportBuilder {
       summaryRows: summaryRows,
       footerLines: const ['Dicetak dari FlinkPOS V2'],
     );
+  }
+
+  void _addEodShiftInfo(
+    List<PrinterInfoRow> infoRows,
+    Map<String, dynamic> shift,
+    DateFormat dateFmt,
+  ) {
+    final openedAtRaw = shift['opened_at']?.toString();
+    final closedAtRaw = shift['closed_at']?.toString();
+    final openedAt = openedAtRaw == null
+        ? null
+        : DateTime.tryParse(openedAtRaw.replaceFirst(' ', 'T'));
+    final closedAt = closedAtRaw == null || closedAtRaw.isEmpty
+        ? null
+        : DateTime.tryParse(closedAtRaw.replaceFirst(' ', 'T'));
+    infoRows.add(const PrinterInfoRow(label: '---', value: ''));
+    infoRows.add(
+      PrinterInfoRow(
+        label: 'Shift',
+        value: shift['shift_name']?.toString() ?? '—',
+      ),
+    );
+    infoRows.add(
+      PrinterInfoRow(
+        label: 'Kasir',
+        value: shift['pos_staff_name_snapshot']?.toString() ?? '—',
+      ),
+    );
+    if (openedAt != null) {
+      infoRows.add(
+        PrinterInfoRow(label: 'Buka', value: dateFmt.format(openedAt)),
+      );
+    }
+    if (closedAt != null) {
+      infoRows.add(
+        PrinterInfoRow(label: 'Tutup', value: dateFmt.format(closedAt)),
+      );
+    }
+  }
+
+  void _addEodPaymentItems(List<PrinterLineItem> items, Object? rawPayments) {
+    if (rawPayments is! List || rawPayments.isEmpty) return;
+    items.add(
+      const PrinterLineItem(
+        label: 'METODE PEMBAYARAN',
+        quantity: 0,
+        amount: null,
+      ),
+    );
+    for (final rawPayment in rawPayments) {
+      if (rawPayment is! Map) continue;
+      final payment = Map<String, dynamic>.from(rawPayment);
+      items.add(
+        PrinterLineItem(
+          label:
+              '${_asDouble(payment['qty']).round()}x ${payment['name']?.toString() ?? 'Lainnya'}',
+          quantity: 0,
+          amount: _asInt(payment['amount']),
+          note: ' ',
+        ),
+      );
+    }
+  }
+
+  void _addEodProductItems(List<PrinterLineItem> items, Object? rawProducts) {
+    if (rawProducts is! List || rawProducts.isEmpty) return;
+    items.add(
+      const PrinterLineItem(label: 'ITEM TERJUAL', quantity: 0, amount: null),
+    );
+    for (final rawProduct in rawProducts) {
+      if (rawProduct is! Map) continue;
+      final product = Map<String, dynamic>.from(rawProduct);
+      items.add(
+        PrinterLineItem(
+          label:
+              '${_asDouble(product['qty']).round()}x ${product['name']?.toString() ?? 'Produk'}',
+          quantity: 0,
+          amount: null,
+          note: ' ',
+        ),
+      );
+    }
   }
 }

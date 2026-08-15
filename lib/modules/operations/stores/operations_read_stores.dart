@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/services/local/database_service.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../shift/services/shift_report_calculations.dart';
 
 class ShiftSummaryRecord {
   const ShiftSummaryRecord({
@@ -350,7 +351,7 @@ class RecapStore {
       // 2. Fetch all unarchived closed shifts
       final shiftRows = await DatabaseService.instance.rawQuery(
         '''
-        SELECT id, opened_at, closed_at 
+        SELECT id, shift_name, pos_staff_name_snapshot, opened_at, closed_at
         FROM shift_session 
         WHERE tenant_id = ? AND deleted_at IS NULL AND eod_group_id IS NULL AND status = 'closed'
         ''',
@@ -360,6 +361,29 @@ class RecapStore {
       if (shiftRows.isEmpty) {
         throw Exception('Tidak ada shift tertutup yang bisa direkap.');
       }
+
+      final eodOrderRows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT o.subtotal_amount, o.discount_total_amount,
+               o.manual_discount_value, o.total_amount, o.custom_fields_json
+        FROM pos_order o
+        WHERE o.tenant_id = ?
+          AND o.deleted_at IS NULL
+          AND o.status_code IN ('2', '4')
+          AND EXISTS (
+            SELECT 1 FROM shift_session s
+            WHERE s.tenant_id = o.tenant_id
+              AND s.deleted_at IS NULL
+              AND s.eod_group_id IS NULL
+              AND (REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= REPLACE(s.opened_at, 'T', ' ')
+                AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= COALESCE(REPLACE(s.closed_at, 'T', ' '), '9999-12-31 23:59:59'))
+          )
+        ''',
+        <Object?>[session.tenantId],
+      );
+      final archivedOrderTotals = ShiftReportCalculations.totalsFromOrderRows(
+        eodOrderRows,
+      );
 
       // 3. Gather payment data
       final paymentRows = await DatabaseService.instance.rawQuery(
@@ -462,11 +486,21 @@ class RecapStore {
           .toList();
 
       final summaryJson = jsonEncode({
+        'report_version': 2,
+        'shifts': shiftRows
+            .map(
+              (shift) => {
+                'shift_name': shift['shift_name']?.toString(),
+                'pos_staff_name_snapshot': shift['pos_staff_name_snapshot']
+                    ?.toString(),
+                'opened_at': shift['opened_at']?.toString(),
+                'closed_at': shift['closed_at']?.toString(),
+              },
+            )
+            .toList(growable: false),
         'payments': paymentSummary,
         'items': itemSummary,
-        'gross_sales': totalRevenue, // simplified for now
-        'discount': 0, // placeholder
-        'net_sales': totalRevenue,
+        ...archivedOrderTotals.toJson(),
       });
 
       // 5. Generate EOD Group Code

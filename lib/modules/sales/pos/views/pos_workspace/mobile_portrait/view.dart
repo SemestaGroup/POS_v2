@@ -15,6 +15,7 @@ import '../../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../shared/models/pos_catalog_store.dart';
 import '../../../../shared/models/pos_promotion_service.dart';
 import '../../../../shared/models/sales_order_store.dart';
+import '../../../../shared/models/pos_tax_selection_resolver.dart';
 import '../../../../shared/widgets/customer_picker_dialog.dart';
 import '../../../../../../core/printing/models/printer_render_models.dart';
 import '../../../../../../core/printing/services/printer_rendering_service.dart';
@@ -916,17 +917,16 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       autoTax = taxSetting['auto_tax'] ?? false;
       final selectedTaxId = taxSetting['tax_id']?.toString();
 
-      if (autoTax && selectedTaxId != null && selectedTaxId.isNotEmpty) {
-        final db = DatabaseService.instance;
-        final taxes = await db.rawQuery(
-          'SELECT * FROM pos_tax WHERE remote_id = ? LIMIT 1',
-          [selectedTaxId],
+      if (autoTax) {
+        final taxSelection = await PosTaxSelectionResolver.resolve(
+          autoTax: autoTax,
+          selectedTaxId: selectedTaxId,
         );
-        if (taxes.isNotEmpty) {
-          final tax = taxes.first;
-          taxName = tax['name']?.toString();
-          taxPercentage =
-              double.tryParse(tax['taxrate']?.toString() ?? '0') ?? 0.0;
+        autoTax = taxSelection.isEnabled;
+        taxName = taxSelection.name;
+        taxPercentage = taxSelection.percentage;
+        if (taxSelection.issue != null) {
+          debugPrint('[POS_TAX_LOG] ${taxSelection.issue}');
         }
       }
     } catch (error) {
@@ -1967,6 +1967,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         taxAmount: _taxAmount,
         taxName: _taxName,
         taxPercentage: _taxPercentage,
+        shiftSessionId: activeShift?.id,
         orderLevelDiscountAmount: _orderLevelDiscountAmount,
         paymentModeRemoteId: paymentMode?.remoteId,
         paymentModeName: paymentMode?.name,
