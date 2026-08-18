@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../mobile_portrait/view.dart';
 import '../../../../../../core/services/local/database_service.dart';
 import '../../../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../../../../../../core/printing/services/printer_rendering_service.dart';
 import '../../../../../../core/printing/services/printer_transport_service.dart';
 import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
 import '../../../services/shift_report_builder.dart';
+import '../../../services/shift_report_calculations.dart';
 
 class _ShiftRow {
   final int id;
@@ -19,8 +23,35 @@ class _ShiftRow {
   final int openingBalance;
   final int expectedCash;
   final int actualCash;
+  final int totalNonCash;
+  final int cashSales;
 
-  int get variance => actualCash - expectedCash;
+  bool get isClosed => status == 'closed' || closedAt != null;
+
+  int get variance => isClosed
+      ? ShiftReportCalculations.cashVariance(
+          actualCash: actualCash,
+          expectedCash: expectedCash,
+        )
+      : 0;
+  int get transactionVariance => variance;
+  int get totalShiftSales => cashSales + totalNonCash;
+
+  String formatVariance(NumberFormat fmt) {
+    if (!isClosed) return 'Shift Berjalan';
+    if (transactionVariance == 0) return 'Pas (Rp 0)';
+    if (transactionVariance < 0) {
+      return 'Kurang Rp ${fmt.format(transactionVariance.abs())}';
+    }
+    return 'Lebih Rp ${fmt.format(transactionVariance)}';
+  }
+
+  Color getVarianceColor() {
+    if (!isClosed) return const Color(0xFF0284C7);
+    if (transactionVariance == 0) return const Color(0xFF15803D);
+    if (transactionVariance < 0) return const Color(0xFFB91C1C);
+    return const Color(0xFFB45309);
+  }
 
   const _ShiftRow({
     required this.id,
@@ -33,6 +64,8 @@ class _ShiftRow {
     required this.openingBalance,
     required this.expectedCash,
     required this.actualCash,
+    required this.totalNonCash,
+    required this.cashSales,
   });
 }
 
@@ -84,14 +117,101 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       }
       final tenantId = tenantRows.first['id'];
 
+      try {
+        await PosV2SyncOrchestrator().syncShiftHistory(session.toSyncContext());
+      } catch (_) {}
+
       final raw = await DatabaseService.instance.rawQuery(
         '''
-        SELECT id, shift_name, pos_staff_name_snapshot, register_id,
-               status, opened_at, closed_at,
-               opening_balance, expected_cash, actual_cash
-        FROM shift_session
-        WHERE tenant_id = ? AND deleted_at IS NULL
-        ORDER BY opened_at DESC
+        SELECT s.id, s.shift_name, s.pos_staff_name_snapshot, s.register_id,
+               s.status, s.opened_at, s.closed_at, s.remote_id,
+               s.opening_balance, s.expected_cash, s.actual_cash, s.total_non_cash,
+               s.reconciliation_json,
+               COALESCE((
+                 SELECT SUM(cf.amount)
+                 FROM pos_cash_flow cf
+                 WHERE cf.tenant_id = s.tenant_id
+                   AND cf.type IN ('in', 'cash_in')
+                   AND cf.deleted_at IS NULL
+                   AND (
+                     cf.shift_session_id = s.id
+                     OR (
+                       cf.shift_session_id IS NULL
+                       AND
+                       substr(replace(cf.created_at, 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(cf.created_at, 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+               ), 0) AS total_cash_in,
+               COALESCE((
+                 SELECT SUM(cf.amount)
+                 FROM pos_cash_flow cf
+                 WHERE cf.tenant_id = s.tenant_id
+                   AND cf.type IN ('out', 'cash_out')
+                   AND cf.deleted_at IS NULL
+                   AND (
+                     cf.shift_session_id = s.id
+                     OR (
+                       cf.shift_session_id IS NULL
+                       AND
+                       substr(replace(cf.created_at, 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(cf.created_at, 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+               ), 0) AS total_cash_out,
+               COALESCE((
+                 SELECT SUM(p.amount)
+                 FROM pos_order_payment p
+                 JOIN pos_order o ON p.order_id = o.id
+                 LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
+                 WHERE o.tenant_id = s.tenant_id
+                   AND o.status_code IN ('2', '4')
+                   AND p.deleted_at IS NULL
+                   AND p.is_refund = 0
+                   AND (
+                     o.shift_session_id = s.id
+                     OR (o.shift_session_remote_id IS NOT NULL AND o.shift_session_remote_id != '' AND s.remote_id IS NOT NULL AND s.remote_id != '' AND o.shift_session_remote_id = s.remote_id)
+                     OR (
+                       o.shift_session_id IS NULL
+                       AND
+                       substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+                   AND (
+                     LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%cash%'
+                     OR LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%tunai%'
+                     OR COALESCE(p.payment_mode_name_snapshot, pm.name, p.payment_method, '') = ''
+                   )
+               ), 0) AS cash_sales,
+               COALESCE((
+                 SELECT SUM(p.amount)
+                 FROM pos_order_payment p
+                 JOIN pos_order o ON p.order_id = o.id
+                 LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
+                 WHERE o.tenant_id = s.tenant_id
+                   AND o.status_code IN ('2', '4')
+                   AND p.deleted_at IS NULL
+                   AND p.is_refund = 0
+                   AND (
+                     o.shift_session_id = s.id
+                     OR (o.shift_session_remote_id IS NOT NULL AND o.shift_session_remote_id != '' AND s.remote_id IS NOT NULL AND s.remote_id != '' AND o.shift_session_remote_id = s.remote_id)
+                     OR (
+                       o.shift_session_id IS NULL
+                       AND
+                       substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+                   AND NOT (
+                     LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%cash%'
+                     OR LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%tunai%'
+                     OR COALESCE(p.payment_mode_name_snapshot, pm.name, p.payment_method, '') = ''
+                   )
+               ), 0) AS non_cash_sales
+        FROM shift_session s
+        WHERE s.tenant_id = ? AND s.deleted_at IS NULL
+        ORDER BY s.opened_at DESC
         LIMIT 50
         ''',
         <Object?>[tenantId],
@@ -111,19 +231,94 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
 
       final rows = raw.map((r) {
         final closedStr = r['closed_at']?.toString();
+        final isClosed =
+            (closedStr != null && closedStr.isNotEmpty) ||
+            r['status'] == 'closed';
+        int expectedCash = asInt(r['expected_cash']);
+        int actualCash = asInt(r['actual_cash']);
+        int nonCash = asInt(r['total_non_cash']);
+        int cashSales = asInt(r['cash_sales']);
+        int calculatedNonCash = asInt(r['non_cash_sales']);
+        int openingBalance = asInt(r['opening_balance']);
+        int totalCashIn = asInt(r['total_cash_in']);
+        int totalCashOut = asInt(r['total_cash_out']);
+
+        if (r['reconciliation_json'] != null) {
+          try {
+            final reconc = r['reconciliation_json'] is String
+                ? jsonDecode(r['reconciliation_json'] as String)
+                : r['reconciliation_json'];
+            if (reconc is Map) {
+              if (expectedCash == 0) {
+                expectedCash = asInt(
+                  reconc['expected_cash'] ??
+                      reconc['expectedCash'] ??
+                      reconc['expected_cash_amount'],
+                );
+              }
+              if (actualCash == 0) {
+                actualCash = asInt(
+                  reconc['actual_cash'] ??
+                      reconc['actualCash'] ??
+                      reconc['actual_cash_amount'] ??
+                      reconc['closing_balance'],
+                );
+              }
+              if (nonCash == 0) {
+                nonCash = asInt(
+                  reconc['total_non_cash'] ??
+                      reconc['totalNonCash'] ??
+                      reconc['total_non_cash_amount'],
+                );
+                if (nonCash == 0 && reconc['payment_modes'] is List) {
+                  int sum = 0;
+                  for (final pm in reconc['payment_modes']) {
+                    if (pm is Map) {
+                      final modeName =
+                          (pm['name'] ?? pm['payment_mode_name'] ?? '')
+                              .toString()
+                              .toLowerCase();
+                      if (!modeName.contains('cash') &&
+                          !modeName.contains('tunai')) {
+                        sum += asInt(pm['amount'] ?? pm['estimated_amount']);
+                      }
+                    }
+                  }
+                  if (sum > 0) nonCash = sum;
+                }
+              }
+            }
+          } catch (_) {}
+        }
+
+        final calculatedExpectedCash = ShiftReportCalculations.expectedCash(
+          openingBalance: openingBalance,
+          cashIn: totalCashIn,
+          cashOut: totalCashOut,
+          cashSales: cashSales,
+        );
+        final finalExpectedCash = (isClosed && expectedCash > 0)
+            ? expectedCash
+            : calculatedExpectedCash;
+        final finalNonCash = calculatedNonCash > 0
+            ? calculatedNonCash
+            : nonCash;
+
         return _ShiftRow(
           id: asInt(r['id']),
           shiftName: r['shift_name']?.toString() ?? '—',
           staffName: r['pos_staff_name_snapshot']?.toString() ?? '—',
           registerId: r['register_id']?.toString(),
-          status: r['status']?.toString() ?? 'open',
+          status: isClosed ? 'closed' : (r['status']?.toString() ?? 'open'),
           openedAt: parseDate(r['opened_at']),
           closedAt: (closedStr != null && closedStr.isNotEmpty)
               ? DateTime.tryParse(closedStr.replaceFirst(' ', 'T'))
               : null,
-          openingBalance: asInt(r['opening_balance']),
-          expectedCash: asInt(r['expected_cash']),
-          actualCash: asInt(r['actual_cash']),
+          openingBalance: openingBalance,
+          expectedCash: finalExpectedCash,
+          actualCash: actualCash,
+          totalNonCash: finalNonCash,
+          cashSales: cashSales,
         );
       }).toList();
 
@@ -145,6 +340,10 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
 
   @override
   Widget build(BuildContext context) {
+    if (MediaQuery.of(context).size.width < 600) {
+      return const ShiftHistoryMobilePortraitView();
+    }
+
     final theme = Theme.of(context);
     final primaryColor = theme.colorScheme.primary;
     final currencyFmt = NumberFormat('#,###', 'id_ID');
@@ -203,29 +402,38 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     );
   }
 
-  Widget _buildError() => Center(
-    child: Padding(
+  Widget _buildError() => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.error_outline_rounded,
-            size: 36,
-            color: Colors.red.shade400,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: (constraints.maxHeight - 48)
+              .clamp(0.0, double.infinity)
+              .toDouble(),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 36,
+                color: Colors.red.shade400,
+              ),
+              const SizedBox(height: 10),
+              Text(
+                _errorMessage ?? 'Error',
+                style: TextStyle(fontSize: 12, color: Colors.red.shade600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: _load,
+                child: const Text('Coba Lagi', style: TextStyle(fontSize: 12)),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            _errorMessage ?? 'Error',
-            style: TextStyle(fontSize: 12, color: Colors.red.shade600),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          TextButton(
-            onPressed: _load,
-            child: const Text('Coba Lagi', style: TextStyle(fontSize: 12)),
-          ),
-        ],
+        ),
       ),
     ),
   );
@@ -258,40 +466,51 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
         ? const Color(0xFF15803D)
         : const Color(0xFF475569);
     final statusBg = isOpen ? const Color(0xFFECFDF3) : const Color(0xFFF1F5F9);
-    final variance = shift.variance;
-    final varianceColor = variance < 0
-        ? const Color(0xFFB91C1C)
-        : (variance > 0 ? const Color(0xFFB45309) : const Color(0xFF15803D));
     final compactDateFmt = DateFormat('dd MMM yy · HH:mm', 'id_ID');
+
+    final staffInitials = shift.staffName.trim().isNotEmpty
+        ? shift.staffName
+              .trim()
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
+        : 'KS';
 
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
+      elevation: 0,
       child: InkWell(
         onTap: () => _showShiftDetail(shift, context, currencyFmt, dateFmt),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFE5EAF2)),
-            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isOpen
+                  ? primaryColor.withValues(alpha: 0.35)
+                  : const Color(0xFFE2E8F0),
+              width: isOpen ? 1.5 : 1.0,
+            ),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.09),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(
-                      Icons.person_outline_rounded,
-                      color: primaryColor,
-                      size: 18,
+                  CircleAvatar(
+                    radius: 16,
+                    backgroundColor: primaryColor.withValues(alpha: 0.10),
+                    child: Text(
+                      staffInitials,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: primaryColor,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -304,23 +523,23 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Color(0xFF1E293B),
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           shift.shiftName +
                               (shift.registerId != null
-                                  ? ' · ${shift.registerId}'
+                                  ? ' · Reg #${shift.registerId}'
                                   : ''),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Color(0xFF64748B),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -329,41 +548,55 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                   const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
+                      horizontal: 9,
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
                       color: statusBg,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      isOpen ? 'AKTIF' : 'SELESAI',
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.35,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: statusColor,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          isOpen ? 'AKTIF' : 'SELESAI',
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Divider(height: 1, color: Color(0xFFF0F3F7)),
+                padding: EdgeInsets.symmetric(vertical: 10),
+                child: Divider(height: 1, color: Color(0xFFF1F5F9)),
               ),
               Row(
                 children: [
                   Expanded(
                     child: _shiftCardMetric(
-                      'Dibuka',
+                      'Waktu Buka',
                       compactDateFmt.format(shift.openedAt),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: _shiftCardMetric(
-                      'Ditutup',
+                      'Waktu Tutup',
                       shift.closedAt == null
                           ? 'Masih berjalan'
                           : compactDateFmt.format(shift.closedAt!),
@@ -372,96 +605,67 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                   ),
                 ],
               ),
-              const SizedBox(height: 13),
+              const SizedBox(height: 10),
               Row(
                 children: [
                   Expanded(
                     child: _shiftCardMetric(
-                      'Saldo awal',
+                      'Saldo Awal',
                       'Rp ${currencyFmt.format(shift.openingBalance)}',
                     ),
                   ),
-                  if (!isOpen) ...[
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: _shiftCardMetric(
-                        'Kas aktual',
-                        'Rp ${currencyFmt.format(shift.actualCash)}',
-                        alignEnd: true,
-                      ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _shiftCardMetric(
+                      'Penjualan Tercatat',
+                      'Rp ${currencyFmt.format(shift.totalShiftSales)}',
+                      alignEnd: true,
                     ),
-                  ],
+                  ),
                 ],
               ),
-              if (!isOpen) ...[
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: variance == 0
-                        ? const Color(0xFFF0FDF4)
-                        : variance > 0
-                        ? const Color(0xFFFFFBEB)
-                        : const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      const Text(
-                        'Selisih kas',
-                        style: TextStyle(
-                          color: Color(0xFF475569),
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const Spacer(),
-                      Flexible(
-                        child: Text(
-                          variance == 0
-                              ? 'Rp 0 · Pas'
-                              : '${variance > 0 ? '+' : '-'}Rp ${currencyFmt.format(variance.abs())}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            color: varianceColor,
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 10),
               Row(
                 children: [
-                  const Icon(
-                    Icons.receipt_long_outlined,
-                    color: Color(0xFF64748B),
-                    size: 15,
-                  ),
-                  const SizedBox(width: 6),
-                  const Expanded(
-                    child: Text(
-                      'Lihat rekap shift',
-                      style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                      ),
+                  Expanded(
+                    child: _shiftCardMetric(
+                      isOpen ? 'Kas Sistem' : 'Kas Aktual',
+                      'Rp ${currencyFmt.format(isOpen ? shift.expectedCash : shift.actualCash)}',
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _shiftCardMetric(
+                      'Selisih Kas',
+                      shift.formatVariance(currencyFmt),
+                      valueColor: shift.getVarianceColor(),
+                      alignEnd: true,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long_outlined,
+                    color: primaryColor,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Lihat Rekap & Cetak',
+                    style: TextStyle(
+                      color: primaryColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const Spacer(),
                   Icon(
                     Icons.chevron_right_rounded,
                     color: primaryColor,
-                    size: 19,
+                    size: 18,
                   ),
                 ],
               ),
@@ -472,7 +676,12 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     );
   }
 
-  Widget _shiftCardMetric(String label, String value, {bool alignEnd = false}) {
+  Widget _shiftCardMetric(
+    String label,
+    String value, {
+    bool alignEnd = false,
+    Color? valueColor,
+  }) {
     return Column(
       crossAxisAlignment: alignEnd
           ? CrossAxisAlignment.end
@@ -492,8 +701,8 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
           alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
           child: Text(
             value,
-            style: const TextStyle(
-              color: Color(0xFF1E293B),
+            style: TextStyle(
+              color: valueColor ?? const Color(0xFF1E293B),
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
             ),
@@ -546,6 +755,7 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
         '''
       ${tableAlias}tenant_id = ?
         AND ${tableAlias}deleted_at IS NULL
+        AND ${tableAlias}status_code IN ('2', '4')
         AND (
           ${tableAlias}shift_session_id = ?
           OR (? IS NOT NULL AND ${tableAlias}shift_session_remote_id = ?)
@@ -566,6 +776,47 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       endStr,
     ];
 
+    final orderSummaryRows = await DatabaseService.instance.rawQuery('''
+      SELECT subtotal_amount, discount_total_amount, manual_discount_value, total_amount, custom_fields_json
+      FROM pos_order o
+      WHERE ${orderWhere('o.').trim()}
+      ''', orderArgs(session.tenantId));
+
+    int grossSales = 0;
+    int totalDiscount = 0;
+    int netSales = 0;
+    int totalTax = 0;
+
+    for (final row in orderSummaryRows) {
+      final sub = int.tryParse(row['subtotal_amount']?.toString() ?? '0') ?? 0;
+      final discTot =
+          int.tryParse(row['discount_total_amount']?.toString() ?? '0') ?? 0;
+      final discMan =
+          int.tryParse(row['manual_discount_value']?.toString() ?? '0') ?? 0;
+      final tot = int.tryParse(row['total_amount']?.toString() ?? '0') ?? 0;
+
+      final effDisc = discTot > 0 ? discTot : discMan;
+      grossSales += sub > 0 ? sub : (tot + effDisc);
+      totalDiscount += effDisc;
+      netSales += tot;
+
+      int rowTax = 0;
+      final customFields = row['custom_fields_json']?.toString();
+      if (customFields != null && customFields.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(customFields);
+          if (decoded is Map<String, dynamic>) {
+            rowTax =
+                int.tryParse(decoded['tax_amount']?.toString() ?? '0') ?? 0;
+          }
+        } catch (_) {}
+      }
+      if (rowTax == 0 && sub > 0 && tot > (sub - effDisc)) {
+        rowTax = tot - (sub - effDisc);
+      }
+      totalTax += rowTax;
+    }
+
     final paymentRows = await DatabaseService.instance.rawQuery('''
       SELECT COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya') as name,
              COUNT(DISTINCT o.id) as qty,
@@ -576,7 +827,6 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       WHERE p.tenant_id = ?
         AND p.deleted_at IS NULL
         AND p.is_refund = 0
-        AND p.sync_state IN ('clean', 'dirty_create', 'dirty_update', 'syncing')
         AND o.status_code IN ('2', '4')
         AND (
           o.shift_session_id = ?
@@ -600,7 +850,7 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
         .toList();
 
     int totalRevenue = 0;
-    int totalTransactions = 0;
+    final totalTransactions = orderSummaryRows.length;
     final payments = <Map<String, dynamic>>[];
 
     for (final mode in allModeNames) {
@@ -612,7 +862,6 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       final amount = int.tryParse(row['amount']?.toString() ?? '0') ?? 0;
       final qty = (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round();
       totalRevenue += amount;
-      totalTransactions += qty;
       final existingIdx = payments.indexWhere((p) => p['name'] == name);
       if (existingIdx != -1) {
         payments[existingIdx]['amount'] =
@@ -625,25 +874,8 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
     }
     payments.removeWhere((p) => p['qty'] == 0 && p['amount'] == 0);
 
-    // Fallback: count orders directly if no payment records found
-    if (totalTransactions == 0) {
-      final orderCountRows = await DatabaseService.instance.rawQuery('''
-        SELECT COUNT(id) as cnt, COALESCE(SUM(total_amount),0) as total
-        FROM pos_order
-        WHERE ${orderWhere('').trim()}
-          AND status_code IN ('2', '4')
-        ''', orderArgs(session.tenantId));
-      if (orderCountRows.isNotEmpty) {
-        totalTransactions =
-            (double.tryParse(orderCountRows.first['cnt']?.toString() ?? '0') ??
-                    0)
-                .round();
-        if (totalRevenue == 0) {
-          totalRevenue =
-              int.tryParse(orderCountRows.first['total']?.toString() ?? '0') ??
-              0;
-        }
-      }
+    if (totalRevenue == 0) {
+      totalRevenue = netSales;
     }
 
     final itemRows = await DatabaseService.instance.rawQuery('''
@@ -687,7 +919,6 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       WHERE p.tenant_id = ?
         AND p.deleted_at IS NULL
         AND p.is_refund = 0
-        AND p.sync_state IN ('clean', 'dirty_create', 'dirty_update', 'syncing')
         AND o.status_code IN ('2', '4')
         AND (
           LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, '')) LIKE '%cash%'
@@ -716,15 +947,19 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       SELECT note, amount, created_at
       FROM pos_cash_flow
       WHERE tenant_id = ?
-        AND type = 'in'
+        AND type IN ('in', 'cash_in')
         AND deleted_at IS NULL
         AND (
-          substr(replace(created_at, 'T', ' '), 1, 19) >= ?
-          AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+            shift_session_id = ?
+            OR (
+              shift_session_id IS NULL
+              AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+          )
         )
       ORDER BY created_at DESC
       ''',
-      <Object?>[session.tenantId, startStr, endStr],
+      <Object?>[session.tenantId, shift.id, startStr, endStr],
     );
 
     int totalCashIn = 0;
@@ -745,15 +980,19 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
       SELECT note, amount, created_at
       FROM pos_cash_flow
       WHERE tenant_id = ?
-        AND type = 'out'
+        AND type IN ('out', 'cash_out')
         AND deleted_at IS NULL
         AND (
-          substr(replace(created_at, 'T', ' '), 1, 19) >= ?
-          AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+            shift_session_id = ?
+            OR (
+              shift_session_id IS NULL
+              AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+          )
         )
       ORDER BY created_at DESC
       ''',
-      <Object?>[session.tenantId, startStr, endStr],
+      <Object?>[session.tenantId, shift.id, startStr, endStr],
     );
 
     int totalCashOut = 0;
@@ -770,7 +1009,16 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
 
     final openingBalance = shift.openingBalance;
     final sisaPettyCash = openingBalance + totalCashIn - totalCashOut;
-    final expectedCashInDrawer = sisaPettyCash + cashSales;
+    final calculatedExpectedCash = ShiftReportCalculations.expectedCash(
+      openingBalance: openingBalance,
+      cashIn: totalCashIn,
+      cashOut: totalCashOut,
+      cashSales: cashSales,
+    );
+    final expectedCashInDrawer =
+        (shift.closedAt != null && shift.expectedCash > 0)
+        ? shift.expectedCash
+        : calculatedExpectedCash;
 
     if (!context.mounted) return;
     Navigator.of(context).pop(); // close loading
@@ -784,7 +1032,7 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
           initialChildSize: 0.88,
           minChildSize: 0.52,
           maxChildSize: 0.95,
-          expand: false,
+          expand: true,
           builder: (context, scrollController) => Container(
             decoration: const BoxDecoration(
               color: Color(0xFFFEFEFF),
@@ -825,12 +1073,12 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Rekap shift',
-                              style: TextStyle(
-                                color: Color(0xFF1E293B),
-                                fontSize: 15,
-                                fontWeight: FontWeight.w800,
+                            Text(
+                              'Rekap Shift #${shift.id}',
+                              style: const TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -953,6 +1201,41 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                                     : const Color(0xFFB91C1C),
                                 emphasis: true,
                               ),
+                            ] else ...[
+                              const SizedBox(height: 10),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 9,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(9),
+                                  border: Border.all(
+                                    color: const Color(0xFFDCFCE7),
+                                  ),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline_rounded,
+                                      size: 16,
+                                      color: Color(0xFF15803D),
+                                    ),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'Shift sedang aktif. Hitung kas fisik dilakukan saat penutupan shift.',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF15803D),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ],
                           ],
                         ),
@@ -970,11 +1253,32 @@ class _ShiftHistoryViewState extends State<ShiftHistoryView> {
                         child: Column(
                           children: [
                             _recapAmountRow(
-                              'Total pendapatan',
-                              'Rp ${currencyFmt.format(totalRevenue)}',
+                              'Penjualan kotor (gross)',
+                              'Rp ${currencyFmt.format(grossSales > 0 ? grossSales : totalRevenue)}',
+                            ),
+                            if (totalDiscount > 0) ...[
+                              const SizedBox(height: 7),
+                              _recapAmountRow(
+                                '(-) Total diskon',
+                                '-Rp ${currencyFmt.format(totalDiscount)}',
+                                valueColor: const Color(0xFFDC2626),
+                              ),
+                            ],
+                            const Divider(height: 16),
+                            _recapAmountRow(
+                              'Penjualan bersih (net sales)',
+                              'Rp ${currencyFmt.format(netSales > 0 ? netSales : totalRevenue)}',
                               valueColor: const Color(0xFF15803D),
                               emphasis: true,
                             ),
+                            if (totalTax > 0) ...[
+                              const SizedBox(height: 7),
+                              _recapAmountRow(
+                                '(+) Total pajak',
+                                '+Rp ${currencyFmt.format(totalTax)}',
+                                valueColor: const Color(0xFF0284C7),
+                              ),
+                            ],
                             const SizedBox(height: 7),
                             _recapAmountRow(
                               'Total transaksi',

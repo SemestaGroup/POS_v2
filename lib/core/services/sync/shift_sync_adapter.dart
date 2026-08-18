@@ -262,6 +262,12 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     );
     final now = V2SyncUtils.nowIso();
 
+    final closedAtStr = V2SyncUtils.asString(row['closed_at']);
+    final rawStatus = V2SyncUtils.asString(row['status']);
+    final resolvedStatus = (closedAtStr != null && closedAtStr.isNotEmpty)
+        ? 'closed'
+        : (rawStatus ?? 'open');
+
     await databaseService.upsertByUnique(
       txn,
       'shift_session',
@@ -281,13 +287,13 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         'register_id': V2SyncUtils.asString(row['register_id']),
         'business_date': V2SyncUtils.asString(row['business_date']),
         'opened_at': V2SyncUtils.asString(row['opened_at']),
-        'closed_at': V2SyncUtils.asString(row['closed_at']),
+        'closed_at': closedAtStr,
         'opening_balance': V2SyncUtils.moneyToMinor(row['opening_balance']),
         'closing_balance': V2SyncUtils.moneyToMinor(row['closing_balance']),
         'expected_cash': V2SyncUtils.moneyToMinor(row['expected_cash']),
         'actual_cash': V2SyncUtils.moneyToMinor(row['actual_cash']),
         'total_non_cash': V2SyncUtils.moneyToMinor(row['total_non_cash']),
-        'status': V2SyncUtils.asString(row['status']) ?? 'open',
+        'status': resolvedStatus,
         'reconciliation_json': row['reconciliation_json'] is String
             ? row['reconciliation_json']
             : V2SyncUtils.encodeJson(row['reconciliation_json']),
@@ -308,13 +314,13 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         'register_id': V2SyncUtils.asString(row['register_id']),
         'business_date': V2SyncUtils.asString(row['business_date']),
         'opened_at': V2SyncUtils.asString(row['opened_at']),
-        'closed_at': V2SyncUtils.asString(row['closed_at']),
+        'closed_at': closedAtStr,
         'opening_balance': V2SyncUtils.moneyToMinor(row['opening_balance']),
         'closing_balance': V2SyncUtils.moneyToMinor(row['closing_balance']),
         'expected_cash': V2SyncUtils.moneyToMinor(row['expected_cash']),
         'actual_cash': V2SyncUtils.moneyToMinor(row['actual_cash']),
         'total_non_cash': V2SyncUtils.moneyToMinor(row['total_non_cash']),
-        'status': V2SyncUtils.asString(row['status']) ?? 'open',
+        'status': resolvedStatus,
         'reconciliation_json': row['reconciliation_json'] is String
             ? row['reconciliation_json']
             : V2SyncUtils.encodeJson(row['reconciliation_json']),

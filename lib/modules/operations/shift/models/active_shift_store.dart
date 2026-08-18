@@ -4,6 +4,7 @@ import '../../../../app/role_access/role_manager.dart';
 import '../../../../core/services/local/database_service.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
+import '../services/shift_report_calculations.dart';
 
 class ActiveShiftRecord {
   const ActiveShiftRecord({
@@ -16,6 +17,7 @@ class ActiveShiftRecord {
     required this.openingBalance,
     this.registerId,
     this.deviceId,
+    this.remoteId,
   });
 
   final int id;
@@ -27,6 +29,7 @@ class ActiveShiftRecord {
   final int openingBalance;
   final String? registerId;
   final String? deviceId;
+  final String? remoteId;
 }
 
 class ShiftPaymentMethodRecapRecord {
@@ -93,7 +96,7 @@ class ActiveShiftStore {
     final isCashier = role == AppRole.cashier;
     final rows = await DatabaseService.instance.rawQuery(
       '''
-        SELECT id, shift_name, pos_staff_name_snapshot, pos_staff_remote_id,
+        SELECT id, remote_id, shift_name, pos_staff_name_snapshot, pos_staff_remote_id,
                location_id, opened_at, opening_balance, source_device_id,
                register_id
         FROM shift_session
@@ -204,11 +207,17 @@ class ActiveShiftStore {
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM pos_cash_flow
         WHERE tenant_id = ?
-          AND type = 'in'
+          AND type IN ('in', 'cash_in')
           AND deleted_at IS NULL
-          AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+          AND (
+            shift_session_id = ?
+            OR (
+              shift_session_id IS NULL
+              AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+            )
+          )
         ''',
-        <Object?>[session.tenantId, openedAtStr],
+        <Object?>[session.tenantId, shift.id, openedAtStr],
       );
       if (rows.isEmpty) return 0;
       return _asInt(rows.first['total']) ?? 0;
@@ -231,11 +240,17 @@ class ActiveShiftStore {
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM pos_cash_flow
         WHERE tenant_id = ?
-          AND type = 'out'
+          AND type IN ('out', 'cash_out')
           AND deleted_at IS NULL
-          AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+          AND (
+            shift_session_id = ?
+            OR (
+              shift_session_id IS NULL
+              AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+            )
+          )
         ''',
-        <Object?>[session.tenantId, openedAtStr],
+        <Object?>[session.tenantId, shift.id, openedAtStr],
       );
       if (rows.isEmpty) return 0;
       return _asInt(rows.first['total']) ?? 0;
@@ -253,7 +268,6 @@ class ActiveShiftStore {
 
     try {
       final openedAtText = _formatSqlDateTime(shift.openedAt);
-      final openedAtMs = shift.openedAt.millisecondsSinceEpoch;
       final rows = await DatabaseService.instance.rawQuery(
         '''
         SELECT COALESCE(SUM(p.amount), 0) AS total_cash
@@ -263,10 +277,14 @@ class ActiveShiftStore {
         WHERE p.tenant_id = ?
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND (p.payment_date >= ? OR CAST(SUBSTR(p.id_pos, 5) AS INTEGER) >= ? OR substr(replace(p.created_at, 'T', ' '), 1, 19) >= ?)
+          AND o.status_code IN ('2', '4')
           AND (
-            (? IS NOT NULL AND ? != '' AND o.register_id = ?)
-            OR o.location_id = ?
+            o.shift_session_id = ?
+            OR (? IS NOT NULL AND ? != '' AND o.shift_session_remote_id = ?)
+            OR (
+              o.shift_session_id IS NULL
+              AND substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= ?
+            )
           )
           AND (
             p.payment_mode_remote_id IS NULL
@@ -277,13 +295,11 @@ class ActiveShiftStore {
         ''',
         <Object?>[
           session.tenantId,
+          shift.id,
+          shift.remoteId,
+          shift.remoteId,
+          shift.remoteId,
           openedAtText,
-          openedAtMs,
-          openedAtText,
-          shift.registerId,
-          shift.registerId,
-          shift.registerId,
-          shift.locationId,
         ],
       );
       if (rows.isEmpty) return 0;
@@ -303,7 +319,12 @@ class ActiveShiftStore {
     final cashOut = await getShiftCashOutTotal();
     final cashSales = await getShiftCashSalesTotal();
 
-    return opening + cashIn + cashSales - cashOut;
+    return ShiftReportCalculations.expectedCash(
+      openingBalance: opening,
+      cashIn: cashIn,
+      cashOut: cashOut,
+      cashSales: cashSales,
+    );
   }
 
   Future<List<ShiftPaymentMethodRecapRecord>>
@@ -318,7 +339,6 @@ class ActiveShiftStore {
 
     try {
       final openedAtText = _formatSqlDateTime(shift.openedAt);
-      final openedAtMs = shift.openedAt.millisecondsSinceEpoch;
       final rows = await DatabaseService.instance.rawQuery(
         '''
         SELECT
@@ -331,10 +351,14 @@ class ActiveShiftStore {
         WHERE p.tenant_id = ?
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND (p.payment_date >= ? OR CAST(SUBSTR(p.id_pos, 5) AS INTEGER) >= ?)
+          AND o.status_code IN ('2', '4')
           AND (
-            (? IS NOT NULL AND ? != '' AND o.register_id = ?)
-            OR o.location_id = ?
+            o.shift_session_id = ?
+            OR (? IS NOT NULL AND ? != '' AND o.shift_session_remote_id = ?)
+            OR (
+              o.shift_session_id IS NULL
+              AND substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= ?
+            )
           )
           AND NOT (
             LOWER(COALESCE(p.payment_method, '')) LIKE '%cash%'
@@ -347,12 +371,11 @@ class ActiveShiftStore {
         ''',
         <Object?>[
           session.tenantId,
+          shift.id,
+          shift.remoteId,
+          shift.remoteId,
+          shift.remoteId,
           openedAtText,
-          openedAtMs,
-          shift.registerId,
-          shift.registerId,
-          shift.registerId,
-          shift.locationId,
         ],
       );
 
@@ -473,6 +496,7 @@ class ActiveShiftStore {
           DateTime.now(),
       openingBalance: _asInt(row['opening_balance']) ?? 0,
       deviceId: row['source_device_id']?.toString(),
+      remoteId: row['remote_id']?.toString(),
     );
   }
 

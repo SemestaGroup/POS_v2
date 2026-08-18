@@ -37,6 +37,18 @@ class EodReportTotals {
 }
 
 abstract final class ShiftReportCalculations {
+  static int expectedCash({
+    required int openingBalance,
+    required int cashIn,
+    required int cashOut,
+    required int cashSales,
+  }) => openingBalance + cashIn - cashOut + cashSales;
+
+  static int cashVariance({
+    required int actualCash,
+    required int expectedCash,
+  }) => actualCash - expectedCash;
+
   static int asInt(Object? value) {
     if (value == null) return 0;
     if (value is int) return value;

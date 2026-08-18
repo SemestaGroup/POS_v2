@@ -66,6 +66,27 @@ void main() {
     expect(ShiftReportCalculations.isCashPaymentName('QRIS'), isFalse);
   });
 
+  test(
+    'calculates drawer expected cash and variance from transaction values',
+    () {
+      final expectedCash = ShiftReportCalculations.expectedCash(
+        openingBalance: 100000,
+        cashIn: 25000,
+        cashOut: 10000,
+        cashSales: 75000,
+      );
+
+      expect(expectedCash, 190000);
+      expect(
+        ShiftReportCalculations.cashVariance(
+          actualCash: 185000,
+          expectedCash: expectedCash,
+        ),
+        -5000,
+      );
+    },
+  );
+
   test('requires all persisted numeric fields for immutable EOD totals', () {
     expect(
       EodReportTotals.fromJson(<String, dynamic>{
