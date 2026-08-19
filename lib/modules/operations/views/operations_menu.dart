@@ -7,7 +7,7 @@ import '../cash_flow/views/cash_flow_view.dart';
 import '../kitchen/views/tablet_landscape/view.dart';
 import '../recap/views/recap_view.dart';
 import '../shift/views/shift_close/tablet_landscape/view.dart';
-import '../shift/views/shift_history/tablet_landscape/view.dart';
+import '../shift/views/shift_history/shift_history_view.dart';
 import '../shift/views/shift_open/tablet_landscape/view.dart';
 
 enum OperationsMenuGroup { shift, management }
