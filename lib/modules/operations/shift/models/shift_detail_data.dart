@@ -14,15 +14,13 @@ class ShiftDetailItemSold {
   final String name;
   final double qty;
 
-  const ShiftDetailItemSold({
-    required this.name,
-    required this.qty,
-  });
+  const ShiftDetailItemSold({required this.name, required this.qty});
 }
 
 class ShiftDetailData {
   final int totalRevenue;
   final int totalTransactions;
+  final int cashSales;
   final int grossSales;
   final int totalDiscount;
   final int totalTax;
@@ -35,6 +33,7 @@ class ShiftDetailData {
   const ShiftDetailData({
     required this.totalRevenue,
     required this.totalTransactions,
+    required this.cashSales,
     required this.grossSales,
     required this.totalDiscount,
     required this.totalTax,

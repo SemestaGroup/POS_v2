@@ -49,6 +49,14 @@ abstract final class ShiftReportCalculations {
     required int expectedCash,
   }) => actualCash - expectedCash;
 
+  static bool isSettledOrderStatus(Object? status) {
+    final normalized = status?.toString().trim().toLowerCase() ?? '';
+    return normalized == '2' ||
+        normalized == '4' ||
+        normalized == 'paid' ||
+        normalized == 'completed';
+  }
+
   static int asInt(Object? value) {
     if (value == null) return 0;
     if (value is int) return value;

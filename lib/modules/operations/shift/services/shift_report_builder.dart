@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../../../core/printing/models/printer_render_models.dart';
 import '../../../../../../core/services/local/database_service.dart';
+import 'shift_history_service.dart';
 import 'shift_report_calculations.dart';
 
 class ShiftReportBuilder {
@@ -39,92 +40,75 @@ class ShiftReportBuilder {
         : null;
 
     final openingBalance = _asInt(shift['opening_balance']);
-    final expectedCash = _asInt(shift['expected_cash']);
     final actualCash = _asInt(shift['actual_cash']);
-    final variance = actualCash - expectedCash;
-
-    // 2. Fetch Cash In/Out
-    final cashFlowRows = await db.rawQuery(
-      'SELECT type, SUM(amount) as total FROM pos_cash_flow WHERE tenant_id = ? AND shift_session_id = ? AND deleted_at IS NULL GROUP BY type',
-      <Object?>[tenantId, shiftSessionId],
+    // A synced history may retain only the remote shift ID (or neither local
+    // relation), while its orders are still correctly dated.  Reuse the exact
+    // resolver used by the history card and its detail modal so a reprint does
+    // not silently become an empty report on those devices.
+    final detail = await ShiftHistoryService.instance.fetchShiftDetailData(
+      shiftId: shiftSessionId,
+      openedAt: openedAt ?? DateTime.now(),
+      closedAt: closedAt,
+      tenantId: tenantId,
     );
-    int cashIn = 0;
-    int cashOut = 0;
-    for (final row in cashFlowRows) {
-      if (row['type'] == 'cash_in') cashIn = _asInt(row['total']);
-      if (row['type'] == 'cash_out') cashOut = _asInt(row['total']);
-    }
-
-    // 3. Fetch Sales Metrics
-    // Gross sales, Discounts, Voids/Refunds, Net Sales
-    final orderRows = await db.rawQuery(
-      '''
-      SELECT
-        SUM(subtotal_amount) as gross_sales,
-        SUM(COALESCE(NULLIF(discount_total_amount, 0), manual_discount_value, 0)) as total_discount,
-        SUM(total_amount) as net_sales
-      FROM pos_order
-      WHERE tenant_id = ? AND shift_session_id = ? AND status_code IN ('2', '4') AND deleted_at IS NULL
-    ''',
-      <Object?>[tenantId, shiftSessionId],
+    final cashIn = detail.totalCashIn;
+    final cashOut = detail.totalCashOut;
+    final cashSales = detail.cashSales;
+    final expectedCash = ShiftReportCalculations.expectedCash(
+      openingBalance: openingBalance,
+      cashIn: cashIn,
+      cashOut: cashOut,
+      cashSales: cashSales,
     );
+    final variance = ShiftReportCalculations.cashVariance(
+      actualCash: actualCash,
+      expectedCash: expectedCash,
+    );
+    final grossSales = detail.grossSales;
+    final totalDiscount = detail.totalDiscount;
+    final netSales = detail.totalRevenue;
+    final totalTax = detail.totalTax;
 
-    final orderSummary = orderRows.isNotEmpty ? orderRows.first : {};
-    final grossSales = _asInt(orderSummary['gross_sales']);
-    final totalDiscount = _asInt(orderSummary['total_discount']);
-    final netSales = _asInt(orderSummary['net_sales']);
+    final startStr = _formatSqlDate(openedAt ?? DateTime.now());
+    final endStr = _formatSqlDate(closedAt);
+    final remoteShiftId = shift['remote_id']?.toString().trim();
 
     // Voids/Refunds
     final refundRows = await db.rawQuery(
       '''
       SELECT SUM(total_amount) as total_void 
       FROM pos_order 
-      WHERE tenant_id = ? AND shift_session_id = ? AND deleted_at IS NOT NULL
+      WHERE (tenant_id = ? OR tenant_id IS NULL OR tenant_id = 0)
+        AND deleted_at IS NOT NULL AND deleted_at != '' AND deleted_at != '0'
+        AND (
+          shift_session_id = ?
+          OR CAST(shift_session_id AS TEXT) = ?
+          OR (? IS NOT NULL AND shift_session_remote_id = ?)
+          OR (
+            (CASE WHEN length(trim(substr(replace(COALESCE(NULLIF(order_date, ''), NULLIF(created_at, ''), ''), 'T', ' '), 1, 19))) <= 10
+                  THEN trim(substr(replace(COALESCE(NULLIF(order_date, ''), NULLIF(created_at, ''), ''), 'T', ' '), 1, 10)) || ' 00:00:00'
+                  ELSE substr(replace(COALESCE(NULLIF(order_date, ''), NULLIF(created_at, ''), ''), 'T', ' '), 1, 19) END) >= ?
+            AND
+            (CASE WHEN length(trim(substr(replace(COALESCE(NULLIF(order_date, ''), NULLIF(created_at, ''), ''), 'T', ' '), 1, 19))) <= 10
+                  THEN trim(substr(replace(COALESCE(NULLIF(order_date, ''), NULLIF(created_at, ''), ''), 'T', ' '), 1, 10)) || ' 23:59:59'
+                  ELSE substr(replace(COALESCE(NULLIF(order_date, ''), NULLIF(created_at, ''), ''), 'T', ' '), 1, 19) END) <= ?
+          )
+        )
     ''',
-      <Object?>[tenantId, shiftSessionId],
+      <Object?>[
+        tenantId,
+        shiftSessionId,
+        shiftSessionId.toString(),
+        remoteShiftId,
+        remoteShiftId,
+        startStr,
+        endStr,
+      ],
     );
     final totalVoid = refundRows.isNotEmpty
         ? _asInt(refundRows.first['total_void'])
         : 0;
 
-    // Cash Sales
-    final cashPaymentRows = await db.rawQuery(
-      '''
-      SELECT
-        COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas') as name,
-        SUM(p.amount) as total
-      FROM pos_order_payment p
-      JOIN pos_order o ON p.order_id = o.id
-      LEFT JOIN payment_mode pm ON pm.remote_id = p.payment_mode_remote_id AND pm.tenant_id = p.tenant_id
-      WHERE p.tenant_id = ? AND o.shift_session_id = ? 
-        AND o.status_code IN ('2', '4')
-        AND p.deleted_at IS NULL
-      GROUP BY COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas')
-    ''',
-      <Object?>[tenantId, shiftSessionId],
-    );
-    final cashSales = cashPaymentRows
-        .where(
-          (row) => ShiftReportCalculations.isCashPaymentName(
-            row['name']?.toString(),
-          ),
-        )
-        .fold<int>(0, (sum, row) => sum + _asInt(row['total']));
-
-    // Tax calculation
-    final orderTaxRows = await db.rawQuery(
-      '''
-      SELECT total_amount, subtotal_amount, discount_total_amount, manual_discount_value, custom_fields_json
-      FROM pos_order
-      WHERE tenant_id = ? AND shift_session_id = ?
-        AND status_code IN ('2', '4')
-        AND deleted_at IS NULL
-    ''',
-      <Object?>[tenantId, shiftSessionId],
-    );
-    final totalTax = ShiftReportCalculations.totalTaxFromOrderRows(
-      orderTaxRows,
-    );
     final infoRows = <PrinterInfoRow>[
       PrinterInfoRow(label: 'Shift', value: shiftName),
       PrinterInfoRow(label: 'Kasir', value: staffName),
@@ -167,27 +151,19 @@ class ShiftReportBuilder {
       ),
     ];
 
+    final storedExpectedCash = _asInt(shift['expected_cash']);
+    if (storedExpectedCash > 0 && storedExpectedCash != expectedCash) {
+      summaryRows.add(
+        PrinterSummaryRow(
+          label: 'Expected tersimpan',
+          value: currencyFmt.format(storedExpectedCash),
+        ),
+      );
+    }
+
     final items = <PrinterLineItem>[];
 
-    // 4. Fetch Payment Methods Breakdown
-    final paymentBreakdown = await db.rawQuery(
-      '''
-      SELECT
-        COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas') as name,
-        SUM(p.amount) as total,
-        COUNT(p.id) as qty
-      FROM pos_order_payment p
-      JOIN pos_order o ON p.order_id = o.id
-      LEFT JOIN payment_mode pm ON pm.remote_id = p.payment_mode_remote_id AND pm.tenant_id = p.tenant_id
-      WHERE p.tenant_id = ? AND o.shift_session_id = ?
-        AND o.status_code IN ('2', '4')
-        AND p.deleted_at IS NULL
-      GROUP BY COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), 'Tunai/Kas')
-    ''',
-      <Object?>[tenantId, shiftSessionId],
-    );
-
-    if (paymentBreakdown.isNotEmpty) {
+    if (detail.payments.isNotEmpty) {
       items.add(
         const PrinterLineItem(
           label: 'METODE PEMBAYARAN',
@@ -195,49 +171,31 @@ class ShiftReportBuilder {
           amount: null,
         ),
       );
-      for (final row in paymentBreakdown) {
-        final name = (row['name']?.toString() ?? '').trim();
+      for (final payment in detail.payments) {
+        final name = payment.name.trim();
         final displayName = name.isNotEmpty ? name : 'Tunai/Kas';
-        final total = _asInt(row['total']);
-        final qty = _asDouble(row['qty']).round();
         items.add(
           PrinterLineItem(
             label: displayName,
-            quantity: qty,
-            amount: total,
+            quantity: payment.qty,
+            amount: payment.amount,
             note: ' ',
           ),
         );
       }
     }
 
-    // 5. Fetch Items Breakdown (Products)
-    final itemsBreakdown = await db.rawQuery(
-      '''
-      SELECT i.product_name_snapshot as name, SUM(i.qty) as qty, SUM(i.line_subtotal_amount) as total
-      FROM pos_order_item i
-      JOIN pos_order o ON i.order_id = o.id
-      WHERE i.tenant_id = ? AND o.shift_session_id = ?
-        AND o.status_code IN ('2', '4')
-        AND i.deleted_at IS NULL
-      GROUP BY i.product_name_snapshot
-    ''',
-      <Object?>[tenantId, shiftSessionId],
-    );
-
-    if (itemsBreakdown.isNotEmpty) {
+    if (detail.topItems.isNotEmpty) {
       items.add(
         const PrinterLineItem(label: 'ITEM TERJUAL', quantity: 0, amount: null),
       );
-      for (final row in itemsBreakdown) {
-        final name = row['name']?.toString() ?? 'Produk';
-        final qty = _asDouble(row['qty']).round();
-        final total = _asInt(row['total']);
+      for (final item in detail.topItems) {
+        final qty = item.qty.round();
         items.add(
           PrinterLineItem(
-            label: name,
+            label: item.name,
             quantity: qty > 0 ? qty : 1,
-            amount: total > 0 ? total : null,
+            amount: null,
             note: ' ',
           ),
         );
@@ -249,9 +207,19 @@ class ShiftReportBuilder {
       '''
       SELECT note, amount 
       FROM pos_cash_flow 
-      WHERE tenant_id = ? AND shift_session_id = ? AND type = 'cash_out' AND deleted_at IS NULL
+      WHERE (tenant_id = ? OR tenant_id IS NULL)
+        AND type IN ('out', 'cash_out')
+        AND deleted_at IS NULL
+        AND (
+          shift_session_id = ?
+          OR (
+            shift_session_id IS NULL
+            AND substr(replace(created_at, 'T', ' '), 1, 19) >= ?
+            AND substr(replace(created_at, 'T', ' '), 1, 19) <= ?
+          )
+        )
     ''',
-      <Object?>[tenantId, shiftSessionId],
+      <Object?>[tenantId, shiftSessionId, startStr, endStr],
     );
 
     if (cashOutRows.isNotEmpty) {
@@ -319,6 +287,17 @@ class ShiftReportBuilder {
     if (value is double) return value;
     if (value is int) return value.toDouble();
     return double.tryParse(value.toString()) ?? 0.0;
+  }
+
+  String _formatSqlDate(DateTime? value) {
+    if (value == null) return '9999-12-31 23:59:59';
+    final local = value.toLocal();
+    return '${local.year.toString().padLeft(4, '0')}-'
+        '${local.month.toString().padLeft(2, '0')}-'
+        '${local.day.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}:'
+        '${local.second.toString().padLeft(2, '0')}';
   }
 
   Future<PrinterDocumentData> buildFromEodArchive({

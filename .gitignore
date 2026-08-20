@@ -56,3 +56,5 @@ skills-lock.json
 .slim/deepwork/
 
 .ignore
+.vscode/settings.json
+android/gradle.properties

@@ -9,10 +9,7 @@ import '../../widgets/shift_history_filter_bar.dart';
 class ShiftHistoryContent extends StatefulWidget {
   final bool isTablet;
 
-  const ShiftHistoryContent({
-    super.key,
-    this.isTablet = false,
-  });
+  const ShiftHistoryContent({super.key, this.isTablet = false});
 
   @override
   State<ShiftHistoryContent> createState() => _ShiftHistoryContentState();
@@ -157,121 +154,133 @@ class _ShiftHistoryContentState extends State<ShiftHistoryContent> {
                       child: CircularProgressIndicator(strokeWidth: 2.5),
                     )
                   : _controller.errorMessage != null
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24.0),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline_rounded,
-                                    size: 48, color: Colors.redAccent),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _controller.errorMessage!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                      fontSize: 14, color: Colors.redAccent),
-                                ),
-                                const SizedBox(height: 16),
-                                ElevatedButton.icon(
-                                  onPressed: _controller.load,
-                                  icon: const Icon(Icons.refresh_rounded),
-                                  label: const Text('Coba Lagi'),
-                                ),
-                              ],
+                  ? LayoutBuilder(
+                      builder: (context, constraints) => SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: constraints.maxHeight,
+                          ),
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24.0),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.error_outline_rounded,
+                                    size: 48,
+                                    color: Colors.redAccent,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _controller.errorMessage!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: _controller.load,
+                                    icon: const Icon(Icons.refresh_rounded),
+                                    label: const Text('Coba Lagi'),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        )
-                      : filteredRows.isEmpty
-                          ? RefreshIndicator(
-                              onRefresh: _controller.load,
-                              child: ListView(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
+                        ),
+                      ),
+                    )
+                  : filteredRows.isEmpty
+                  ? RefreshIndicator(
+                      onRefresh: _controller.load,
+                      child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.of(context).size.height * 0.5,
+                            child: const Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  SizedBox(
-                                    height:
-                                        MediaQuery.of(context).size.height *
-                                            0.5,
-                                    child: const Center(
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Icon(
-                                            Icons.history_toggle_off_rounded,
-                                            size: 48,
-                                            color: Color(0xFF94A3B8),
-                                          ),
-                                          SizedBox(height: 12),
-                                          Text(
-                                            'Belum ada riwayat shift',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFF64748B),
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            'Data riwayat shift akan muncul di sini.',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Color(0xFF94A3B8),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                  Icon(
+                                    Icons.history_toggle_off_rounded,
+                                    size: 48,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Belum ada riwayat shift',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  SizedBox(height: 4),
+                                  Text(
+                                    'Data riwayat shift akan muncul di sini.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF94A3B8),
                                     ),
                                   ),
                                 ],
                               ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _controller.load,
-                              child: widget.isTablet
-                                  ? GridView.builder(
-                                      padding: const EdgeInsets.all(16),
-                                      gridDelegate:
-                                          const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 2,
-                                        childAspectRatio: 1.6,
-                                        crossAxisSpacing: 16,
-                                        mainAxisSpacing: 16,
-                                      ),
-                                      itemCount: filteredRows.length,
-                                      itemBuilder: (context, index) {
-                                        final shift = filteredRows[index];
-                                        return ShiftHistoryCard(
-                                          shift: shift,
-                                          isPrinting:
-                                              _controller.printingShiftId ==
-                                                  shift.id,
-                                          onTap: () => _openDetailModal(shift),
-                                          onPrint: () => _controller
-                                              .printThermalReport(context, shift),
-                                        );
-                                      },
-                                    )
-                                  : ListView.separated(
-                                      padding: const EdgeInsets.all(16),
-                                      itemCount: filteredRows.length,
-                                      separatorBuilder: (context, index) =>
-                                          const SizedBox(height: 12),
-                                      itemBuilder: (context, index) {
-                                        final shift = filteredRows[index];
-                                        return ShiftHistoryCard(
-                                          shift: shift,
-                                          isPrinting:
-                                              _controller.printingShiftId ==
-                                                  shift.id,
-                                          onTap: () => _openDetailModal(shift),
-                                          onPrint: () => _controller
-                                              .printThermalReport(context, shift),
-                                        );
-                                      },
-                                    ),
                             ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _controller.load,
+                      child: widget.isTablet
+                          ? GridView.builder(
+                              padding: const EdgeInsets.all(16),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    childAspectRatio: 1.6,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                  ),
+                              itemCount: filteredRows.length,
+                              itemBuilder: (context, index) {
+                                final shift = filteredRows[index];
+                                return ShiftHistoryCard(
+                                  shift: shift,
+                                  isPrinting:
+                                      _controller.printingShiftId == shift.id,
+                                  onTap: () => _openDetailModal(shift),
+                                  onPrint: () => _controller.printThermalReport(
+                                    context,
+                                    shift,
+                                  ),
+                                );
+                              },
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(16),
+                              itemCount: filteredRows.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, index) {
+                                final shift = filteredRows[index];
+                                return ShiftHistoryCard(
+                                  shift: shift,
+                                  isPrinting:
+                                      _controller.printingShiftId == shift.id,
+                                  onTap: () => _openDetailModal(shift),
+                                  onPrint: () => _controller.printThermalReport(
+                                    context,
+                                    shift,
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
             ),
           ],
         );

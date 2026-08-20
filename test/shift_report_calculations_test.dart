@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:flinkpos_v2/modules/operations/shift/services/shift_report_builder.dart';
 import 'package:flinkpos_v2/modules/operations/shift/services/shift_report_calculations.dart';
+import 'package:flinkpos_v2/modules/operations/shift/models/shift_history_item.dart';
 import 'package:flinkpos_v2/modules/sales/shared/models/pos_tax_selection_resolver.dart';
 
 class _ArchiveFixture {
@@ -101,6 +102,35 @@ void main() {
       EodReportTotals.fromJson(<String, dynamic>{'gross_sales': 100000}),
       isNull,
     );
+  });
+
+  test('accepts only settled order statuses in a shift report', () {
+    expect(ShiftReportCalculations.isSettledOrderStatus('2'), isTrue);
+    expect(ShiftReportCalculations.isSettledOrderStatus(4), isTrue);
+    expect(ShiftReportCalculations.isSettledOrderStatus('paid'), isTrue);
+    expect(ShiftReportCalculations.isSettledOrderStatus('completed'), isTrue);
+    expect(ShiftReportCalculations.isSettledOrderStatus('1'), isFalse);
+    expect(ShiftReportCalculations.isSettledOrderStatus('void'), isFalse);
+  });
+
+  test('keeps the card variance on transaction cash when archive differs', () {
+    final shift = ShiftHistoryItem(
+      id: 4,
+      shiftName: 'Shift Pagi',
+      staffName: 'Kasir',
+      status: 'closed',
+      openedAt: DateTime(2026, 8, 13, 14, 15),
+      closedAt: DateTime(2026, 8, 15, 13, 57),
+      openingBalance: 10000,
+      expectedCash: 279500,
+      storedExpectedCash: 131600,
+      actualCash: 131600,
+      totalNonCash: 703150,
+      cashSales: 269500,
+    );
+
+    expect(shift.variance, -147900);
+    expect(shift.storedExpectedCash, 131600);
   });
 
   test('disables auto-tax instead of selecting another tax row', () {

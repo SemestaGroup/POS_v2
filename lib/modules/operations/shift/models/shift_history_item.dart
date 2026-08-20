@@ -12,6 +12,10 @@ class ShiftHistoryItem {
   final DateTime openedAt;
   final DateTime? closedAt;
   final int openingBalance;
+
+  /// Expected cash captured when the shift was closed. Kept for audit only;
+  /// card and detail reconciliation use [expectedCash] from transactions.
+  final int storedExpectedCash;
   final int expectedCash;
   final int actualCash;
   final int totalNonCash;
@@ -29,6 +33,7 @@ class ShiftHistoryItem {
     required this.openedAt,
     this.closedAt,
     required this.openingBalance,
+    required this.storedExpectedCash,
     required this.expectedCash,
     required this.actualCash,
     required this.totalNonCash,

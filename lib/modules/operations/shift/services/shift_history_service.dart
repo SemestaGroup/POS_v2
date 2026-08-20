@@ -5,6 +5,7 @@ import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../models/shift_detail_data.dart';
 import '../models/shift_history_item.dart';
+import 'shift_report_calculations.dart';
 
 class ShiftHistoryService {
   ShiftHistoryService._();
@@ -97,8 +98,8 @@ class ShiftHistoryService {
                   OR (
                     o.shift_session_id IS NULL
                     AND
-                    substr(replace(COALESCE(NULLIF(o.created_at, ''), o.order_date), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
-                    AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.created_at, ''), o.order_date), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                    substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                    AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
                   )
                 )
                  AND (
@@ -122,8 +123,8 @@ class ShiftHistoryService {
                   OR (
                     o.shift_session_id IS NULL
                     AND
-                    substr(replace(COALESCE(NULLIF(o.created_at, ''), o.order_date), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
-                    AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.created_at, ''), o.order_date), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                    substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                    AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
                   )
                 )
                  AND NOT (
@@ -163,7 +164,7 @@ class ShiftHistoryService {
           : null;
 
       final openingBalance = asInt(r['opening_balance']);
-      int expectedCash = asInt(r['expected_cash']);
+      int storedExpectedCash = asInt(r['expected_cash']);
       int actualCash = asInt(r['actual_cash']);
       int nonCash = asInt(r['non_cash_sales']);
       if (nonCash == 0) {
@@ -179,8 +180,8 @@ class ShiftHistoryService {
               ? jsonDecode(r['reconciliation_json'] as String)
               : r['reconciliation_json'];
           if (reconc is Map) {
-            if (expectedCash == 0) {
-              expectedCash = asInt(
+            if (storedExpectedCash == 0) {
+              storedExpectedCash = asInt(
                 reconc['expected_cash'] ??
                     reconc['expectedCash'] ??
                     reconc['expected_cash_amount'],
@@ -221,6 +222,13 @@ class ShiftHistoryService {
         } catch (_) {}
       }
 
+      final expectedCash = ShiftReportCalculations.expectedCash(
+        openingBalance: openingBalance,
+        cashIn: totalCashIn,
+        cashOut: totalCashOut,
+        cashSales: cashSales,
+      );
+
       items.add(
         ShiftHistoryItem(
           id: id,
@@ -231,6 +239,7 @@ class ShiftHistoryService {
           openedAt: openedAt,
           closedAt: closedAt,
           openingBalance: openingBalance,
+          storedExpectedCash: storedExpectedCash,
           expectedCash: expectedCash,
           actualCash: actualCash,
           totalNonCash: nonCash,
@@ -371,12 +380,13 @@ class ShiftHistoryService {
       }
     }
 
-    final orderSummaryRows = await db.rawQuery('''
-      SELECT subtotal_amount, discount_total_amount, manual_discount_value, total_amount, custom_fields_json
+    final orderSummaryRows =
+        (await db.rawQuery('''
+      SELECT status_code, subtotal_amount, discount_total_amount, manual_discount_value, total_amount, custom_fields_json
       FROM pos_order o
       WHERE (o.tenant_id = ? OR o.tenant_id = ? OR o.tenant_id IS NULL OR o.tenant_id = 0)
         AND (o.deleted_at IS NULL OR o.deleted_at = '' OR o.deleted_at = '0')
-        AND (o.status_code IS NULL OR o.status_code = '' OR o.status_code NOT IN ('5', '6', 'void', 'refunded', 'cancelled', 'canceled'))
+        AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
         AND (
           o.shift_session_id = ?
           OR CAST(o.shift_session_id AS TEXT) = ?
@@ -391,35 +401,36 @@ class ShiftHistoryService {
                   ELSE substr(replace(COALESCE(NULLIF(o.order_date, ''), NULLIF(o.created_at, ''), ''), 'T', ' '), 1, 19) END) <= ?
           )
         )
-      ''', orderArgs);
+      ''', orderArgs))
+            // Keep the Dart aggregate aligned with the SQL filter if legacy data
+            // contains a non-canonical status representation.
+            .where(
+              (row) => ShiftReportCalculations.isSettledOrderStatus(
+                row['status_code'],
+              ),
+            )
+            .toList();
 
     int grossSales = 0;
     int totalDiscount = 0;
-    int totalTax = 0;
+    final totalTax = ShiftReportCalculations.totalTaxFromOrderRows(
+      orderSummaryRows,
+    );
     int totalServiceCharge = 0;
 
     for (final row in orderSummaryRows) {
-      final sub = int.tryParse(row['subtotal_amount']?.toString() ?? '0') ?? 0;
-      final disc =
-          int.tryParse(row['discount_total_amount']?.toString() ?? '0') ??
-          int.tryParse(row['manual_discount_value']?.toString() ?? '0') ??
-          0;
-      final tot = int.tryParse(row['total_amount']?.toString() ?? '0') ?? 0;
+      final sub = ShiftReportCalculations.asInt(row['subtotal_amount']);
+      final disc = ShiftReportCalculations.effectiveDiscount(row);
 
       grossSales += sub;
       totalDiscount += disc;
 
-      int rowTax = 0;
       if (row['custom_fields_json'] != null) {
         try {
           final decoded = row['custom_fields_json'] is String
               ? jsonDecode(row['custom_fields_json'] as String)
               : row['custom_fields_json'];
           if (decoded is Map) {
-            rowTax =
-                int.tryParse(decoded['tax_amount']?.toString() ?? '0') ??
-                int.tryParse(decoded['tax']?.toString() ?? '0') ??
-                0;
             final svc =
                 int.tryParse(
                   decoded['service_charge_amount']?.toString() ?? '0',
@@ -430,10 +441,6 @@ class ShiftHistoryService {
           }
         } catch (_) {}
       }
-      if (rowTax == 0 && sub > 0 && tot > (sub - disc)) {
-        rowTax = tot - (sub - disc);
-      }
-      totalTax += rowTax;
     }
 
     final cashFlowRows = await db.rawQuery(
@@ -466,7 +473,7 @@ class ShiftHistoryService {
     }
 
     final paymentRows = await db.rawQuery('''
-      SELECT COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya') as name,
+      SELECT COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(pm.name, ''), NULLIF(p.payment_method, ''), 'Lainnya') as name,
              COUNT(DISTINCT o.id) as qty,
              SUM(p.amount) as amount
       FROM pos_order_payment p
@@ -476,7 +483,7 @@ class ShiftHistoryService {
         AND (p.deleted_at IS NULL OR p.deleted_at = '' OR p.deleted_at = '0')
         AND (o.deleted_at IS NULL OR o.deleted_at = '' OR o.deleted_at = '0')
         AND (p.is_refund IS NULL OR p.is_refund = 0)
-        AND (o.status_code IS NULL OR o.status_code = '' OR o.status_code NOT IN ('5', '6', 'void', 'refunded', 'cancelled', 'canceled'))
+        AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
         AND (
           o.shift_session_id = ?
           OR CAST(o.shift_session_id AS TEXT) = ?
@@ -491,16 +498,20 @@ class ShiftHistoryService {
                   ELSE substr(replace(COALESCE(NULLIF(o.order_date, ''), NULLIF(o.created_at, ''), ''), 'T', ' '), 1, 19) END) <= ?
           )
         )
-      GROUP BY COALESCE(NULLIF(pm.name, ''), NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(p.payment_method, ''), 'Lainnya')
+      GROUP BY COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), NULLIF(pm.name, ''), NULLIF(p.payment_method, ''), 'Lainnya')
       ''', orderArgs);
 
     int totalRevenue = 0;
+    int cashSales = 0;
     final payments = <ShiftDetailPaymentMode>[];
     for (final row in paymentRows) {
       final name = row['name']?.toString() ?? 'Lainnya';
       final amount = int.tryParse(row['amount']?.toString() ?? '0') ?? 0;
       final qty = (double.tryParse(row['qty']?.toString() ?? '0') ?? 0).round();
       totalRevenue += amount;
+      if (ShiftReportCalculations.isCashPaymentName(name)) {
+        cashSales += amount;
+      }
       payments.add(
         ShiftDetailPaymentMode(name: name, qty: qty, amount: amount),
       );
@@ -543,6 +554,7 @@ class ShiftHistoryService {
     return ShiftDetailData(
       totalRevenue: totalRevenue,
       totalTransactions: orderSummaryRows.length,
+      cashSales: cashSales,
       grossSales: grossSales,
       totalDiscount: totalDiscount,
       totalTax: totalTax,

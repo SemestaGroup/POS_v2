@@ -36,7 +36,8 @@ class ShiftHistoryDetailModal extends StatefulWidget {
   }
 
   @override
-  State<ShiftHistoryDetailModal> createState() => _ShiftHistoryDetailModalState();
+  State<ShiftHistoryDetailModal> createState() =>
+      _ShiftHistoryDetailModalState();
 }
 
 class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
@@ -79,16 +80,18 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
 
     final staffInitials = shift.staffName.trim().isNotEmpty
         ? shift.staffName
-            .trim()
-            .split(' ')
-            .map((e) => e.isNotEmpty ? e[0] : '')
-            .take(2)
-            .join()
-            .toUpperCase()
+              .trim()
+              .split(' ')
+              .map((e) => e.isNotEmpty ? e[0] : '')
+              .take(2)
+              .join()
+              .toUpperCase()
         : 'KS';
 
-    final totalCashIn = _detailData?.totalCashIn ?? 0;
-    final totalCashOut = _detailData?.totalCashOut ?? 0;
+    // Reuse the card's summary values for reconciliation so the displayed
+    // components and its variance always come from the same calculation.
+    final totalCashIn = shift.totalCashIn;
+    final totalCashOut = shift.totalCashOut;
     final totalRevenue = _detailData?.totalRevenue ?? shift.totalShiftSales;
     final totalTransactions = _detailData?.totalTransactions ?? 0;
     final grossSales = _detailData?.grossSales ?? 0;
@@ -97,9 +100,15 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
 
     final openingBalance = shift.openingBalance;
     final sisaPettyCash = openingBalance + totalCashIn - totalCashOut;
-    final expectedCashInDrawer = shift.expectedCash > 0
-        ? shift.expectedCash
-        : (sisaPettyCash + shift.cashSales);
+    final cashSales = shift.cashSales;
+    // This is the exact source used by the card's variance, so both surfaces
+    // report one reconciliation result for the selected shift.
+    final expectedCashFromTransactions = shift.expectedCash;
+    final hasStoredCashMismatch =
+        shift.isClosed &&
+        shift.storedExpectedCash > 0 &&
+        shift.storedExpectedCash != expectedCashFromTransactions;
+    final transactionCashVariance = shift.variance;
 
     final netSales = grossSales - totalDiscount;
 
@@ -176,7 +185,9 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                 const SizedBox(width: 6),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 1),
+                                    horizontal: 6,
+                                    vertical: 1,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFE2E8F0),
                                     borderRadius: BorderRadius.circular(4),
@@ -208,8 +219,10 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                     ),
                     IconButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close_rounded,
-                          color: Color(0xFF64748B)),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        color: Color(0xFF64748B),
+                      ),
                       visualDensity: VisualDensity.compact,
                     ),
                   ],
@@ -296,14 +309,16 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFF8FAFC),
                                     borderRadius: BorderRadius.circular(14),
-                                    border:
-                                        Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
                                   ),
                                   child: Column(
                                     children: [
                                       _recapAmountRow(
-                                          'Penjualan kotor (gross)',
-                                          'Rp ${currencyFmt.format(grossSales)}'),
+                                        'Penjualan kotor (gross)',
+                                        'Rp ${currencyFmt.format(grossSales)}',
+                                      ),
                                       const SizedBox(height: 8),
                                       _recapAmountRow(
                                         '(-) Diskon & potongan',
@@ -345,13 +360,16 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(16),
-                                    border:
-                                        Border.all(color: const Color(0xFFE2E8F0)),
+                                    border: Border.all(
+                                      color: const Color(0xFFE2E8F0),
+                                    ),
                                   ),
                                   child: Column(
                                     children: [
-                                      _recapAmountRow('Saldo Awal Kas Laci',
-                                          'Rp ${currencyFmt.format(openingBalance)}'),
+                                      _recapAmountRow(
+                                        'Saldo Awal Kas Laci',
+                                        'Rp ${currencyFmt.format(openingBalance)}',
+                                      ),
                                       const SizedBox(height: 8),
                                       _recapAmountRow(
                                         '(+) Modal masuk (cash in)',
@@ -373,16 +391,24 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                       const SizedBox(height: 8),
                                       _recapAmountRow(
                                         '(+) Penjualan Tunai Kasir',
-                                        '+Rp ${currencyFmt.format(shift.cashSales)}',
+                                        '+Rp ${currencyFmt.format(cashSales)}',
                                         valueColor: const Color(0xFF2563EB),
                                       ),
                                       const Divider(height: 18),
                                       _recapAmountRow(
-                                        'Ekspektasi Kas Fisik Laci',
-                                        'Rp ${currencyFmt.format(expectedCashInDrawer)}',
+                                        'Ekspektasi Kas dari Transaksi',
+                                        'Rp ${currencyFmt.format(expectedCashFromTransactions)}',
                                         emphasis: true,
                                         valueColor: primaryColor,
                                       ),
+                                      if (hasStoredCashMismatch) ...[
+                                        const SizedBox(height: 8),
+                                        _recapAmountRow(
+                                          'Ekspektasi Tersimpan Saat Tutup',
+                                          'Rp ${currencyFmt.format(shift.storedExpectedCash)}',
+                                          valueColor: const Color(0xFFB45309),
+                                        ),
+                                      ],
                                       if (shift.isClosed) ...[
                                         const SizedBox(height: 8),
                                         _recapAmountRow(
@@ -396,10 +422,13 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                   ),
                                 ),
 
-                                if (shift.isClosed && shift.variance != 0) ...[
+                                if (shift.isClosed &&
+                                    transactionCashVariance != 0) ...[
                                   const SizedBox(height: 16),
                                   _buildVarianceAuditBanner(
-                                      shift.variance, currencyFmt),
+                                    transactionCashVariance,
+                                    currencyFmt,
+                                  ),
                                 ],
                               ],
                             ),
@@ -429,43 +458,46 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                           child: Text(
                                             'Belum ada transaksi pembayaran',
                                             style: TextStyle(
-                                                color: Color(0xFF64748B)),
+                                              color: Color(0xFF64748B),
+                                            ),
                                           ),
                                         ),
                                       )
                                     : Column(
-                                        children:
-                                            _detailData!.payments.map((pm) {
+                                        children: _detailData!.payments.map((
+                                          pm,
+                                        ) {
                                           final double pct = totalRevenue > 0
                                               ? (pm.amount / totalRevenue)
                                               : 0.0;
                                           final pctString = (pct * 100)
                                               .toStringAsFixed(0);
 
-                                          final isCashMode = pm.name
-                                                  .toLowerCase()
-                                                  .contains('cash') ||
-                                              pm.name
-                                                  .toLowerCase()
-                                                  .contains('tunai');
+                                          final isCashMode =
+                                              pm.name.toLowerCase().contains(
+                                                'cash',
+                                              ) ||
+                                              pm.name.toLowerCase().contains(
+                                                'tunai',
+                                              );
                                           IconData modeIcon =
                                               Icons.payments_outlined;
-                                          if (pm.name
-                                                  .toLowerCase()
-                                                  .contains('qris') ||
-                                              pm.name
-                                                  .toLowerCase()
-                                                  .contains('qr')) {
+                                          if (pm.name.toLowerCase().contains(
+                                                'qris',
+                                              ) ||
+                                              pm.name.toLowerCase().contains(
+                                                'qr',
+                                              )) {
                                             modeIcon = Icons.qr_code_2_rounded;
                                           } else if (pm.name
                                                   .toLowerCase()
                                                   .contains('edc') ||
-                                              pm.name
-                                                  .toLowerCase()
-                                                  .contains('card') ||
-                                              pm.name
-                                                  .toLowerCase()
-                                                  .contains('debit')) {
+                                              pm.name.toLowerCase().contains(
+                                                'card',
+                                              ) ||
+                                              pm.name.toLowerCase().contains(
+                                                'debit',
+                                              )) {
                                             modeIcon =
                                                 Icons.credit_card_outlined;
                                           } else if (isCashMode) {
@@ -474,15 +506,16 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
 
                                           return Container(
                                             margin: const EdgeInsets.only(
-                                                bottom: 10),
+                                              bottom: 10,
+                                            ),
                                             padding: const EdgeInsets.all(12),
                                             decoration: BoxDecoration(
                                               color: const Color(0xFFF8FAFC),
                                               borderRadius:
                                                   BorderRadius.circular(14),
                                               border: Border.all(
-                                                  color:
-                                                      const Color(0xFFE2E8F0)),
+                                                color: const Color(0xFFE2E8F0),
+                                              ),
                                             ),
                                             child: Column(
                                               crossAxisAlignment:
@@ -493,18 +526,23 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                                     Container(
                                                       padding:
                                                           const EdgeInsets.all(
-                                                              8),
+                                                            8,
+                                                          ),
                                                       decoration: BoxDecoration(
                                                         color: primaryColor
                                                             .withValues(
-                                                                alpha: 0.10),
+                                                              alpha: 0.10,
+                                                            ),
                                                         borderRadius:
-                                                            BorderRadius
-                                                                .circular(10),
+                                                            BorderRadius.circular(
+                                                              10,
+                                                            ),
                                                       ),
-                                                      child: Icon(modeIcon,
-                                                          size: 18,
-                                                          color: primaryColor),
+                                                      child: Icon(
+                                                        modeIcon,
+                                                        size: 18,
+                                                        color: primaryColor,
+                                                      ),
                                                     ),
                                                     const SizedBox(width: 10),
                                                     Expanded(
@@ -517,27 +555,31 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                                             pm.name,
                                                             style:
                                                                 const TextStyle(
-                                                              fontSize: 13.5,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              color: Color(
-                                                                  0xFF0F172A),
-                                                            ),
+                                                                  fontSize:
+                                                                      13.5,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                  color: Color(
+                                                                    0xFF0F172A,
+                                                                  ),
+                                                                ),
                                                           ),
                                                           const SizedBox(
-                                                              height: 2),
+                                                            height: 2,
+                                                          ),
                                                           Text(
                                                             '${pm.qty} Transaksi',
                                                             style:
                                                                 const TextStyle(
-                                                              fontSize: 11,
-                                                              color: Color(
-                                                                  0xFF64748B),
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
+                                                                  fontSize: 11,
+                                                                  color: Color(
+                                                                    0xFF64748B,
+                                                                  ),
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                ),
                                                           ),
                                                         ],
                                                       ),
@@ -551,12 +593,14 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                                           'Rp ${currencyFmt.format(pm.amount)}',
                                                           style:
                                                               const TextStyle(
-                                                            fontSize: 13.5,
-                                                            fontWeight:
-                                                                FontWeight.w800,
-                                                            color: Color(
-                                                                0xFF0F172A),
-                                                          ),
+                                                                fontSize: 13.5,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w800,
+                                                                color: Color(
+                                                                  0xFF0F172A,
+                                                                ),
+                                                              ),
                                                         ),
                                                         Text(
                                                           '$pctString% dari total',
@@ -575,17 +619,15 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                                 ClipRRect(
                                                   borderRadius:
                                                       BorderRadius.circular(4),
-                                                  child:
-                                                      LinearProgressIndicator(
+                                                  child: LinearProgressIndicator(
                                                     value: pct,
                                                     minHeight: 5,
                                                     backgroundColor:
                                                         const Color(0xFFF1F5F9),
                                                     valueColor:
                                                         AlwaysStoppedAnimation<
-                                                            Color>(
-                                                      primaryColor,
-                                                    ),
+                                                          Color
+                                                        >(primaryColor),
                                                   ),
                                                 ),
                                               ],
@@ -608,7 +650,8 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                       child: Text(
                                         'Belum ada produk terjual pada shift ini',
                                         style: TextStyle(
-                                            color: Color(0xFF64748B)),
+                                          color: Color(0xFF64748B),
+                                        ),
                                       ),
                                     ),
                                   )
@@ -618,17 +661,20 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                       color: Colors.white,
                                       borderRadius: BorderRadius.circular(14),
                                       border: Border.all(
-                                          color: const Color(0xFFE2E8F0)),
+                                        color: const Color(0xFFE2E8F0),
+                                      ),
                                     ),
                                     child: Column(
-                                      children:
-                                          _detailData!.topItems.map((item) {
+                                      children: _detailData!.topItems.map((
+                                        item,
+                                      ) {
                                         final qtyStr = item.qty % 1 == 0
                                             ? item.qty.toInt().toString()
                                             : item.qty.toStringAsFixed(1);
                                         return Padding(
                                           padding: const EdgeInsets.symmetric(
-                                              vertical: 6),
+                                            vertical: 6,
+                                          ),
                                           child: Row(
                                             children: [
                                               const Icon(
@@ -653,11 +699,13 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                               Container(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  horizontal: 10,
-                                                  vertical: 4,
-                                                ),
+                                                      horizontal: 10,
+                                                      vertical: 4,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: const Color(0xFFF1F5F9),
+                                                  color: const Color(
+                                                    0xFFF1F5F9,
+                                                  ),
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
@@ -673,9 +721,9 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                                             ],
                                           ),
                                         );
-                                        }).toList(),
-                                      ),
+                                      }).toList(),
                                     ),
+                                  ),
                           ),
                         ],
                       ),
@@ -703,13 +751,17 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.print_rounded, size: 18),
                     label: const Text(
                       'Cetak Laporan Shift (Struk)',
                       style: TextStyle(
-                          fontSize: 13.5, fontWeight: FontWeight.w700),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
@@ -802,7 +854,8 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
           style: TextStyle(
             fontSize: emphasis ? 13.5 : 12.5,
             fontWeight: emphasis ? FontWeight.w800 : FontWeight.w700,
-            color: valueColor ??
+            color:
+                valueColor ??
                 (emphasis ? const Color(0xFF0F172A) : const Color(0xFF334155)),
           ),
         ),
@@ -822,12 +875,14 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
 
     final title = isPas
         ? 'Kas Sesuai (Pas)'
-        : (isMinus ? 'Kas Minus / Selisih Kurang' : 'Kas Surplus / Selisih Lebih');
+        : (isMinus
+              ? 'Kas Minus / Selisih Kurang'
+              : 'Kas Surplus / Selisih Lebih');
     final desc = isPas
         ? 'Jumlah kas fisik sama persis dengan ekspektasi sistem.'
         : (isMinus
-            ? 'Jumlah kas fisik kurang Rp ${currencyFmt.format(diff.abs())} dari ekspektasi sistem.'
-            : 'Jumlah kas fisik lebih Rp ${currencyFmt.format(diff)} dari ekspektasi sistem.');
+              ? 'Jumlah kas fisik kurang Rp ${currencyFmt.format(diff.abs())} dari ekspektasi sistem.'
+              : 'Jumlah kas fisik lebih Rp ${currencyFmt.format(diff)} dari ekspektasi sistem.');
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -842,8 +897,8 @@ class _ShiftHistoryDetailModalState extends State<ShiftHistoryDetailModal> {
             isPas
                 ? Icons.check_circle_outline_rounded
                 : (isMinus
-                    ? Icons.error_outline_rounded
-                    : Icons.info_outline_rounded),
+                      ? Icons.error_outline_rounded
+                      : Icons.info_outline_rounded),
             color: color,
             size: 22,
           ),
