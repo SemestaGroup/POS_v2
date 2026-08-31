@@ -391,6 +391,14 @@ class ActiveOrdersMobileView extends StatelessWidget {
                       ),
                     ),
                   ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '• ${OrderStatusPresenter.formatTime(order.createdAt)}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.black45,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),
@@ -412,7 +420,7 @@ class ActiveOrdersMobileView extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${order.totalQuantity} item • Rp ${order.totalAmount.toStringAsFixed(0)}',
+                          '${order.totalQuantity} item • ${OrderStatusPresenter.formatRupiah(order.totalAmount)}',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,

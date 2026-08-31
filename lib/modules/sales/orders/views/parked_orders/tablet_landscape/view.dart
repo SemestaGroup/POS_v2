@@ -423,6 +423,14 @@ class ParkedOrdersTabletLandscapeView extends StatelessWidget {
                             color: Colors.black54,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '• ${OrderStatusPresenter.formatTime(order.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -493,7 +501,7 @@ class ParkedOrdersTabletLandscapeView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Rp ${order.totalAmount.toStringAsFixed(0)}',
+                    OrderStatusPresenter.formatRupiah(order.totalAmount),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,

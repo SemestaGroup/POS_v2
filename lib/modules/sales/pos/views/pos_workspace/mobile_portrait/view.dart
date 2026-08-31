@@ -1812,7 +1812,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       if (!mounted) return createdRecord;
 
       if (createdRecord == null) {
-        _showFeedback('Failed to create order locally');
+        _showFeedback(l10n.paymentProcessingFailedMessage);
         return null;
       }
 

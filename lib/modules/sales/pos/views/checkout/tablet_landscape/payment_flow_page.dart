@@ -45,6 +45,7 @@ class PosPaymentFlowPage extends StatefulWidget {
     required this.snapshot,
     required this.orderTypeLabel,
     required this.customerName,
+    this.orderNote,
     required this.totalPayAmount,
     required this.subtotalAmount,
     required this.discountAmount,
@@ -61,6 +62,7 @@ class PosPaymentFlowPage extends StatefulWidget {
   final SalesPaymentModeSnapshot snapshot;
   final String orderTypeLabel;
   final String customerName;
+  final String? orderNote;
   final int totalPayAmount;
   final int subtotalAmount;
   final int discountAmount;
@@ -148,12 +150,12 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
   }
 
   Future<void> _showOrderConfirmationDialog() async {
+    final l10n = AppLocalizations.of(context)!;
     final changeAmount = (_tenderAmount - widget.totalPayAmount).clamp(
       0,
       1 << 31,
     );
     final reference = _buildOrderReference();
-
     await showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -347,22 +349,38 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                                       isProcessing = true;
                                       dialogError = null;
                                     });
-                                    final error = await widget.onConfirm(
-                                      _selectedOption,
-                                      _tenderAmount,
-                                    );
-                                    if (!ctx.mounted) return;
-                                    if (error != null) {
-                                      setDialogState(() {
-                                        isProcessing = false;
-                                        dialogError = error;
-                                      });
-                                    } else {
-                                      Navigator.of(dialogCtx).pop();
-                                      if (mounted) {
-                                        await _showPaymentSuccessDialog(
-                                          changeAmount: changeAmount,
-                                        );
+                                    try {
+                                      final error = await widget
+                                          .onConfirm(
+                                            _selectedOption,
+                                            _tenderAmount,
+                                          )
+                                          .timeout(
+                                            const Duration(seconds: 15),
+                                            onTimeout: () =>
+                                                l10n.paymentProcessingFailedMessage,
+                                          );
+                                      if (!ctx.mounted) return;
+                                      if (error != null) {
+                                        setDialogState(() {
+                                          isProcessing = false;
+                                          dialogError = error;
+                                        });
+                                      } else {
+                                        Navigator.of(dialogCtx).pop();
+                                        if (mounted) {
+                                          await _showPaymentSuccessDialog(
+                                            changeAmount: changeAmount,
+                                          );
+                                        }
+                                      }
+                                    } catch (_) {
+                                      if (ctx.mounted) {
+                                        setDialogState(() {
+                                          isProcessing = false;
+                                          dialogError =
+                                              l10n.paymentProcessingFailedMessage;
+                                        });
                                       }
                                     }
                                   },
@@ -1303,14 +1321,15 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                       textAlign: TextAlign.center,
                     ),
                   ),
-
                 // Continue Button
                 SizedBox(
-                  height: 48,
+                  height: 52,
                   child: ElevatedButton(
                     onPressed: _handleContinue,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF67B595),
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1318,20 +1337,26 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.max,
                       children: [
-                        Text(
-                          'Continue Transaction',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                        Flexible(
+                          child: Text(
+                            'Lanjutkan Transaksi',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         SizedBox(width: 8),
                         Icon(
-                          Icons.chevron_right_rounded,
+                          Icons.arrow_forward_rounded,
                           color: Colors.white,
-                          size: 24,
+                          size: 20,
                         ),
                       ],
                     ),
@@ -1503,6 +1528,11 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
   }
 
   Widget _buildRightColumn(ThemeData theme, AppLocalizations l10n) {
+    final hasOrderNote =
+        widget.orderNote != null && widget.orderNote!.trim().isNotEmpty;
+    final hasOrderDiscount = widget.discountAmount > 0;
+    final hasTax = widget.taxAmount > 0;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1512,51 +1542,137 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Review Order',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF4B5563),
-              ),
+          // Header: Title & Total Quantity Chip
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Review Order',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A1D2E),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '${widget.totalQuantity} item',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B5563),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
+
+          // Order-level note banner if present
+          if (hasOrderNote)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 16,
+                      color: Color(0xFFD97706),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Catatan Pesanan',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF92400E),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.orderNote!.trim(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF78350F),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+          const Divider(color: Color(0xFFE5E7EB), height: 1),
+
+          // Review Items List
           Expanded(
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               itemCount: widget.reviewItems.length,
               separatorBuilder: (context, index) =>
-                  Divider(color: Colors.grey.shade100, height: 32),
+                  Divider(color: Colors.grey.shade100, height: 24),
               itemBuilder: (context, index) {
                 final item = widget.reviewItems[index];
+                final hasItemNote =
+                    item.note != null && item.note!.trim().isNotEmpty;
+
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Item Thumbnail
                     Container(
                       width: 48,
                       height: 48,
                       clipBehavior: Clip.antiAlias,
                       decoration: BoxDecoration(
                         color: const Color(0xFFF3F4F6),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
                       child: item.imageUrl.isEmpty
                           ? const Icon(
                               Icons.fastfood_rounded,
-                              color: Colors.grey,
+                              color: Color(0xFF9CA3AF),
+                              size: 24,
                             )
                           : CachedNetworkImage(
                               imageUrl: item.imageUrl,
                               fit: BoxFit.cover,
                               errorWidget: (context, url, error) => const Icon(
                                 Icons.image_not_supported_rounded,
-                                color: Colors.grey,
+                                color: Color(0xFF9CA3AF),
+                                size: 24,
                               ),
                             ),
                     ),
                     const SizedBox(width: 12),
+
+                    // Item Info & Notes
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1571,22 +1687,45 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.detailLine,
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 11,
-                            ),
+                          const SizedBox(height: 3),
+
+                          // Price details & order type chip
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              Text(
+                                item.detailLine,
+                                style: const TextStyle(
+                                  color: Color(0xFF6B7280),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1.5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF3F4F6),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  item.orderTypeLabel,
+                                  style: const TextStyle(
+                                    color: Color(0xFF4B5563),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'Type : ${item.orderTypeLabel}',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 11,
-                            ),
-                          ),
-                          if (item.discountLabel != null)
+
+                          if (item.discountLabel != null) ...[
+                            const SizedBox(height: 3),
                             Text(
                               item.discountLabel!,
                               style: const TextStyle(
@@ -1595,16 +1734,62 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                          ],
+
+                          // Item note box
+                          if (hasItemNote) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: const Color(0xFFE5E7EB),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 1.0),
+                                    child: Icon(
+                                      Icons.edit_note_rounded,
+                                      size: 14,
+                                      color: Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      item.note!.trim(),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                        color: Color(0xFF4B5563),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
+
+                    // Line Total
                     Text(
                       item.formattedLineTotal,
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
-                        color: Color(0xFF5B61EA),
+                        color: Color(0xFF1A1D2E),
                       ),
                     ),
                   ],
@@ -1612,30 +1797,116 @@ class _PosPaymentFlowPageState extends State<PosPaymentFlowPage> {
               },
             ),
           ),
+
+          // Footer: Detailed Summary & Total
           Container(
             padding: const EdgeInsets.all(16),
             decoration: const BoxDecoration(
+              color: Colors.white,
               border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
             ),
             child: Column(
               children: [
+                // Subtotal
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'Total Amount',
+                      'Subtotal',
+                      style: TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      _formatMoney(widget.subtotalAmount),
+                      style: const TextStyle(
+                        color: Color(0xFF1A1D2E),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Order-level Discount if any
+                if (hasOrderDiscount) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Diskon',
+                        style: TextStyle(
+                          color: Color(0xFFEF4444),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        '- ${_formatMoney(widget.discountAmount)}',
+                        style: const TextStyle(
+                          color: Color(0xFFEF4444),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                // Tax if any
+                if (hasTax) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        widget.taxName != null && widget.taxName!.isNotEmpty
+                            ? widget.taxName!
+                            : 'Pajak',
+                        style: const TextStyle(
+                          color: Color(0xFF6B7280),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(
+                        _formatMoney(widget.taxAmount),
+                        style: const TextStyle(
+                          color: Color(0xFF1A1D2E),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Divider(color: Color(0xFFE5E7EB), height: 1),
+                ),
+
+                // Total Amount
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Total Pembayaran',
                       style: TextStyle(
                         color: Color(0xFF1A1D2E),
                         fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
                     ),
                     Text(
                       _formatMoney(widget.totalPayAmount),
                       style: const TextStyle(
-                        color: Color(0xFF5B61EA),
+                        color: Color(0xFF10B981),
                         fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                        fontSize: 17,
                       ),
                     ),
                   ],

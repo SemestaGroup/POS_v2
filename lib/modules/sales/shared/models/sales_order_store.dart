@@ -359,7 +359,7 @@ class SalesOrderStore {
               'summary',
             ),
             orderType: () {
-              final headerCode = row['order_type_code']?.toString()?.trim();
+              final headerCode = row['order_type_code']?.toString().trim();
               if (headerCode != null && headerCode.isNotEmpty) {
                 return OrderTypeResolver.resolveCode(
                       headerCode,

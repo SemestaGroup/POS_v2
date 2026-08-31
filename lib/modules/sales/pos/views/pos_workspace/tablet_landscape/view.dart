@@ -1622,6 +1622,7 @@ class _PosWorkspaceTabletLandscapeViewState
             customerName: customer.isDefaultWalkIn
                 ? PosV2CustomerService.defaultWalkInName
                 : customer.name,
+            orderNote: _orderNote.trim().isNotEmpty ? _orderNote.trim() : null,
             totalPayAmount: _totalPay,
             subtotalAmount: _subtotalAmount,
             discountAmount: _orderLevelDiscountAmount,
@@ -1637,7 +1638,7 @@ class _PosWorkspaceTabletLandscapeViewState
             onConfirm:
                 (SalesPaymentModeOption paymentMode, int tenderAmount) async {
                   try {
-                    await SalesOrderStore.instance.createOrder(
+                    final createdOrder = await SalesOrderStore.instance.createOrder(
                       statusCode: 2,
                       items: _buildOrderLines(),
                       customerName: customer.isDefaultWalkIn
@@ -1675,6 +1676,9 @@ class _PosWorkspaceTabletLandscapeViewState
                       paymentModeName: paymentMode.name,
                       processQueueNow: true,
                     );
+                    if (createdOrder == null) {
+                      return l10n.paymentProcessingFailedMessage;
+                    }
                   } catch (_) {
                     return l10n.paymentProcessingFailedMessage;
                   }

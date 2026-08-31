@@ -1,3 +1,4 @@
+import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_localizations.dart';
@@ -32,6 +33,18 @@ class OrderStatusPresenter {
 
   static String getLocalizedStatusCode(BuildContext context, int statusCode) {
     return presentOrderStatus(context, statusCode).label;
+  }
+
+  static String formatTime(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
+  }
+
+  static String formatRupiah(num amount) {
+    final formatted = NumberFormat.decimalPattern('id_ID').format(amount.toInt());
+    return 'Rp $formatted';
   }
 }
 

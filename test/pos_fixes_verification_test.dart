@@ -7,6 +7,7 @@ import 'package:flinkpos_v2/modules/sales/shared/models/pos_order_type_store.dar
 import 'package:flinkpos_v2/modules/sales/shared/models/pos_order_type_transition_service.dart';
 import 'package:flinkpos_v2/modules/sales/shared/models/pos_promotion_service.dart';
 import 'package:flinkpos_v2/modules/sales/shared/models/sales_order_store.dart';
+import 'package:flinkpos_v2/modules/sales/orders/shared/order_status_presenter.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -1022,6 +1023,24 @@ void main() {
       // 3. Trigger refreshFromPersistence() - order MUST NOT reappear!
       await SalesOrderStore.instance.refreshFromPersistence();
       expect(SalesOrderStore.instance.recordsNotifier.value.any((r) => r.id == orderId), isFalse);
+    });
+  });
+
+  group('OrderStatusPresenter Format Tests', () {
+    test('formatRupiah formats whole numbers and decimal floats correctly with ID locale separator', () {
+      expect(OrderStatusPresenter.formatRupiah(0), 'Rp 0');
+      expect(OrderStatusPresenter.formatRupiah(500), 'Rp 500');
+      expect(OrderStatusPresenter.formatRupiah(5000), 'Rp 5.000');
+      expect(OrderStatusPresenter.formatRupiah(50000), 'Rp 50.000');
+      expect(OrderStatusPresenter.formatRupiah(1250000), 'Rp 1.250.000');
+      expect(OrderStatusPresenter.formatRupiah(1250000.75), 'Rp 1.250.000');
+    });
+
+    test('formatTime formats DateTime into HH:mm with zero padding', () {
+      final dt1 = DateTime(2026, 8, 31, 9, 5);
+      expect(OrderStatusPresenter.formatTime(dt1), '09:05');
+      final dt2 = DateTime(2026, 8, 31, 14, 30);
+      expect(OrderStatusPresenter.formatTime(dt2), '14:30');
     });
   });
 }

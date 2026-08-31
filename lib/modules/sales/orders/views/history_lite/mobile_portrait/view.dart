@@ -347,9 +347,17 @@ class HistoryLiteMobileView extends StatelessWidget {
                         : order.customerName,
                     style: const TextStyle(fontSize: 11, color: Colors.black87),
                   ),
+                const SizedBox(width: 6),
+                Text(
+                  '• ${OrderStatusPresenter.formatTime(order.createdAt)}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Colors.black45,
+                  ),
+                ),
                   const Spacer(),
                   Text(
-                    'Rp ${order.totalAmount.toStringAsFixed(0)}',
+                    OrderStatusPresenter.formatRupiah(order.totalAmount),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
