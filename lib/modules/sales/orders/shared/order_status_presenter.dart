@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../l10n/app_localizations.dart';
-
+import '../../shared/models/order_type_presenter.dart';
+import '../../shared/models/pos_order_type_store.dart';
 class OrderStatusPresentation {
   const OrderStatusPresentation({required this.label, required this.color});
 
@@ -11,14 +12,11 @@ class OrderStatusPresentation {
 
 class OrderStatusPresenter {
   static String getLocalizedOrderType(BuildContext context, String orderType) {
-    switch (orderType.toLowerCase()) {
-      case 'dine_in':
-        return 'Dine In';
-      case 'take_away':
-        return 'Take Away';
-      default:
-        return orderType.toUpperCase();
-    }
+    final types = PosOrderTypeStore.instance.snapshot.allOrderTypes.isNotEmpty
+        ? PosOrderTypeStore.instance.snapshot.allOrderTypes
+        : PosOrderTypeStore.instance.snapshot.orderTypes;
+    final l10n = AppLocalizations.of(context);
+    return OrderTypePresenter.getDisplayName(orderType, types, l10n: l10n);
   }
 
   static String getLocalizedStatusCode(BuildContext context, int statusCode) {
@@ -65,8 +63,8 @@ OrderStatusPresentation presentOrderStatus(
       );
     default:
       return OrderStatusPresentation(
-        label: '$statusCode',
-        color: const Color(0xFF6B7280),
+        label: l10n.orderStatusUnknown,
+        color: const Color(0xFF9CA3AF),
       );
   }
 }

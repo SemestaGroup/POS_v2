@@ -1,3 +1,4 @@
+import '../../../../orders/shared/order_status_presenter.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -15,6 +16,11 @@ import '../../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../shared/models/pos_catalog_store.dart';
 import '../../../../shared/models/pos_promotion_service.dart';
 import '../../../../shared/models/sales_order_store.dart';
+import '../../../../shared/models/order_type_presenter.dart';
+import '../../../../shared/models/order_type_resolver.dart';
+import '../../../../shared/models/pos_order_type_pricing_service.dart';
+import '../../../../shared/models/pos_order_type_store.dart';
+import '../../../../shared/models/pos_order_type_transition_service.dart';
 import '../../../../shared/models/pos_tax_selection_resolver.dart';
 import '../../../../shared/widgets/customer_picker_dialog.dart';
 import '../../../../../../core/printing/models/printer_render_models.dart';
@@ -52,105 +58,6 @@ class _MobilePosQuickActionItem {
   final IconData icon;
   final String label;
   final bool isDestructive;
-}
-
-class _PosCartItem {
-  const _PosCartItem({
-    required this.id,
-    required this.name,
-    required this.displayName,
-    required this.imageUrl,
-    required this.regularUnitPrice,
-    required this.quantity,
-    this.productRemoteId,
-    this.brandName,
-    this.discountedUnitPrice,
-    this.promoLabel,
-    this.isDiscountEnabled = false,
-    this.orderType,
-    this.note,
-    this.appliedPromoId,
-    this.appliedPromoName,
-    this.overriddenUnitPrice,
-  });
-
-  final String id;
-  final String name;
-  final String displayName;
-  final String imageUrl;
-  final int regularUnitPrice;
-  final int quantity;
-  final String? productRemoteId;
-  final String? brandName;
-  final int? discountedUnitPrice;
-  final String? promoLabel;
-  final bool isDiscountEnabled;
-  final String? orderType;
-  final String? note;
-  final String? appliedPromoId;
-  final String? appliedPromoName;
-  final int? overriddenUnitPrice;
-
-  int get activeUnitPrice {
-    if (overriddenUnitPrice != null) {
-      return overriddenUnitPrice!;
-    }
-    return isDiscountEnabled && discountedUnitPrice != null
-        ? discountedUnitPrice!
-        : regularUnitPrice;
-  }
-
-  _PosCartItem copyWith({
-    String? id,
-    String? name,
-    String? displayName,
-    String? imageUrl,
-    int? regularUnitPrice,
-    int? quantity,
-    String? productRemoteId,
-    String? brandName,
-    int? discountedUnitPrice,
-    String? promoLabel,
-    bool? isDiscountEnabled,
-    String? orderType,
-    String? note,
-    bool clearNote = false,
-    String? appliedPromoId,
-    bool clearAppliedPromoId = false,
-    String? appliedPromoName,
-    bool clearAppliedPromoName = false,
-    int? overriddenUnitPrice,
-    bool clearOverriddenUnitPrice = false,
-    bool clearDiscountedUnitPrice = false,
-    bool clearPromoLabel = false,
-  }) {
-    return _PosCartItem(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      displayName: displayName ?? this.displayName,
-      imageUrl: imageUrl ?? this.imageUrl,
-      regularUnitPrice: regularUnitPrice ?? this.regularUnitPrice,
-      quantity: quantity ?? this.quantity,
-      productRemoteId: productRemoteId ?? this.productRemoteId,
-      brandName: brandName ?? this.brandName,
-      promoLabel: clearPromoLabel ? null : (promoLabel ?? this.promoLabel),
-      isDiscountEnabled: isDiscountEnabled ?? this.isDiscountEnabled,
-      orderType: orderType ?? this.orderType,
-      note: clearNote ? null : (note ?? this.note),
-      appliedPromoId: clearAppliedPromoId
-          ? null
-          : (appliedPromoId ?? this.appliedPromoId),
-      appliedPromoName: clearAppliedPromoName
-          ? null
-          : (appliedPromoName ?? this.appliedPromoName),
-      overriddenUnitPrice: clearOverriddenUnitPrice
-          ? null
-          : (overriddenUnitPrice ?? this.overriddenUnitPrice),
-      discountedUnitPrice: clearDiscountedUnitPrice
-          ? null
-          : (discountedUnitPrice ?? this.discountedUnitPrice),
-    );
-  }
 }
 
 class _MobileOrdersPage extends StatefulWidget {
@@ -202,43 +109,39 @@ class _MobileOrdersPageState extends State<_MobileOrdersPage> {
   ).format(amount);
 
   String _formatOrderType(String orderType) {
-    switch (orderType) {
-      case 'take_away':
-        return 'Bawa pulang';
-      case 'shopee_food':
-        return 'ShopeeFood';
-      case 'go_food':
-        return 'GoFood';
-      case 'grab_food':
-        return 'GrabFood';
-      case 'dine_in':
-      default:
-        return 'Makan di tempat';
-    }
+    final l10n = AppLocalizations.of(context);
+    final types = PosOrderTypeStore.instance.snapshot.allOrderTypes.isNotEmpty
+        ? PosOrderTypeStore.instance.snapshot.allOrderTypes
+        : PosOrderTypeStore.instance.snapshot.orderTypes;
+    return OrderTypePresenter.getDisplayName(orderType, types, l10n: l10n);
   }
 
   (String, Color, IconData) _statusMeta(
     SalesOrderRecord order,
     Color primaryColor,
   ) {
+    final presentation = presentOrderStatus(context, order.statusCode);
+    IconData icon;
     switch (order.statusCode) {
       case 6:
-        return ('Ditahan', const Color(0xFFB45309), Icons.pause_rounded);
+        icon = Icons.pause_rounded;
+        break;
       case 2:
-        return ('Selesai', const Color(0xFF15803D), Icons.check_rounded);
+        icon = Icons.check_rounded;
+        break;
       case 4:
-        return (
-          'Bermasalah',
-          const Color(0xFFB45309),
-          Icons.error_outline_rounded,
-        );
+        icon = Icons.error_outline_rounded;
+        break;
       case 5:
-        return ('Dibatalkan', const Color(0xFFB91C1C), Icons.close_rounded);
+        icon = Icons.close_rounded;
+        break;
       case 1:
-        return ('Aktif', primaryColor, Icons.receipt_long_outlined);
+        icon = Icons.receipt_long_outlined;
+        break;
       default:
-        return ('Tercatat', const Color(0xFF475569), Icons.history_rounded);
+        icon = Icons.history_rounded;
     }
+    return (presentation.label, presentation.color, icon);
   }
 
   @override
@@ -859,10 +762,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _manualTenderController = TextEditingController();
 
-  List<_PosCartItem> _cartItems = [];
+  List<PosCartItem> _cartItems = [];
   int _lineSequence = 1;
   int _orderLevelDiscountAmount = 0;
-  String _selectedOrderType = 'dine_in';
+  String _selectedOrderType = 'dinein';
   String _orderNote = '';
   List<PosPromotionResult> _selectedPromotions = [];
 
@@ -953,9 +856,13 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     PosCatalogStore.instance.snapshotNotifier.addListener(
       _handleCatalogChanged,
     );
+    PosOrderTypeStore.instance.snapshotNotifier.addListener(
+      _handleOrderTypeSnapshotChanged,
+    );
     SalesOrderStore.instance.resumeOrderNotifier.addListener(
       _handlePendingResumeOrder,
     );
+    _reconcileSelectedOrderType();
     _handlePendingResumeOrder();
     _ensureDefaultCustomerSelected();
     _loadTaxSettings();
@@ -965,6 +872,9 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   void dispose() {
     PosCatalogStore.instance.snapshotNotifier.removeListener(
       _handleCatalogChanged,
+    );
+    PosOrderTypeStore.instance.snapshotNotifier.removeListener(
+      _handleOrderTypeSnapshotChanged,
     );
     SalesOrderStore.instance.resumeOrderNotifier.removeListener(
       _handlePendingResumeOrder,
@@ -981,6 +891,34 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       });
     }
   }
+
+  void _handleOrderTypeSnapshotChanged() {
+    if (!mounted) return;
+    unawaited(_reconcileSelectedOrderType());
+  }
+
+  Future<void> _applyOrderTypeTransition({String? targetOrderType}) async {
+    final result = await PosOrderTypeTransitionService.transitionPosCartOrderType(
+      currentOrderType: _selectedOrderType,
+      targetOrderType: targetOrderType,
+      currentItems: _cartItems,
+      currentPromotions: _selectedPromotions,
+      catalogProducts: _catalogSnapshot.products,
+      activeOrderTypes: PosOrderTypeStore.instance.snapshot.orderTypes,
+    );
+    if (!result.isChanged) {
+      if (mounted) setState(() {});
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _selectedOrderType = result.orderType;
+      _cartItems = result.items;
+      _selectedPromotions = result.validPromotions;
+    });
+  }
+
+  Future<void> _reconcileSelectedOrderType() => _applyOrderTypeTransition();
 
   void _handlePendingResumeOrder() {
     final pendingOrder = SalesOrderStore.instance.resumeOrderNotifier.value;
@@ -1021,7 +959,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     PosPromotionService.instance
         .getApplicablePromotions(
           items: matchItems,
-          orderTypeCode: _toBackendOrderTypeCode(pendingOrder.orderType),
+          orderTypeCode: pendingOrder.orderType,
         )
         .then((applicablePromos) {
           PosPromotionResult? actualPromo;
@@ -1038,7 +976,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
             setState(() {
               _cartItems = pendingOrder.items
                   .map(
-                    (item) => _PosCartItem(
+                    (item) => PosCartItem(
                       id: item.id,
                       name: item.name,
                       displayName: item.name,
@@ -1055,13 +993,17 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                   )
                   .toList();
 
-              _selectedOrderType = pendingOrder.orderType;
+              _selectedOrderType = PosOrderTypeStore.instance
+                  .reconcileSelectedOrderType(pendingOrder.orderType);
               _orderNote = pendingOrder.note ?? '';
               _editingOrderId = pendingOrder.id;
               _editingOrderToken = pendingOrder.token;
               _editingOrderCreatedAt = pendingOrder.createdAt;
               _orderLevelDiscountAmount = pendingOrder.orderLevelDiscountAmount;
               _selectedPromotions = actualPromo == null ? [] : [actualPromo];
+              _searchController.clear();
+              _selectedBrandName = null;
+              _selectedCategoryName = null;
               _currentStage = _MobilePosStage.cart;
 
               if (pendingOrder.customerName.isNotEmpty &&
@@ -1099,22 +1041,27 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   String _newLineId() => 'line-${_lineSequence++}';
 
-  int get _subtotalAmount => _cartItems.fold(
+  int get _subtotalAmount => _cartItems.fold<int>(
     0,
-    (sum, item) => sum + (item.activeUnitPrice * item.quantity),
+    (sum, item) => sum + (item.regularUnitPrice * item.quantity),
   );
+  int get _itemDiscountAmount => _cartItems.fold<int>(
+    0,
+    (sum, item) =>
+        sum +
+        ((item.regularUnitPrice - item.activeUnitPrice).clamp(0, 1 << 31) *
+            item.quantity),
+  );
+  int get _totalDiscountAmount =>
+      _itemDiscountAmount + _orderLevelDiscountAmount;
+  int get _netAmount =>
+      (_subtotalAmount - _totalDiscountAmount).clamp(0, 1 << 31);
   int get _taxAmount {
     if (!_autoTax || _taxPercentage <= 0) return 0;
-    final base = (_subtotalAmount - _orderLevelDiscountAmount).clamp(
-      0,
-      1 << 31,
-    );
-    return (base * (_taxPercentage / 100)).round();
+    return (_netAmount * (_taxPercentage / 100)).round();
   }
 
-  int get _totalPay =>
-      ((_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31)) +
-      _taxAmount;
+  int get _totalPay => _netAmount + _taxAmount;
 
   String _formatCurrency(int amount) {
     final formatter = NumberFormat.currency(
@@ -1125,76 +1072,22 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     return formatter.format(amount);
   }
 
-  String _toBackendOrderTypeCode(String localOrderType) {
-    switch (localOrderType) {
-      case 'take_away':
-        return 'takeaway';
-      case 'shopee_food':
-        return 'shopeefood';
-      case 'go_food':
-        return 'gofood';
-      case 'grab_food':
-        return 'grabfood';
-      case 'dine_in':
-      default:
-        return 'dinein';
-    }
-  }
-
-  int _parsePriceValue(Object? value) {
-    if (value is int) return value;
-    if (value is num) return value.round();
-    return int.tryParse(
-          value?.toString().replaceAll(RegExp(r'[^0-9]'), '') ?? '',
-        ) ??
-        0;
-  }
+  IconData _getIconForOrderType(String code) =>
+      OrderTypePresenter.getIconForOrderType(code);
 
   Map<String, dynamic> _applySelectedOrderTypePricing(
     Map<String, dynamic> product,
-  ) => _applyOrderTypePricing(product, _selectedOrderType);
-
-  Map<String, dynamic> _applyOrderTypePricing(
-    Map<String, dynamic> product,
-    String orderType,
-  ) {
-    final mapped = Map<String, dynamic>.from(product);
-    final rawOrderTypePrices = mapped['orderTypePrices'];
-    final selectedPrice = rawOrderTypePrices is Map
-        ? _parsePriceValue(
-            rawOrderTypePrices[_toBackendOrderTypeCode(orderType)],
-          )
-        : 0;
-    if (selectedPrice <= 0) return mapped;
-
-    final originalRegularPrice = _parsePriceValue(
-      mapped['regularPrice'] ?? mapped['price'],
-    );
-    final currentDiscountedPrice = _parsePriceValue(mapped['discountedPrice']);
-    final hasCatalogDiscount =
-        currentDiscountedPrice > 0 &&
-        originalRegularPrice > currentDiscountedPrice;
-    final adjustedDiscountedPrice = hasCatalogDiscount
-        ? (selectedPrice - (originalRegularPrice - currentDiscountedPrice))
-              .clamp(0, selectedPrice)
-        : null;
-
-    mapped['regularPrice'] = selectedPrice;
-    mapped['discountedPrice'] = adjustedDiscountedPrice;
-    mapped['price'] = adjustedDiscountedPrice ?? selectedPrice;
-    return mapped;
-  }
+  ) => PosOrderTypePricingService.applyOrderTypePricing(product, _selectedOrderType);
 
   void _addProductToCart(Map<String, dynamic> product) {
     FocusManager.instance.primaryFocus?.unfocus();
-    final pricedProduct = _applySelectedOrderTypePricing(product);
-    final name = pricedProduct['name'] as String;
-    final regularUnitPrice = _parsePriceValue(
-      pricedProduct['regularPrice'] ?? pricedProduct['price'],
-    );
-    final discountedPrice = _parsePriceValue(pricedProduct['discountedPrice']);
-    final discountedUnitPrice = discountedPrice > 0 ? discountedPrice : null;
-
+    if (!PosOrderTypePricingService.isProductAvailableForOrderType(
+      product,
+      _selectedOrderType,
+    )) {
+      return;
+    }
+    final name = product['name']?.toString() ?? '';
     final currentIndex = _cartItems.indexWhere(
       (item) =>
           item.name == name &&
@@ -1211,25 +1104,9 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       } else {
         _cartItems.insert(
           0,
-          _PosCartItem(
+          PosOrderTypePricingService.createCartItem(
             id: _newLineId(),
-            name: name,
-            displayName:
-                pricedProduct['description']?.toString().trim().isNotEmpty ==
-                    true
-                ? pricedProduct['description'].toString().trim()
-                : name,
-            imageUrl:
-                pricedProduct['image'] as String? ??
-                pricedProduct['imageUrl'] as String? ??
-                '',
-            regularUnitPrice: regularUnitPrice,
-            quantity: 1,
-            productRemoteId: pricedProduct['remoteId'] as String?,
-            brandName: pricedProduct['brandName']?.toString(),
-            discountedUnitPrice: discountedUnitPrice,
-            promoLabel: pricedProduct['promo'] as String?,
-            isDiscountEnabled: discountedUnitPrice != null,
+            product: product,
             orderType: _selectedOrderType,
           ),
         );
@@ -1255,7 +1132,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     }
   }
 
-  void _replaceCartItem(String itemId, _PosCartItem item) {
+  void _replaceCartItem(String itemId, PosCartItem item) {
     final index = _cartItems.indexWhere((entry) => entry.id == itemId);
     if (index < 0) return;
 
@@ -1305,152 +1182,25 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   }
 
   void _recalculateCartPromotions() {
+    final result = PosPromotionService.instance.recalculatePosCartPromotions(
+      cartItems: _cartItems,
+      selectedPromotions: _selectedPromotions,
+      catalogProducts: _catalogSnapshot.products,
+      selectedOrderType: _selectedOrderType,
+    );
+
     setState(() {
-      final productIndex = <String, Map<String, dynamic>>{};
-      for (final product in _catalogSnapshot.products) {
-        final remoteId = product['remoteId']?.toString();
-        if (remoteId != null && remoteId.isNotEmpty) {
-          productIndex[remoteId] = product;
-        }
-      }
-
-      final rawItems = <_PosCartItem>[];
-      for (final item in _cartItems) {
-        final catalogProduct = item.productRemoteId != null
-            ? productIndex[item.productRemoteId!]
-            : null;
-        final pricedProduct = catalogProduct == null
-            ? null
-            : _applyOrderTypePricing(
-                catalogProduct,
-                item.orderType ?? _selectedOrderType,
-              );
-        final catalogRegularPrice = _parsePriceValue(
-          pricedProduct?['regularPrice'] ?? pricedProduct?['price'],
-        );
-        final catalogDiscountedPrice = _parsePriceValue(
-          pricedProduct?['discountedPrice'],
-        );
-        final originalDiscountedPrice = catalogDiscountedPrice > 0
-            ? catalogDiscountedPrice
-            : null;
-        final originalPromoLabel = pricedProduct?['promo'] as String?;
-
-        final cleanItem = item.copyWith(
-          regularUnitPrice: catalogRegularPrice > 0
-              ? catalogRegularPrice
-              : item.regularUnitPrice,
-          clearAppliedPromoId: true,
-          clearAppliedPromoName: true,
-          clearOverriddenUnitPrice: true,
-          clearDiscountedUnitPrice: originalDiscountedPrice == null,
-          clearPromoLabel: originalPromoLabel == null,
-          discountedUnitPrice: originalDiscountedPrice,
-          promoLabel: originalPromoLabel,
-          isDiscountEnabled: originalDiscountedPrice != null,
-        );
-
-        final index = rawItems.indexWhere(
-          (r) =>
-              r.name == cleanItem.name &&
-              r.productRemoteId == cleanItem.productRemoteId &&
-              r.orderType == cleanItem.orderType &&
-              r.note == cleanItem.note &&
-              r.isDiscountEnabled == cleanItem.isDiscountEnabled,
-        );
-        if (index >= 0) {
-          rawItems[index] = rawItems[index].copyWith(
-            quantity: rawItems[index].quantity + cleanItem.quantity,
-          );
-        } else {
-          rawItems.add(cleanItem);
-        }
-      }
-
-      final matchItems = rawItems
-          .where(
-            (item) =>
-                item.productRemoteId != null &&
-                item.productRemoteId!.isNotEmpty,
-          )
-          .map((item) {
-            final metadata =
-                productIndex[item.productRemoteId!] ??
-                const <String, dynamic>{};
-            return PosPromotionMatchItem(
-              refId: item.id,
-              productRemoteId: item.productRemoteId!,
-              productName: item.name,
-              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
-              brandRemoteId: metadata['brandRemoteId']?.toString(),
-              activeUnitPrice: item.activeUnitPrice,
-              quantity: item.quantity,
-            );
-          })
-          .toList();
-
-      final allocation = PosPromotionService.instance.allocatePromotions(
-        items: matchItems,
-        selectedPromotions: _selectedPromotions,
-      );
-
-      final nextCartItems = <_PosCartItem>[];
-      for (final allocated in allocation.allocatedItems) {
-        final rawItem = rawItems.firstWhere((r) => r.id == allocated.refId);
-        nextCartItems.add(
-          rawItem.copyWith(
-            id: _newLineId(),
-            quantity: allocated.quantity,
-            appliedPromoId: allocated.appliedPromoId,
-            appliedPromoName: allocated.appliedPromoName,
-            overriddenUnitPrice: allocated.overriddenUnitPrice,
-          ),
-        );
-      }
-
-      for (final item in rawItems.where(
-        (i) => i.productRemoteId == null || i.productRemoteId!.isEmpty,
-      )) {
-        nextCartItems.add(item.copyWith(id: _newLineId()));
-      }
-
-      final withPromo = nextCartItems
-          .where((i) => i.appliedPromoId != null)
-          .toList();
-      final withoutPromo = nextCartItems
-          .where((i) => i.appliedPromoId == null)
-          .toList();
-      _cartItems = [...withPromo, ...withoutPromo];
-      _orderLevelDiscountAmount = allocation.totalDiscountAmount;
+      _cartItems = result.items;
     });
   }
 
-  List<PosPromotionMatchItem> _buildPromotionMatchItems() {
-    final productIndex = <String, Map<String, dynamic>>{
-      for (final product in _catalogSnapshot.products)
-        if (product['remoteId']?.toString().isNotEmpty == true)
-          product['remoteId'].toString(): product,
-    };
-
-    return _cartItems
-        .where(
-          (item) =>
-              item.productRemoteId != null && item.productRemoteId!.isNotEmpty,
-        )
-        .map((item) {
-          final product =
-              productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
-          return PosPromotionMatchItem(
-            refId: item.id,
-            productRemoteId: item.productRemoteId!,
-            productName: item.name,
-            categoryRemoteId: product['categoryRemoteId']?.toString(),
-            brandRemoteId: product['brandRemoteId']?.toString(),
-            activeUnitPrice: item.activeUnitPrice,
-            quantity: item.quantity,
-          );
-        })
-        .toList(growable: false);
+  List<PosPromotionMatchItem> _buildPromotionMatchItems({
+    List<PosCartItem>? items,
+  }) {
+    return PosPromotionService.buildPosCartMatchItems(
+      items: items ?? _cartItems,
+      catalogProducts: _catalogSnapshot.products,
+    );
   }
 
   Future<void> _showPromotionPicker() async {
@@ -1458,7 +1208,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     final promotions = await PosPromotionService.instance
         .getApplicablePromotions(
           items: _buildPromotionMatchItems(),
-          orderTypeCode: _toBackendOrderTypeCode(_selectedOrderType),
+          orderTypeCode: _selectedOrderType,
         );
     if (!mounted) return;
 
@@ -1738,6 +1488,21 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
   }
 
+    void _handleCancelCurrentOrder() {
+    final l10n = AppLocalizations.of(context)!;
+    if (_cartItems.isEmpty && _editingOrderId == null) {
+      _showFeedback(l10n.addProductFirstMessage);
+      return;
+    }
+
+    if (_editingOrderId != null) {
+      SalesOrderStore.instance.deleteOrder(_editingOrderId!);
+    }
+
+    _resetCurrentOrder();
+    _showFeedback(l10n.voidOrderCreatedMessage);
+  }
+
   void _resetCurrentOrder() {
     setState(() {
       _cartItems.clear();
@@ -1747,7 +1512,9 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       _editingOrderToken = null;
       _editingOrderCreatedAt = null;
       _orderNote = '';
-      _selectedOrderType = 'dine_in';
+      _selectedOrderType = PosOrderTypeStore.instance.reconcileSelectedOrderType(
+        _selectedOrderType,
+      );
       _currentStage = _MobilePosStage.catalog;
       _tenderAmount = 0;
       _paymentErrorMessage = null;
@@ -1815,7 +1582,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       final allowedOrderTypes = _cartItems
           .map(
             (item) =>
-                _toBackendOrderTypeCode(item.orderType ?? _selectedOrderType),
+                (item.orderType ?? _selectedOrderType),
           )
           .toSet()
           .toList();
@@ -1854,6 +1621,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   List<SalesOrderLineItem> _buildOrderLines() {
     return _cartItems.map((item) {
+      final effectiveDiscountedPrice =
+          item.overriddenUnitPrice ?? item.discountedUnitPrice;
+      final hasDiscount = effectiveDiscountedPrice != null &&
+          effectiveDiscountedPrice < item.regularUnitPrice;
       return SalesOrderLineItem(
         id: item.id,
         name: item.name,
@@ -1861,9 +1632,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         regularUnitPrice: item.regularUnitPrice,
         quantity: item.quantity,
         productRemoteId: item.productRemoteId,
-        discountedUnitPrice: item.discountedUnitPrice,
-        promoLabel: item.promoLabel,
-        isDiscountEnabled: item.isDiscountEnabled,
+        discountedUnitPrice:
+            hasDiscount ? effectiveDiscountedPrice : item.discountedUnitPrice,
+        promoLabel: item.appliedPromoName ?? item.promoLabel,
+        isDiscountEnabled: hasDiscount || item.isDiscountEnabled,
         orderType: item.orderType ?? _selectedOrderType,
         note: item.note,
       );
@@ -1884,7 +1656,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       return;
     }
 
-    final itemsForReceipt = List<_PosCartItem>.from(_cartItems);
+    final itemsForReceipt = List<PosCartItem>.from(_cartItems);
     final selectedPaymentOption = _selectedPaymentOption!;
     final createdRecord = await _commitCartOrder(
       statusCode: 2,
@@ -2001,13 +1773,12 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     await _commitCartOrder(statusCode: 1);
   }
 
-  String _orderTypeLabel() {
-    return _orderTypeOptions
-        .firstWhere(
-          (option) => option.$1 == _selectedOrderType,
-          orElse: () => _orderTypeOptions.first,
-        )
-        .$2;
+  String _orderTypeLabel([String? code]) {
+    final l10n = AppLocalizations.of(context);
+    final types = PosOrderTypeStore.instance.snapshot.allOrderTypes.isNotEmpty
+        ? PosOrderTypeStore.instance.snapshot.allOrderTypes
+        : PosOrderTypeStore.instance.snapshot.orderTypes;
+    return OrderTypePresenter.getDisplayName(code ?? _selectedOrderType, types, l10n: l10n);
   }
 
   String _shortReceiptNumber(SalesOrderRecord record) {
@@ -2040,7 +1811,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       return;
     }
 
-    final itemsForTicket = List<_PosCartItem>.from(_cartItems);
+    final itemsForTicket = List<PosCartItem>.from(_cartItems);
     final createdRecord = await _commitCartOrder(
       statusCode: 1,
       clearCart: false,
@@ -2085,7 +1856,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   Future<void> _printKitchenTickets({
     required SalesOrderRecord record,
-    required List<_PosCartItem> items,
+    required List<PosCartItem> items,
     required List<dynamic> kitchenPrinters,
   }) async {
     final receiptNo = _shortReceiptNumber(record);
@@ -2160,7 +1931,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   Future<void> _showPaymentSuccessDialog({
     required SalesOrderRecord record,
-    required List<_PosCartItem> items,
+    required List<PosCartItem> items,
     required String paymentName,
     required int tenderAmount,
   }) async {
@@ -2444,7 +2215,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   Future<void> _printReceipt({
     required SalesOrderRecord record,
-    required List<_PosCartItem> items,
+    required List<PosCartItem> items,
     required String paymentName,
     required int tenderAmount,
   }) async {
@@ -2500,10 +2271,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
               label: 'Subtotal',
               value: _formatCurrency(_subtotalAmount),
             ),
-            if (_orderLevelDiscountAmount > 0)
+            if (_totalDiscountAmount > 0)
               PrinterSummaryRow(
                 label: 'Diskon',
-                value: '-${_formatCurrency(_orderLevelDiscountAmount)}',
+                value: '-${_formatCurrency(_totalDiscountAmount)}',
               ),
             if (_taxAmount > 0)
               PrinterSummaryRow(
@@ -2549,7 +2320,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
 
   Future<void> _printLabel({
     required SalesOrderRecord record,
-    required List<_PosCartItem> items,
+    required List<PosCartItem> items,
   }) async {
     await PrinterSettingsController.instance.refresh(silent: true);
     final printers = PrinterSettingsController
@@ -2629,7 +2400,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   // Stage 1: catalog is intentionally optimized for fast, one-handed product entry.
   Widget _buildCatalogScreen(ThemeData theme, Color primaryColor) {
     final l10n = AppLocalizations.of(context)!;
-    final products = _catalogSnapshot.products
+    final products = PosOrderTypePricingService.filterProductsForOrderType(
+          _catalogSnapshot.products,
+          _selectedOrderType,
+        )
         .map(_applySelectedOrderTypePricing)
         .toList();
     final brands = _availableBrands(products);
@@ -2992,11 +2766,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   }
 
   Widget _buildCatalogTransactionBar(Color primaryColor) {
-    final option = _orderTypeOptions.firstWhere(
-      (option) => option.$1 == _selectedOrderType,
-      orElse: () => _orderTypeOptions.first,
-    );
-
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    final l10n = AppLocalizations.of(context);
+    final label = OrderTypePresenter.getDisplayName(_selectedOrderType, activeTypes, l10n: l10n);
+    final icon = OrderTypePresenter.getIconForOrderType(_selectedOrderType);
     return Row(
       children: [
         Expanded(
@@ -3022,16 +2795,16 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Row(
                           children: [
-                            Icon(option.$3, color: primaryColor, size: 18),
+                            Icon(icon, color: primaryColor, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text(
-                                    'Tipe pesanan',
-                                    style: TextStyle(
+                                  Text(
+                                    AppLocalizations.of(context)!.orderTypeLabel,
+                                    style: const TextStyle(
                                       color: Color(0xFF94A3B8),
                                       fontSize: 9.5,
                                       fontWeight: FontWeight.w700,
@@ -3039,7 +2812,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    option.$2,
+                                    label,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -3483,7 +3256,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         _showClearCartDialog();
         return;
       case _MobilePosQuickAction.cancelOrder:
-        unawaited(_commitCartOrder(statusCode: 5));
+        _handleCancelCurrentOrder();
         return;
       case _MobilePosQuickAction.cashIn:
         unawaited(_showCashInDialog());
@@ -3979,6 +3752,11 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     try {
       final orchestrator = PosV2SyncOrchestrator();
       final syncContext = session.toSyncContext();
+      try {
+        await orchestrator.syncBootstrap(syncContext);
+      } catch (e) {
+        debugPrint('Failed to sync bootstrap: ');
+      }
       await orchestrator.syncCategories(syncContext);
       await orchestrator.syncBrands(syncContext);
       await orchestrator.syncItemsPaged(
@@ -3998,6 +3776,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
       );
       await orchestrator.syncCustomers(syncContext);
       await PosCatalogStore.instance.refresh();
+      await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
       await SalesOrderStore.instance.refreshFromPersistence();
       _showFeedback(l10n.syncDataSuccessMessage);
     } catch (error) {
@@ -4422,11 +4201,11 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
               child: Column(
                 children: [
                   _buildTotalRow('Subtotal', _formatCurrency(_subtotalAmount)),
-                  if (_orderLevelDiscountAmount > 0) ...[
+                  if (_totalDiscountAmount > 0) ...[
                     const SizedBox(height: 7),
                     _buildTotalRow(
-                      'Diskon promo',
-                      '- ${_formatCurrency(_orderLevelDiscountAmount)}',
+                      'Diskon',
+                      '- ${_formatCurrency(_totalDiscountAmount)}',
                       valueColor: const Color(0xFFDC2626),
                     ),
                   ],
@@ -4642,7 +4421,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   }
 
   Widget _buildCartItemRow({
-    required _PosCartItem item,
+    required PosCartItem item,
     required Color primaryColor,
   }) {
     final itemTotal = item.activeUnitPrice * item.quantity;
@@ -4837,7 +4616,7 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
   }
 
-  Widget _buildQuantityControl(_PosCartItem item, Color primaryColor) {
+  Widget _buildQuantityControl(PosCartItem item, Color primaryColor) {
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
@@ -4953,15 +4732,24 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
   }
 
-  Future<void> _showMobileCartItemEditor(_PosCartItem item) async {
+  Future<void> _showMobileCartItemEditor(PosCartItem item) async {
     FocusManager.instance.primaryFocus?.unfocus();
     final primaryColor = Theme.of(context).colorScheme.primary;
+    final l10n = AppLocalizations.of(context)!;
     final noteController = TextEditingController(text: item.note ?? '');
     var quantity = item.quantity;
     var splitQuantity = quantity > 1 ? 1 : 0;
-    var selectedOrderType = item.orderType ?? _selectedOrderType;
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    var selectedOrderType = activeTypes.isNotEmpty
+        ? OrderTypeResolver.resolveOrDefault(
+            item.orderType ?? _selectedOrderType,
+            activeTypes,
+          )
+        : (item.orderType ?? _selectedOrderType);
     var discountEnabled = item.isDiscountEnabled;
-
+    final orderTypeOptions = activeTypes
+        .map((ot) => (ot.code, ot.name))
+        .toList(growable: false);
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -5099,43 +4887,71 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Tipe pesanan',
-                      style: TextStyle(
+                    const SizedBox(height: 12),
+                    Text(
+                      AppLocalizations.of(context)!.orderTypeLabel,
+                      style: const TextStyle(
                         color: Color(0xFF475569),
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     const SizedBox(height: 7),
-                    Container(
-                      height: 48,
-                      padding: const EdgeInsets.symmetric(horizontal: 13),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: selectedOrderType,
-                          isExpanded: true,
-                          items: _orderTypeOptions
-                              .map(
-                                (option) => DropdownMenuItem<String>(
-                                  value: option.$1,
-                                  child: Text(option.$2),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) {
-                            if (value != null) {
-                              sheetSetState(() => selectedOrderType = value);
-                            }
-                          },
-                        ),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        if (orderTypeOptions.isEmpty) {
+                          return Container(
+                            height: 48,
+                            padding: const EdgeInsets.symmetric(horizontal: 13),
+                            alignment: Alignment.centerLeft,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              l10n.orderTypeNotSynced,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF94A3B8),
+                              ),
+                            ),
+                          );
+                        }
+                        final currentResolved = OrderTypeResolver.resolveCode(
+                              selectedOrderType,
+                              activeTypes,
+                            ) ??
+                            activeTypes.first.code;
+                        return Container(
+                          height: 48,
+                          padding: const EdgeInsets.symmetric(horizontal: 13),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: currentResolved,
+                              isExpanded: true,
+                              items: orderTypeOptions
+                                  .map(
+                                    (option) => DropdownMenuItem<String>(
+                                      value: option.$1,
+                                      child: Text(option.$2),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value != null) {
+                                  sheetSetState(() => selectedOrderType = value);
+                                }
+                              },
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     if (item.discountedUnitPrice != null) ...[
                       const SizedBox(height: 12),
@@ -5317,10 +5133,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
   }
 
   Widget _buildOrderTypeSelector(Color primaryColor) {
-    final option = _orderTypeOptions.firstWhere(
-      (option) => option.$1 == _selectedOrderType,
-      orElse: () => _orderTypeOptions.first,
-    );
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    final l10n = AppLocalizations.of(context);
+    final label = OrderTypePresenter.getDisplayName(_selectedOrderType, activeTypes, l10n: l10n);
+    final icon = OrderTypePresenter.getIconForOrderType(_selectedOrderType);
 
     return Material(
       color: Colors.white,
@@ -5344,32 +5160,32 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                   color: primaryColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(option.$3, color: primaryColor, size: 18),
+                child: Icon(icon, color: primaryColor, size: 18),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Tipe pesanan',
-                      style: TextStyle(
+                      AppLocalizations.of(context)!.orderTypeLabel,
+                      style: const TextStyle(
                         color: Color(0xFF64748B),
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: Color(0xFF1E293B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
-                ),
-              ),
-              Text(
-                option.$2,
-                style: const TextStyle(
-                  color: Color(0xFF1E293B),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(width: 4),
@@ -5384,22 +5200,15 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
   }
 
-  List<(String, String, IconData)> get _orderTypeOptions => [
-    ('dine_in', 'Makan di tempat', Icons.table_restaurant_outlined),
-    ('take_away', 'Bawa pulang', Icons.shopping_bag_outlined),
-    ('shopee_food', 'ShopeeFood', Icons.storefront_outlined),
-    ('go_food', 'GoFood', Icons.delivery_dining_outlined),
-    ('grab_food', 'GrabFood', Icons.local_shipping_outlined),
-  ];
-
   void _showOrderTypePicker() {
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => SafeArea(
         top: false,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
           decoration: const BoxDecoration(
             color: Color(0xFFFAFCFF),
             borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
@@ -5419,24 +5228,38 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Pilih tipe pesanan',
-                style: TextStyle(
+              Text(
+                AppLocalizations.of(context)!.selectOrderType,
+                style: const TextStyle(
                   color: Color(0xFF1E293B),
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'Tipe akan diterapkan ke seluruh item di keranjang.',
-                style: TextStyle(color: Color(0xFF64748B), fontSize: 11),
+              Text(
+                activeTypes.isEmpty
+                    ? AppLocalizations.of(context)!.orderTypeNotSynced
+                    : AppLocalizations.of(context)!.orderTypeApplyCartHint,
+                style: const TextStyle(color: Color(0xFF64748B), fontSize: 11),
               ),
               const SizedBox(height: 12),
-              for (final option in _orderTypeOptions) ...[
-                _buildOrderTypeOption(option, sheetContext),
-                const SizedBox(height: 7),
-              ],
+              if (activeTypes.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    AppLocalizations.of(context)!.orderTypeNotSynced,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                )
+              else
+                for (final ot in activeTypes) ...[
+                  _buildOrderTypeOption(
+                    (ot.code, ot.name, _getIconForOrderType(ot.code)),
+                    sheetContext,
+                  ),
+                  const SizedBox(height: 7),
+                ],
             ],
           ),
         ),
@@ -5498,16 +5321,8 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
   }
 
-  void _setOrderType(String typeCode) {
-    if (typeCode == _selectedOrderType) return;
-    setState(() {
-      _selectedOrderType = typeCode;
-      _cartItems = _cartItems
-          .map((item) => item.copyWith(orderType: typeCode))
-          .toList(growable: false);
-    });
-    _recalculateCartPromotions();
-  }
+  Future<void> _setOrderType(String typeCode) =>
+      _applyOrderTypeTransition(targetOrderType: typeCode);
 
   // Stage 3: payment keeps method selection and confirmation visibly separate.
   Widget _buildPaymentScreen(ThemeData theme, Color primaryColor) {

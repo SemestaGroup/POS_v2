@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -9,7 +8,6 @@ import '../../../../../../core/theme/app_colors.dart';
 import '../../../../../../core/printing/models/printer_render_models.dart';
 import '../../../../../../core/printing/services/printer_rendering_service.dart';
 import '../../../../../../core/printing/services/printer_transport_service.dart';
-import '../../../../../../core/services/sync/pos_v2_options_service.dart';
 import '../../../../../settings/printers/controllers/printer_settings_controller.dart';
 
 class PaymentReviewItemData {

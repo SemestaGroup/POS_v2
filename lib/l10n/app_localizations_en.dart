@@ -1894,4 +1894,18 @@ class AppLocalizationsEn extends AppLocalizations {
   String purchaseRequestFailedMessage(String error) {
     return 'Failed to create purchase request: $error';
   }
+
+  @override
+  String get orderStatusUnknown => 'Unknown';
+
+  @override
+  String get orderTypeNotSynced => 'Order types not synced';
+
+  @override
+  String get orderTypeApplyCartHint =>
+      'Order type will be applied to all items in the cart.';
+
+  @override
+  String get orderTypeAutoPriceHint =>
+      'Select order type to automatically update item prices.';
 }

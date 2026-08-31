@@ -46,9 +46,9 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
             whereArgs: [tenantId, ...remoteIds],
           );
           for (final row in existingRows) {
-            final rid = row['remote_id'] as String;
-            final sup = row['source_updated_at'] as String?;
-            if (sup != null) {
+            final rid = V2SyncUtils.asString(row['remote_id']);
+            final sup = V2SyncUtils.asString(row['source_updated_at']);
+            if (rid != null && sup != null) {
               existingMap[rid] = sup;
             }
           }
@@ -333,7 +333,7 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
 
         final toDelete = <String>[];
         for (final row in existingRows) {
-          final rid = row['remote_id'] as String?;
+          final rid = V2SyncUtils.asString(row['remote_id']);
           if (rid != null && !allRemoteIds.contains(rid)) {
             toDelete.add(rid);
           }
@@ -452,6 +452,9 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
     String code,
     String? remoteId,
   ) async {
+    if (code.trim().isEmpty) return null;
+    final now = V2SyncUtils.nowIso();
+
     if (remoteId != null && remoteId.isNotEmpty) {
       final byRemote = await findLocalIdByRemoteId(
         executor,
@@ -464,11 +467,36 @@ class ItemsSyncAdapter extends BaseV2SyncAdapter {
       }
     }
 
-    return databaseService.findLocalId(
+    final existingId = await databaseService.findLocalId(
       executor,
       'order_type',
       where: 'tenant_id = ? AND code = ?',
       whereArgs: <Object?>[tenantId, code],
+    );
+    if (existingId != null) {
+      return existingId;
+    }
+
+    // Auto-upsert into order_type so custom order types from items (e.g. tiktok) are guaranteed active
+    return databaseService.upsertByUnique(
+      executor,
+      'order_type',
+      where: 'tenant_id = ? AND code = ?',
+      whereArgs: <Object?>[tenantId, code],
+      insertValues: <String, Object?>{
+        'tenant_id': tenantId,
+        'remote_id': remoteId ?? code,
+        'code': code,
+        'name': code.toUpperCase() == 'TIKTOK' ? 'TikTok' : code,
+        'is_active': 1,
+        'created_at': now,
+        'updated_at': now,
+      },
+      updateValues: <String, Object?>{
+        'is_active': 1,
+        'deleted_at': null,
+        'updated_at': now,
+      },
     );
   }
 }

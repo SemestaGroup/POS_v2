@@ -87,10 +87,10 @@ class PosV2OptionsService extends BaseV2SyncAdapter {
 
     final result = <String, dynamic>{};
     for (final row in rows) {
-      final name = row['option_name'] as String;
-      final kind = row['value_kind'] as String?;
-      final textVal = row['option_value_text'] as String?;
-      final jsonVal = row['option_value_json'] as String?;
+      final name = row['option_name']?.toString() ?? '';
+      final kind = row['value_kind']?.toString();
+      final textVal = row['option_value_text']?.toString();
+      final jsonVal = row['option_value_json']?.toString();
 
       if (kind == 'json' && jsonVal != null && jsonVal.isNotEmpty) {
         result[name] = V2SyncUtils.decodeLooseJson(jsonVal);

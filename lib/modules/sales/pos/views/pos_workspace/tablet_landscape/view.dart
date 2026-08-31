@@ -1,3 +1,7 @@
+import '../../../../shared/models/pos_order_type_transition_service.dart';
+import '../../../../shared/models/order_type_resolver.dart';
+import '../../../../shared/models/order_type_presenter.dart';
+import '../../../../shared/models/pos_order_type_store.dart';
 import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -41,104 +45,6 @@ enum _PosQuickAction {
   cashOut,
 }
 
-class _PosCartItem {
-  const _PosCartItem({
-    required this.id,
-    required this.name,
-    required this.displayName,
-    required this.imageUrl,
-    required this.regularUnitPrice,
-    required this.quantity,
-    this.productRemoteId,
-    this.brandName,
-    this.discountedUnitPrice,
-    this.promoLabel,
-    this.isDiscountEnabled = false,
-    this.orderType,
-    this.note,
-    this.appliedPromoId,
-    this.appliedPromoName,
-    this.overriddenUnitPrice,
-  });
-
-  final String id;
-  final String name;
-  final String displayName;
-  final String imageUrl;
-  final int regularUnitPrice;
-  final int quantity;
-  final String? productRemoteId;
-  final String? brandName;
-  final int? discountedUnitPrice;
-  final String? promoLabel;
-  final bool isDiscountEnabled;
-  final String? orderType;
-  final String? note;
-  final String? appliedPromoId;
-  final String? appliedPromoName;
-  final int? overriddenUnitPrice;
-
-  int get activeUnitPrice {
-    if (overriddenUnitPrice != null) {
-      return overriddenUnitPrice!;
-    }
-    return isDiscountEnabled && discountedUnitPrice != null
-        ? discountedUnitPrice!
-        : regularUnitPrice;
-  }
-
-  _PosCartItem copyWith({
-    String? id,
-    String? name,
-    String? displayName,
-    String? imageUrl,
-    int? regularUnitPrice,
-    int? quantity,
-    String? productRemoteId,
-    String? brandName,
-    int? discountedUnitPrice,
-    String? promoLabel,
-    bool? isDiscountEnabled,
-    String? orderType,
-    String? note,
-    bool clearNote = false,
-    String? appliedPromoId,
-    bool clearAppliedPromoId = false,
-    String? appliedPromoName,
-    bool clearAppliedPromoName = false,
-    int? overriddenUnitPrice,
-    bool clearOverriddenUnitPrice = false,
-    bool clearDiscountedUnitPrice = false,
-    bool clearPromoLabel = false,
-  }) {
-    return _PosCartItem(
-      id: id ?? this.id,
-      name: name ?? this.name,
-      displayName: displayName ?? this.displayName,
-      imageUrl: imageUrl ?? this.imageUrl,
-      regularUnitPrice: regularUnitPrice ?? this.regularUnitPrice,
-      quantity: quantity ?? this.quantity,
-      productRemoteId: productRemoteId ?? this.productRemoteId,
-      brandName: brandName ?? this.brandName,
-      promoLabel: clearPromoLabel ? null : (promoLabel ?? this.promoLabel),
-      isDiscountEnabled: isDiscountEnabled ?? this.isDiscountEnabled,
-      orderType: orderType ?? this.orderType,
-      note: clearNote ? null : (note ?? this.note),
-      appliedPromoId: clearAppliedPromoId
-          ? null
-          : (appliedPromoId ?? this.appliedPromoId),
-      appliedPromoName: clearAppliedPromoName
-          ? null
-          : (appliedPromoName ?? this.appliedPromoName),
-      overriddenUnitPrice: clearOverriddenUnitPrice
-          ? null
-          : (overriddenUnitPrice ?? this.overriddenUnitPrice),
-      discountedUnitPrice: clearDiscountedUnitPrice
-          ? null
-          : (discountedUnitPrice ?? this.discountedUnitPrice),
-    );
-  }
-}
 
 class PosWorkspaceTabletLandscapeView extends StatefulWidget {
   const PosWorkspaceTabletLandscapeView({
@@ -163,8 +69,8 @@ class _PosWorkspaceTabletLandscapeViewState
     extends State<PosWorkspaceTabletLandscapeView> {
   final TextEditingController _searchController = TextEditingController();
   bool _isPromoFilterActive = false;
-  List<_PosCartItem> _cartItems = [];
-  String _selectedOrderType = 'dine_in';
+  List<PosCartItem> _cartItems = [];
+  String _selectedOrderType = 'dinein';
   String _orderNote = '';
   int _lineSequence = 1;
   String? _appliedOrderPromoLabel;
@@ -213,7 +119,6 @@ class _PosWorkspaceTabletLandscapeViewState
   String? _selectedBrandName;
   String? _selectedCategoryName;
   PosCustomerRecord? _selectedCustomer;
-  bool _isCommitting = false;
   bool _isSyncingQuickData = false;
 
   void _handlePendingResumeOrder() async {
@@ -293,7 +198,7 @@ class _PosWorkspaceTabletLandscapeViewState
         ..clear()
         ..addAll(
           pendingOrder.items.map(
-            (item) => _PosCartItem(
+            (item) => PosCartItem(
               id: item.id,
               name: item.name,
               displayName: item.name,
@@ -309,7 +214,8 @@ class _PosWorkspaceTabletLandscapeViewState
             ),
           ),
         );
-      _selectedOrderType = pendingOrder.orderType;
+      _selectedOrderType = PosOrderTypeStore.instance
+          .reconcileSelectedOrderType(pendingOrder.orderType);
       _orderNote = pendingOrder.note ?? '';
       _editingOrderId = pendingOrder.id;
       _editingOrderToken = pendingOrder.token;
@@ -317,6 +223,10 @@ class _PosWorkspaceTabletLandscapeViewState
       _appliedOrderPromoLabel = pendingOrder.appliedPromotionName;
       _orderLevelDiscountAmount = pendingOrder.orderLevelDiscountAmount;
       _selectedPromotions = actualPromo == null ? [] : [actualPromo];
+      _activeMenuId = null;
+      _searchController.clear();
+      _selectedBrandName = null;
+      _selectedCategoryName = null;
       if (pendingOrder.customerName.isNotEmpty &&
           pendingOrder.customerName != '-') {
         _selectedCustomer = PosCustomerRecord(
@@ -341,6 +251,9 @@ class _PosWorkspaceTabletLandscapeViewState
     _catalogSnapshot = PosCatalogStore.instance.snapshotNotifier.value;
     PosCatalogStore.instance.snapshotNotifier.addListener(
       _handleCatalogSnapshotChanged,
+    );
+    PosOrderTypeStore.instance.snapshotNotifier.addListener(
+      _handleOrderTypeSnapshotChanged,
     );
     SalesOrderStore.instance.resumeOrderNotifier.addListener(
       _handlePendingResumeOrder,
@@ -427,6 +340,15 @@ class _PosWorkspaceTabletLandscapeViewState
     }
   }
 
+    void _handleOrderTypeSnapshotChanged() {
+    if (!mounted) return;
+    setState(() {
+      _selectedOrderType = PosOrderTypeStore.instance.reconcileSelectedOrderType(
+        _selectedOrderType,
+      );
+    });
+  }
+
   void _handleCatalogSnapshotChanged() {
     if (!mounted) {
       return;
@@ -449,6 +371,9 @@ class _PosWorkspaceTabletLandscapeViewState
   void dispose() {
     PosCatalogStore.instance.snapshotNotifier.removeListener(
       _handleCatalogSnapshotChanged,
+    );
+    PosOrderTypeStore.instance.snapshotNotifier.removeListener(
+      _handleOrderTypeSnapshotChanged,
     );
     SalesOrderStore.instance.resumeOrderNotifier.removeListener(
       _handlePendingResumeOrder,
@@ -545,19 +470,8 @@ class _PosWorkspaceTabletLandscapeViewState
   }
 
   String _toBackendOrderTypeCode(String localOrderType) {
-    switch (localOrderType) {
-      case 'take_away':
-        return 'takeaway';
-      case 'shopee_food':
-        return 'shopeefood';
-      case 'go_food':
-        return 'gofood';
-      case 'grab_food':
-        return 'grabfood';
-      case 'dine_in':
-      default:
-        return 'dinein';
-    }
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    return OrderTypeResolver.resolveOrDefault(localOrderType, activeTypes);
   }
 
   Map<String, dynamic> _applySelectedOrderTypePricing(
@@ -673,19 +587,10 @@ class _PosWorkspaceTabletLandscapeViewState
   }
 
   String _orderTypeLabel(BuildContext context, [String? rawValue]) {
+    final l10n = AppLocalizations.of(context)!;
     final value = rawValue ?? _selectedOrderType;
-    switch (value) {
-      case 'take_away':
-        return AppLocalizations.of(context)!.takeAway;
-      case 'shopee_food':
-        return 'ShopeeFood';
-      case 'go_food':
-        return 'GoFood';
-      case 'grab_food':
-        return 'GrabFood';
-      default:
-        return AppLocalizations.of(context)!.dineIn;
-    }
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    return OrderTypePresenter.getDisplayName(value, activeTypes, l10n: l10n);
   }
 
   String _orderNoteTabLabel(BuildContext context) {
@@ -726,7 +631,7 @@ class _PosWorkspaceTabletLandscapeViewState
     } else {
       _cartItems.insert(
         0,
-        _PosCartItem(
+        PosCartItem(
           id: _newLineId(),
           name: name,
           displayName:
@@ -751,144 +656,15 @@ class _PosWorkspaceTabletLandscapeViewState
 
   void _recalculateCartPromotions() {
     setState(() {
-      final productIndex = <String, Map<String, dynamic>>{};
-      for (final product in _catalogSnapshot.products) {
-        final remoteId = product['remoteId']?.toString();
-        if (remoteId != null && remoteId.isNotEmpty) {
-          productIndex[remoteId] = product;
-        }
-      }
-
-      // Build rawItems WITHOUT merging items that have different IDs.
-      // Items are only merged for promo matching purposes via matchItems.
-      // Preserving distinct IDs is critical so that open dialogs can still
-      // find their item by ID after recalculation.
-      final rawItems = <_PosCartItem>[];
-      for (final item in _cartItems) {
-        final catalogProduct = item.productRemoteId != null
-            ? productIndex[item.productRemoteId!]
-            : null;
-        final originalDiscountedPrice =
-            catalogProduct?['discountedPrice'] as int?;
-        final originalPromoLabel = catalogProduct?['promo'] as String?;
-
-        final cleanItem = item.copyWith(
-          clearAppliedPromoId: true,
-          clearAppliedPromoName: true,
-          clearOverriddenUnitPrice: true,
-          clearDiscountedUnitPrice: originalDiscountedPrice == null,
-          clearPromoLabel: originalPromoLabel == null,
-          discountedUnitPrice: originalDiscountedPrice,
-          promoLabel: originalPromoLabel,
-          isDiscountEnabled: originalDiscountedPrice != null,
-        );
-        // Do NOT merge items with same name — every cart line keeps its own ID
-        // so that split dialogs stay valid across recalculations.
-        rawItems.add(cleanItem);
-      }
-
-      // For promo engine, build aggregated matchItems grouped by product.
-      // Use a virtual refId that maps back to the first rawItem with that product.
-      final Map<String, _PosCartItem> productRefMap = {};
-      final aggregatedMatchItems = <PosPromotionMatchItem>[];
-      for (final item in rawItems) {
-        if (item.productRemoteId == null || item.productRemoteId!.isEmpty)
-          continue;
-        final existing = productRefMap[item.productRemoteId!];
-        if (existing != null) {
-          // Remove old entry and re-add with combined qty
-          aggregatedMatchItems.removeWhere((m) => m.refId == existing.id);
-          final combined = existing.copyWith(
-            quantity: existing.quantity + item.quantity,
-          );
-          productRefMap[item.productRemoteId!] = combined;
-          final metadata =
-              productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
-          aggregatedMatchItems.add(
-            PosPromotionMatchItem(
-              refId: combined.id,
-              productRemoteId: combined.productRemoteId!,
-              productName: combined.name,
-              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
-              brandRemoteId: metadata['brandRemoteId']?.toString(),
-              activeUnitPrice: combined.activeUnitPrice,
-              quantity: combined.quantity,
-            ),
-          );
-        } else {
-          productRefMap[item.productRemoteId!] = item;
-          final metadata =
-              productIndex[item.productRemoteId!] ?? const <String, dynamic>{};
-          aggregatedMatchItems.add(
-            PosPromotionMatchItem(
-              refId: item.id,
-              productRemoteId: item.productRemoteId!,
-              productName: item.name,
-              categoryRemoteId: metadata['categoryRemoteId']?.toString(),
-              brandRemoteId: metadata['brandRemoteId']?.toString(),
-              activeUnitPrice: item.activeUnitPrice,
-              quantity: item.quantity,
-            ),
-          );
-        }
-      }
-
-      // Promos stay selected until user explicitly clears them.
-      final allocation = PosPromotionService.instance.allocatePromotions(
-        items: aggregatedMatchItems,
+      final result = PosPromotionService.instance.recalculatePosCartPromotions(
+        cartItems: _cartItems,
         selectedPromotions: _selectedPromotions,
+        catalogProducts: _catalogSnapshot.products,
+        selectedOrderType: _selectedOrderType,
       );
-
-      // Build a map: productRemoteId -> promo result from allocation
-      final Map<String, Map<String, dynamic>> promoByProduct = {};
-      for (final allocated in allocation.allocatedItems) {
-        // Find the productRemoteId via refId (first rawItem of that product)
-        final refItem = rawItems.cast<_PosCartItem?>().firstWhere(
-          (r) => r?.id == allocated.refId,
-          orElse: () => null,
-        );
-        final productId = refItem?.productRemoteId ?? allocated.refId;
-        promoByProduct[productId] = {
-          'appliedPromoId': allocated.appliedPromoId,
-          'appliedPromoName': allocated.appliedPromoName,
-          'overriddenUnitPrice': allocated.overriddenUnitPrice,
-        };
-      }
-
-      // Apply promo results back to each rawItem by productRemoteId,
-      // preserving the original item IDs.
-      final nextCartItems = <_PosCartItem>[];
-      for (final item in rawItems) {
-        final promoData = item.productRemoteId != null
-            ? promoByProduct[item.productRemoteId!]
-            : null;
-        nextCartItems.add(
-          item.copyWith(
-            appliedPromoId: promoData?['appliedPromoId'] as String?,
-            appliedPromoName: promoData?['appliedPromoName'] as String?,
-            overriddenUnitPrice: promoData?['overriddenUnitPrice'] as int?,
-            clearAppliedPromoId: promoData == null,
-            clearAppliedPromoName: promoData == null,
-            clearOverriddenUnitPrice: promoData == null,
-          ),
-        );
-      }
-
-      final withPromo = nextCartItems
-          .where((i) => i.appliedPromoId != null)
-          .toList();
-      final withoutPromo = nextCartItems
-          .where((i) => i.appliedPromoId == null)
-          .toList();
-      _cartItems = [...withPromo, ...withoutPromo];
-      _orderLevelDiscountAmount = allocation.totalDiscountAmount;
-      if (_selectedPromotions.isEmpty) {
-        _appliedOrderPromoLabel = null;
-      } else {
-        _appliedOrderPromoLabel = _selectedPromotions
-            .map((p) => p.name)
-            .join('|');
-      }
+      _cartItems = result.items;
+      _orderLevelDiscountAmount = result.totalDiscountAmount;
+      _appliedOrderPromoLabel = result.appliedOrderPromoLabel;
     });
   }
 
@@ -900,7 +676,7 @@ class _PosWorkspaceTabletLandscapeViewState
   int _findCartItemIndex(String itemId) =>
       _cartItems.indexWhere((item) => item.id == itemId);
 
-  void _replaceCartItem(String itemId, _PosCartItem item) {
+  void _replaceCartItem(String itemId, PosCartItem item) {
     final index = _findCartItemIndex(itemId);
     if (index < 0) {
       return;
@@ -1806,23 +1582,21 @@ class _PosWorkspaceTabletLandscapeViewState
     return <String>[_selectedOrderType];
   }
 
-  void _resetCurrentOrder() {
-    setState(() {
-      _isCommitting = false;
-      _cartItems.clear();
-      _orderNote = '';
-      _selectedOrderType = 'dine_in';
-      _editingOrderId = null;
-      _editingOrderToken = null;
-      _editingOrderCreatedAt = null;
-      _appliedOrderPromoLabel = null;
-      _orderLevelDiscountAmount = 0;
-      _selectedPromotions.clear();
-      _recalculateCartPromotions();
-      _selectedCustomer = null;
-    });
-    unawaited(_ensureDefaultCustomerSelected());
+    void _handleCancelCurrentOrder() {
+    final l10n = AppLocalizations.of(context)!;
+    if (_cartItems.isEmpty && _editingOrderId == null) {
+      _showOrderActionFeedback(l10n.addProductFirstMessage);
+      return;
+    }
+
+    if (_editingOrderId != null) {
+      SalesOrderStore.instance.deleteOrder(_editingOrderId!);
+    }
+
+    _resetCurrentOrder();
+    _showOrderActionFeedback(l10n.voidOrderCreatedMessage);
   }
+
 
   void _showOrderActionFeedback(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1904,11 +1678,6 @@ class _PosWorkspaceTabletLandscapeViewState
                   } catch (_) {
                     return l10n.paymentProcessingFailedMessage;
                   }
-
-                  if (!mounted) {
-                    return l10n.paymentProcessingFailedMessage;
-                  }
-
                   _resetCurrentOrder();
                   return null;
                 },
@@ -1918,19 +1687,33 @@ class _PosWorkspaceTabletLandscapeViewState
     );
   }
 
+  void _resetCurrentOrder() {
+    setState(() {
+      _cartItems.clear();
+      _orderNote = '';
+      _selectedOrderType = PosOrderTypeStore.instance
+          .reconcileSelectedOrderType('dinein');
+      _editingOrderId = null;
+      _editingOrderToken = null;
+      _editingOrderCreatedAt = null;
+      _appliedOrderPromoLabel = null;
+      _orderLevelDiscountAmount = 0;
+      _selectedPromotions.clear();
+      _recalculateCartPromotions();
+      _selectedCustomer = null;
+    });
+    unawaited(_ensureDefaultCustomerSelected());
+  }
+
   Future<SalesOrderRecord?> _commitOrder(
     int statusCode, {
     bool clearCart = true,
   }) async {
-    if (_isCommitting) return null;
     final l10n = AppLocalizations.of(context)!;
-
     if (_cartItems.isEmpty) {
       _showOrderActionFeedback(l10n.addProductFirstMessage);
       return null;
     }
-
-    setState(() => _isCommitting = true);
     try {
       await ActiveShiftStore.instance.refresh().timeout(
         const Duration(seconds: 10),
@@ -1944,7 +1727,6 @@ class _PosWorkspaceTabletLandscapeViewState
               true &&
           activeShift == null) {
         _showOrderActionFeedback(l10n.shiftRequiredBeforeOrderMessage);
-        if (mounted) setState(() => _isCommitting = false);
         return null;
       }
 
@@ -1954,7 +1736,6 @@ class _PosWorkspaceTabletLandscapeViewState
       final customer = _selectedCustomer;
       if (customer == null || customer.remoteId.trim().isEmpty) {
         _showOrderActionFeedback(l10n.customerSelectionRequiredMessage);
-        if (mounted) setState(() => _isCommitting = false);
         return null;
       }
 
@@ -1967,11 +1748,9 @@ class _PosWorkspaceTabletLandscapeViewState
         }
         if (paymentSnapshot.options.isEmpty) {
           _showOrderActionFeedback(l10n.paymentModeUnavailableMessage);
-          setState(() => _isCommitting = false);
           return null;
         }
 
-        setState(() => _isCommitting = false);
         await _openPaymentFlowPage(
           l10n: l10n,
           customer: customer,
@@ -2039,21 +1818,17 @@ class _PosWorkspaceTabletLandscapeViewState
     } catch (e) {
       _showOrderActionFeedback(e.toString().replaceFirst('Exception: ', ''));
       return null;
-    } finally {
-      if (mounted) {
-        setState(() => _isCommitting = false);
-      }
     }
   }
 
   Future<void> _handleSendToKitchen({bool isReadOnly = false}) async {
     final l10n = AppLocalizations.of(context)!;
+    final orderTypeStr = _orderTypeLabel(context);
 
     if (_cartItems.isEmpty) {
       _showOrderActionFeedback(l10n.addProductFirstMessage);
       return;
     }
-
     // Refresh printer configuration from database
     await PrinterSettingsController.instance.refresh(silent: true);
     final printerState = PrinterSettingsController.instance.stateNotifier.value;
@@ -2124,7 +1899,7 @@ class _PosWorkspaceTabletLandscapeViewState
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Batal'),
+                child: Text(l10n.cancel),
               ),
               if (!isReadOnly)
                 ElevatedButton(
@@ -2192,7 +1967,7 @@ class _PosWorkspaceTabletLandscapeViewState
             PrinterInfoRow(label: 'No. Struk', value: receiptNo),
             PrinterInfoRow(
               label: 'Tipe Order',
-              value: _orderTypeLabel(context),
+              value: orderTypeStr,
             ),
             PrinterInfoRow(
               label: 'Pelanggan',
@@ -2266,7 +2041,7 @@ class _PosWorkspaceTabletLandscapeViewState
           type: PrinterDocumentType.label,
           title: 'LABEL STIKER',
           subtitle:
-              '${_orderTypeLabel(context)} | ${_selectedCustomer?.name ?? "Walk-in"}',
+              '$orderTypeStr | ${_selectedCustomer?.name ?? "Walk-in"}',
           infoRows: [
             PrinterInfoRow(label: 'No. Struk', value: receiptNo),
             PrinterInfoRow(
@@ -2340,6 +2115,12 @@ class _PosWorkspaceTabletLandscapeViewState
     final contextSync = session.toSyncContext();
     try {
       try {
+        await orchestrator.syncBootstrap(contextSync);
+      } catch (e) {
+        debugPrint('Failed to sync bootstrap: ');
+      }
+
+      try {
         await orchestrator.syncCategories(contextSync);
       } catch (e) {
         debugPrint('Failed to sync categories: $e');
@@ -2390,6 +2171,7 @@ class _PosWorkspaceTabletLandscapeViewState
       }
 
       await PosCatalogStore.instance.refresh();
+      await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
       await SalesOrderStore.instance.refreshFromPersistence();
       final refreshedSnapshot = PosCatalogStore.instance.snapshotNotifier.value;
       ProductImageCacheService.instance.prefetchInBackground(
@@ -2429,7 +2211,7 @@ class _PosWorkspaceTabletLandscapeViewState
         _resetCurrentOrder();
         return;
       case _PosQuickAction.cancelOrder:
-        _commitOrder(5);
+        _handleCancelCurrentOrder();
         return;
       case _PosQuickAction.syncData:
         unawaited(_syncQuickMasterData());
@@ -2662,17 +2444,29 @@ class _PosWorkspaceTabletLandscapeViewState
   void _showOrderTypeMenu(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final primaryColor = Theme.of(context).colorScheme.primary;
-    final options = [
-      ('dine_in', l10n.dineIn, Icons.table_restaurant_rounded),
-      ('take_away', l10n.takeAway, Icons.shopping_bag_outlined),
-      ('shopee_food', 'ShopeeFood', Icons.storefront_outlined),
-      ('go_food', 'GoFood', Icons.delivery_dining_rounded),
-      ('grab_food', 'GrabFood', Icons.local_shipping_outlined),
-    ];
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    final options = activeTypes.isNotEmpty
+        ? activeTypes
+            .map(
+              (ot) => (
+                code: ot.code,
+                name: ot.name,
+                icon: OrderTypePresenter.getIconForOrderType(ot.code),
+              ),
+            )
+            .toList()
+        : [
+            (code: 'dinein', name: l10n.dineIn, icon: Icons.table_restaurant_rounded),
+            (code: 'takeaway', name: l10n.takeAway, icon: Icons.shopping_bag_outlined),
+            (code: 'tiktok', name: 'TikTok', icon: Icons.music_note_outlined),
+            (code: 'shopeefood', name: 'ShopeeFood', icon: Icons.storefront_outlined),
+            (code: 'gofood', name: 'GoFood', icon: Icons.delivery_dining_rounded),
+            (code: 'grabfood', name: 'GrabFood', icon: Icons.local_shipping_outlined),
+          ];
 
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(
@@ -2707,23 +2501,37 @@ class _PosWorkspaceTabletLandscapeViewState
                 const SizedBox(height: 4),
                 Text(
                   l10n.selectOrderTypeSubtitle,
-                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                  style: const TextStyle(fontSize: 11, color: Colors.black54),
                 ),
                 const SizedBox(height: 16),
                 for (final option in options)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _selectedOrderType = option.$1;
-                          final updatedItems = _cartItems.map((item) {
-                            return item.copyWith(orderType: option.$1);
-                          }).toList();
-                          _cartItems.clear();
-                          _cartItems.addAll(updatedItems);
-                        });
-                        Navigator.pop(context);
+                      onTap: () async {
+                        Navigator.pop(dialogCtx);
+                        final transition = await PosOrderTypeTransitionService
+                            .transitionPosCartOrderType(
+                              currentOrderType: _selectedOrderType,
+                              targetOrderType: option.code,
+                              currentItems: _cartItems,
+                              currentPromotions: _selectedPromotions,
+                              catalogProducts: _catalogSnapshot.products,
+                              activeOrderTypes:
+                                  PosOrderTypeStore.instance.snapshot.orderTypes,
+                            );
+                        if (!mounted) return;
+                        if (transition.isChanged) {
+                          setState(() {
+                            _selectedOrderType = transition.orderType;
+                            _cartItems = transition.items;
+                            _selectedPromotions = transition.validPromotions;
+                            _orderLevelDiscountAmount =
+                                transition.totalDiscountAmount;
+                            _appliedOrderPromoLabel =
+                                transition.appliedOrderPromoLabel;
+                          });
+                        }
                       },
                       borderRadius: BorderRadius.circular(16),
                       child: AnimatedContainer(
@@ -2733,12 +2541,12 @@ class _PosWorkspaceTabletLandscapeViewState
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: _selectedOrderType == option.$1
+                          color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
                               ? primaryColor.withValues(alpha: 0.08)
                               : const Color(0xFFF7F8FC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: _selectedOrderType == option.$1
+                            color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
                                 ? primaryColor
                                 : Colors.transparent,
                           ),
@@ -2746,26 +2554,26 @@ class _PosWorkspaceTabletLandscapeViewState
                         child: Row(
                           children: [
                             Icon(
-                              option.$3,
+                              option.icon,
                               size: 18,
-                              color: _selectedOrderType == option.$1
+                              color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
                                   ? primaryColor
                                   : Colors.black54,
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
-                                option.$2,
+                                option.name,
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: _selectedOrderType == option.$1
+                                  color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
                                       ? primaryColor
                                       : Colors.black87,
                                 ),
                               ),
                             ),
-                            if (_selectedOrderType == option.$1)
+                            if (_selectedOrderType.toLowerCase() == option.code.toLowerCase())
                               Icon(
                                 Icons.check_circle_rounded,
                                 size: 18,
@@ -2928,19 +2736,39 @@ class _PosWorkspaceTabletLandscapeViewState
     }
 
     final noteController = TextEditingController(text: cartItem.note ?? '');
-    final orderTypeOptions = [
-      ('dine_in', AppLocalizations.of(context)!.dineIn),
-      ('take_away', AppLocalizations.of(context)!.takeAway),
-      ('shopee_food', 'ShopeeFood'),
-      ('go_food', 'GoFood'),
-      ('grab_food', 'GrabFood'),
-    ];
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    final resolvedDefaultType = PosOrderTypeStore.instance.reconcileSelectedOrderType(
+      cartItem.orderType ?? _selectedOrderType,
+    );
+    final List<(String, String)> orderTypeOptions;
+    if (activeTypes.isNotEmpty) {
+      final seenCodes = <String>{};
+      final list = <(String, String)>[];
+      for (final ot in activeTypes) {
+        if (seenCodes.add(ot.code)) {
+          final label = OrderTypePresenter.getDisplayName(
+            ot.code,
+            activeTypes,
+            l10n: AppLocalizations.of(context),
+          );
+          list.add((ot.code, label));
+        }
+      }
+      orderTypeOptions = list;
+    } else {
+      orderTypeOptions = [
+        ('dinein', AppLocalizations.of(context)!.dineIn),
+        ('takeaway', AppLocalizations.of(context)!.takeAway),
+      ];
+    }
 
     showDialog(
       context: context,
       builder: (context) {
         var quantity = cartItem.quantity;
-        var selectedOrderType = cartItem.orderType ?? _selectedOrderType;
+        var selectedOrderType = orderTypeOptions.any((opt) => opt.$1 == resolvedDefaultType)
+            ? resolvedDefaultType
+            : (orderTypeOptions.isNotEmpty ? orderTypeOptions.first.$1 : 'dinein');
         var discountEnabled = cartItem.isDiscountEnabled;
         var splitQuantity = quantity > 1 ? 1 : 0;
 
@@ -3122,7 +2950,9 @@ class _PosWorkspaceTabletLandscapeViewState
                                     ),
                                     const SizedBox(height: 10),
                                     DropdownButtonFormField<String>(
-                                      initialValue: selectedOrderType,
+                                      initialValue: orderTypeOptions.any((opt) => opt.$1 == selectedOrderType)
+                                          ? selectedOrderType
+                                          : (orderTypeOptions.isNotEmpty ? orderTypeOptions.first.$1 : null),
                                       decoration: InputDecoration(
                                         filled: true,
                                         fillColor: Colors.grey.shade50,
@@ -5294,7 +5124,7 @@ class _PosWorkspaceTabletLandscapeViewState
     );
   }
 
-  Widget _buildCartItem(Color primaryColor, _PosCartItem item) {
+  Widget _buildCartItem(Color primaryColor, PosCartItem item) {
     return InkWell(
       onTap: () => _showCartItemOptionsDialog(context, item.id),
       borderRadius: BorderRadius.circular(8),

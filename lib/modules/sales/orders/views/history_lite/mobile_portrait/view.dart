@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 
 import '../../../../../../l10n/app_localizations.dart';
 import '../../shared/mobile_orders_section_menu.dart';
-import '../../../shared/order_status_presenter.dart';
+import '../../../shared/order_details_dialog.dart';
 import '../../../shared/orders_history_sync_service.dart';
 import '../../../shared/order_sync_status_chip.dart';
+import '../../../shared/order_status_presenter.dart';
 import '../../../../shared/models/sales_order_store.dart';
 import '../history_lite_presentation.dart';
 
@@ -20,6 +21,18 @@ class HistoryLiteMobileView extends StatelessWidget {
 
   final bool embedded;
   final HistoryLitePresentation presentation;
+
+  void _handleDeleteOrder(BuildContext context, SalesOrderRecord order) {
+    SalesOrderStore.instance.deleteOrder(order.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Pesanan #${order.token.isEmpty ? order.id : order.token} berhasil dihapus',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -161,18 +174,10 @@ class HistoryLiteMobileView extends StatelessWidget {
                 const SizedBox(width: 6),
                 _buildMetricChip(
                   context: context,
-                  label: 'Overdue',
-                  count: presentation.overdueCount,
-                  color: Colors.red.shade700,
-                  bg: Colors.red.shade50,
-                ),
-                const SizedBox(width: 6),
-                _buildMetricChip(
-                  context: context,
-                  label: 'Void',
+                  label: 'Bermasalah',
                   count: presentation.voidCount,
-                  color: Colors.purple.shade700,
-                  bg: Colors.purple.shade50,
+                  color: Colors.orange.shade700,
+                  bg: Colors.orange.shade50,
                 ),
               ],
             ),
@@ -182,7 +187,7 @@ class HistoryLiteMobileView extends StatelessWidget {
             child: presentation.historyOrders.isEmpty
                 ? Center(
                     child: Text(
-                      l10n.emptyHistoryMessage,
+                      l10n.emptyActiveOrdersMessage,
                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   )
@@ -260,76 +265,98 @@ class HistoryLiteMobileView extends StatelessWidget {
       order.statusCode,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showOrderDetailsDialog(
+          context,
+          order: order,
+          onResumeOrder: () {},
+          onDeleteOrder: () => _handleDeleteOrder(context, order),
+          allowEdit: false,
+        ),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+        child: Ink(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '#${order.token.isEmpty ? order.id : order.token}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  localizedOrderType,
-                  style: const TextStyle(fontSize: 9, color: Colors.black87),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  localizedStatusCode,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+              Row(
+                children: [
+                  Text(
+                    '#${order.token.isEmpty ? order.id : order.token}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      localizedOrderType,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      localizedStatusCode,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    order.customerName.isEmpty
+                        ? 'Pelanggan Umum'
+                        : order.customerName,
+                    style: const TextStyle(fontSize: 11, color: Colors.black87),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Rp ${order.totalAmount.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Text(
-                order.customerName.isEmpty
-                    ? 'Pelanggan Umum'
-                    : order.customerName,
-                style: const TextStyle(fontSize: 11, color: Colors.black87),
-              ),
-              const Spacer(),
-              Text(
-                'Rp ${order.totalAmount.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
-                ),
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }

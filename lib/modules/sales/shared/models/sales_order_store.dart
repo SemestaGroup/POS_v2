@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 
 import '../../../../core/services/local/database_service.dart';
-import '../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../operations/stores/operations_read_stores.dart';
+import 'order_type_resolver.dart';
+import 'pos_order_type_store.dart';
 
 class SalesOrderLineItem {
   const SalesOrderLineItem({
@@ -355,7 +357,12 @@ class SalesOrderStore {
               row['custom_fields_json'],
               'summary',
             ),
-            orderType: row['order_type_code']?.toString() ?? 'dine_in',
+            orderType: OrderTypeResolver.resolveCode(
+                  row['order_type_code']?.toString(),
+                  PosOrderTypeStore.instance.snapshot.orderTypes,
+                ) ??
+                row['order_type_code']?.toString() ??
+                '',
             note: row['order_note']?.toString(),
             orderLevelDiscountAmount: _asInt(row['manual_discount_value']) ?? 0,
             fallbackSubtotalAmount: _asInt(row['subtotal_amount']),
@@ -419,8 +426,43 @@ class SalesOrderStore {
       return null;
     }
 
+    final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
+    final resolvedOrderType = OrderTypeResolver.resolveCode(
+      orderType,
+      activeTypes,
+    );
+    if (resolvedOrderType == null || resolvedOrderType.isEmpty) {
+      debugPrint(
+        '[POS_ORDER] Blocked order creation: order_type is empty or not synced.',
+      );
+      return null;
+    }
+    final finalOrderType = resolvedOrderType;
     final isUpdate =
         existingOrderId != null && existingOrderId.trim().isNotEmpty;
+    final canonicalizedItems = items
+        .map((item) {
+          final rawItemType = item.orderType;
+          final canonicalItemOrderType =
+              (rawItemType != null && rawItemType.trim().isNotEmpty)
+                  ? (OrderTypeResolver.resolveCode(rawItemType, activeTypes) ??
+                      finalOrderType)
+                  : finalOrderType;
+          return SalesOrderLineItem(
+            id: item.id,
+            name: item.name,
+            imageUrl: item.imageUrl,
+            regularUnitPrice: item.regularUnitPrice,
+            quantity: item.quantity,
+            productRemoteId: item.productRemoteId,
+            discountedUnitPrice: item.discountedUnitPrice,
+            promoLabel: item.promoLabel,
+            isDiscountEnabled: item.isDiscountEnabled,
+            orderType: canonicalItemOrderType,
+            note: item.note,
+          );
+        })
+        .toList(growable: false);
     final record = SalesOrderRecord(
       id: isUpdate
           ? existingOrderId.trim()
@@ -439,13 +481,13 @@ class SalesOrderStore {
       appliedPromotionName: appliedPromotionName,
       appliedPromotionType: appliedPromotionType,
       appliedPromotionSummary: appliedPromotionSummary,
-      orderType: orderType,
+      orderType: finalOrderType,
       note: (note != null && note.trim().isNotEmpty) ? note.trim() : null,
       orderLevelDiscountAmount: orderLevelDiscountAmount,
       taxAmount: taxAmount,
       taxName: taxName,
       taxPercentage: taxPercentage,
-      items: List<SalesOrderLineItem>.from(items),
+      items: canonicalizedItems,
     );
     debugPrint(
       '[POS_ORDER_LOG] Order Created: id=${record.id}, subtotal=${record.subtotalAmount}, discount=${record.orderLevelDiscountAmount}, taxAmount=${record.taxAmount}, taxName=${record.taxName}, taxPercentage=${record.taxPercentage}%, totalPay=${record.totalAmount}',
@@ -1073,6 +1115,14 @@ class SalesOrderStore {
         .then((_) {});
   }
 
+  @visibleForTesting
+  Map<String, Object?> buildOrderPayload(
+    SalesOrderRecord record,
+    List<String> allowedPaymentModes, {
+    bool isCreate = true,
+  }) =>
+      _buildOrderPayload(record, allowedPaymentModes, isCreate: isCreate);
+
   Map<String, Object?> _buildOrderPayload(
     SalesOrderRecord record,
     List<String> allowedPaymentModes, {
@@ -1108,8 +1158,8 @@ class SalesOrderStore {
               record.customerAddress!.trim().isNotEmpty)
           ? record.customerAddress!.trim()
           : record.customerName,
-      if (!isCreate) 'status': record.statusCode.toString(),
-      'order_type': _toBackendOrderTypeCode(record.orderType),
+      'status': record.statusCode.toString(),
+      'order_type': record.orderType,
       'subtotal': record.subtotalAmount,
       'manual_discount_value': record.orderLevelDiscountAmount,
       'total': record.totalAmount,
@@ -1123,6 +1173,10 @@ class SalesOrderStore {
           .map((entry) {
             final index = entry.key;
             final item = entry.value;
+            final itemOrderType =
+                (item.orderType != null && item.orderType!.trim().isNotEmpty)
+                    ? item.orderType!.trim()
+                    : record.orderType;
             return <String, Object?>{
               'itemid': item.productRemoteId,
               'description': item.name,
@@ -1130,6 +1184,9 @@ class SalesOrderStore {
               'long_description': '',
               'qty': item.quantity,
               'rate': item.activeUnitPrice,
+              if (itemOrderType.isNotEmpty) 'order_type': itemOrderType,
+              if (item.note != null && item.note!.trim().isNotEmpty)
+                'note': item.note!.trim(),
               'taxname':
                   (record.taxAmount > 0 &&
                       (record.taxName ?? '').isNotEmpty &&
@@ -1217,12 +1274,88 @@ class SalesOrderStore {
 
     final now = _formatSqlDateTime(DateTime.now());
     await DatabaseService.instance.transaction((txn) async {
+      int? localPk;
+      if (orderId.startsWith('POS-')) {
+        localPk = int.tryParse(orderId.substring(4));
+      } else {
+        localPk = int.tryParse(orderId);
+      }
+
+      final whereClause = localPk != null
+          ? 'tenant_id = ? AND (id_pos = ? OR remote_id = ? OR id = ?)'
+          : 'tenant_id = ? AND (id_pos = ? OR remote_id = ?)';
+      final whereArgs = <Object?>[
+        session.tenantId,
+        orderId,
+        orderId,
+        ?localPk,
+      ];
+
+      final matchingRows = await txn.query(
+        'pos_order',
+        columns: const <String>['id', 'id_pos', 'remote_id'],
+        where: whereClause,
+        whereArgs: whereArgs,
+      );
+
       await txn.update(
         'pos_order',
         <String, Object?>{'deleted_at': now, 'updated_at': now},
-        where: 'tenant_id = ? AND id_pos = ?',
-        whereArgs: <Object?>[session.tenantId, orderId],
+        where: whereClause,
+        whereArgs: whereArgs,
       );
+
+      for (final row in matchingRows) {
+        final orderPk = row['id'];
+        final rowIdPos = row['id_pos']?.toString();
+        final rowRemoteId = row['remote_id']?.toString();
+
+        if (orderPk != null) {
+          await txn.update(
+            'pos_order_item',
+            <String, Object?>{'deleted_at': now, 'updated_at': now},
+            where: 'tenant_id = ? AND order_id = ?',
+            whereArgs: <Object?>[session.tenantId, orderPk],
+          );
+        }
+
+        await txn.delete(
+          'sync_queue',
+          where:
+              'tenant_id = ? AND entity_type = ? AND (entity_local_id = ? OR entity_remote_id = ? OR dedupe_key LIKE ?)',
+          whereArgs: <Object?>[
+            session.tenantId,
+            'pos_order',
+            orderPk,
+            rowRemoteId ?? orderId,
+            '%${rowIdPos ?? orderId}%',
+          ],
+        );
+
+        if (rowRemoteId != null &&
+            rowRemoteId.isNotEmpty &&
+            session.authToken.isNotEmpty) {
+          await _enqueueSyncQueue(
+            txn,
+            tenantId: session.tenantId,
+            baseUrl: session.baseUrl,
+            authToken: session.authToken,
+            entityType: 'pos_order',
+            entityLocalId:
+                orderPk is int ? orderPk : int.tryParse(orderPk.toString()),
+            entityRemoteId: rowRemoteId,
+            operation: 'delete',
+            method: 'DELETE',
+            endpoint: 'api/v2/pos-order/$rowRemoteId',
+            dedupeKey: 'pos-order-delete:$rowRemoteId',
+            requestBody: <String, Object?>{
+              'id': rowRemoteId,
+              ...?rowIdPos == null ? null : {'id_pos': rowIdPos},
+              'reason': 'Deleted by cashier',
+            },
+          );
+        }
+      }
     });
   }
 
@@ -1337,10 +1470,6 @@ class SalesOrderStore {
     return '$date $hour:$minute:$second';
   }
 
-  String _toBackendOrderTypeCode(String localOrderType) {
-    final normalized = _normalizeNameToken(localOrderType);
-    return normalized.isEmpty ? 'dinein' : normalized;
-  }
 
   String _normalizeNameToken(String? value) {
     if (value == null) {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../../../app/shell/widgets/sub_menu_sidebar_widget.dart';
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/sales_order_store.dart';
+import '../../../shared/order_details_dialog.dart';
 import '../../../shared/orders_history_sync_service.dart';
 import '../../../shared/order_sync_status_chip.dart';
 import '../../../shared/order_status_presenter.dart';
@@ -27,6 +28,62 @@ class ParkedOrdersTabletLandscapeView extends StatelessWidget {
     AppLocalizations.of(context)!.resumeOrderTitle,
     AppLocalizations.of(context)!.historyTitle,
   ];
+
+  void _handleResumeOrder(BuildContext context, SalesOrderRecord order) {
+    SalesOrderStore.instance.resumeOrder(order);
+    presentation.onMenuSelected(0);
+  }
+
+  void _handleDeleteOrder(BuildContext context, SalesOrderRecord order) {
+    SalesOrderStore.instance.deleteOrder(order.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Pesanan #${order.token.isEmpty ? order.id : order.token} berhasil dihapus',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  void _confirmDeleteOrder(BuildContext context, SalesOrderRecord order) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red.shade700,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            const Text('Hapus Pesanan?'),
+          ],
+        ),
+        content: Text(
+          'Apakah Anda yakin ingin menghapus pesanan #${order.token.isEmpty ? order.id : order.token} (${order.customerName})?\n\nTindakan ini tidak dapat dibatalkan.',
+          style: const TextStyle(fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade700),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      _handleDeleteOrder(context, order);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +261,7 @@ class ParkedOrdersTabletLandscapeView extends StatelessWidget {
                   )
                 : ListView.separated(
                     itemCount: presentation.parkedOrders.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final item = presentation.parkedOrders[index];
                       return _buildOrderCard(context, primaryColor, item);
@@ -276,86 +333,190 @@ class ParkedOrdersTabletLandscapeView extends StatelessWidget {
       order.statusCode,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '#${order.token.isEmpty ? order.id : order.token}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  localizedOrderType,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  localizedStatusCode,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber.shade800,
-                  ),
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showOrderDetailsDialog(
+          context,
+          order: order,
+          onResumeOrder: () => _handleResumeOrder(context, order),
+          onDeleteOrder: () => _handleDeleteOrder(context, order),
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.person_outline_rounded,
-                size: 12,
-                color: Colors.grey,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                order.customerName.isEmpty
-                    ? 'Pelanggan Umum'
-                    : order.customerName,
-                style: const TextStyle(fontSize: 11, color: Colors.black87),
-              ),
-              const Spacer(),
-              Text(
-                'Rp ${order.totalAmount.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '#${order.token.isEmpty ? order.id : order.token}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            localizedOrderType,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            localizedStatusCode,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.amber.shade800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '• ${order.totalQuantity} item',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.person_outline_rounded,
+                          size: 13,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          order.customerName.isEmpty
+                              ? 'Pelanggan Umum'
+                              : order.customerName,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (order.note != null &&
+                            order.note!.trim().isNotEmpty) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            '(${order.note!})',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: Colors.grey.shade700,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Rp ${order.totalAmount.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        onPressed: () => _confirmDeleteOrder(context, order),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 18,
+                        ),
+                        color: Colors.red.shade600,
+                        tooltip: 'Hapus Pesanan',
+                        padding: const EdgeInsets.all(4),
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () => _handleResumeOrder(context, order),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                        icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                        label: const Text(
+                          'Lanjutkan',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -10,9 +10,9 @@ class StaffSyncAdapter extends BaseV2SyncAdapter {
     final payload = await buildClient(context).getJson('api/v2/pos-staff');
     final rows = payload is List
         ? payload
-              .whereType<dynamic>()
+              .whereType<Map>()
               .map(
-                (item) => (item as Map).map(
+                (item) => item.map(
                   (key, value) => MapEntry(key.toString(), value),
                 ),
               )

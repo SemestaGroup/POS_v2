@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../../../../app/shell/widgets/sub_menu_sidebar_widget.dart';
 import '../../../../../../l10n/app_localizations.dart';
 import '../../../../shared/models/sales_order_store.dart';
+import '../../../shared/order_details_dialog.dart';
 import '../../../shared/orders_history_sync_service.dart';
 import '../../../shared/order_sync_status_chip.dart';
 import '../../../shared/order_status_presenter.dart';
@@ -27,6 +28,18 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
     AppLocalizations.of(context)!.resumeOrderTitle,
     AppLocalizations.of(context)!.historyTitle,
   ];
+
+  void _handleDeleteOrder(BuildContext context, SalesOrderRecord order) {
+    SalesOrderStore.instance.deleteOrder(order.id);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Pesanan #${order.token.isEmpty ? order.id : order.token} berhasil dihapus',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,18 +198,10 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
               const SizedBox(width: 8),
               _buildMetricChip(
                 context: context,
-                label: 'Overdue',
-                count: presentation.overdueCount,
-                color: Colors.red.shade700,
-                bg: Colors.red.shade50,
-              ),
-              const SizedBox(width: 8),
-              _buildMetricChip(
-                context: context,
-                label: 'Void',
+                label: 'Bermasalah',
                 count: presentation.voidCount,
-                color: Colors.purple.shade700,
-                bg: Colors.purple.shade50,
+                color: Colors.orange.shade700,
+                bg: Colors.orange.shade50,
               ),
             ],
           ),
@@ -205,13 +210,13 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
             child: presentation.historyOrders.isEmpty
                 ? Center(
                     child: Text(
-                      l10n.emptyHistoryMessage,
+                      l10n.emptyActiveOrdersMessage,
                       style: const TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   )
                 : ListView.separated(
                     itemCount: presentation.historyOrders.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
                     itemBuilder: (context, index) {
                       final item = presentation.historyOrders[index];
                       return _buildOrderCard(context, primaryColor, item);
@@ -283,86 +288,145 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
       order.statusCode,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '#${order.token.isEmpty ? order.id : order.token}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  localizedOrderType,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  localizedStatusCode,
-                  style: const TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showOrderDetailsDialog(
+          context,
+          order: order,
+          onResumeOrder: () {},
+          onDeleteOrder: () => _handleDeleteOrder(context, order),
+          allowEdit: false,
+        ),
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.person_outline_rounded,
-                size: 12,
-                color: Colors.grey,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                order.customerName.isEmpty
-                    ? 'Pelanggan Umum'
-                    : order.customerName,
-                style: const TextStyle(fontSize: 11, color: Colors.black87),
-              ),
-              const Spacer(),
-              Text(
-                'Rp ${order.totalAmount.toStringAsFixed(0)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '#${order.token.isEmpty ? order.id : order.token}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            localizedOrderType,
+                            style: const TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            localizedStatusCode,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '• ${order.totalQuantity} item',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.person_outline_rounded,
+                          size: 13,
+                          color: Colors.grey,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          order.customerName.isEmpty
+                              ? 'Pelanggan Umum'
+                              : order.customerName,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Rp ${order.totalAmount.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lihat Detail >',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: primaryColor,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

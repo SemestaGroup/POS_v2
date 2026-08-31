@@ -634,8 +634,8 @@ class CashFlowStore {
       entries.addAll(
         cashFlowRows.map(
           (row) => CashFlowEntryRecord(
-            type: row['type'] as String? ?? 'out',
-            description: row['note'] as String? ?? 'Kas Keluar',
+            type: row['type']?.toString() ?? 'out',
+            description: row['note']?.toString() ?? 'Kas Keluar',
             amount: _asInt(row['amount']) ?? 0,
             createdAt: _parseDateTime(row['created_at']) ?? DateTime.now(),
           ),

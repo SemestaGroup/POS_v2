@@ -189,7 +189,7 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
             borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 30,
                 offset: const Offset(0, 10),
               ),
@@ -216,7 +216,7 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
                                 Container(
                                   padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
+                                    color: AppColors.primary.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: const Icon(
@@ -263,7 +263,7 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
                                   duration: const Duration(milliseconds: 200),
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   decoration: BoxDecoration(
-                                    color: isSelected ? AppColors.primary.withOpacity(0.1) : Colors.transparent,
+                                    color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : Colors.transparent,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Row(
@@ -340,7 +340,7 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
                       ),
                       if (_isLoading)
                         Container(
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           child: const Center(
                             child: CircularProgressIndicator(),
                           ),
@@ -387,7 +387,7 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
         _buildSettingToggle(
           title: 'Tampilkan Gambar',
           subtitle: 'Menampilkan gambar pada kartu produk (Wajib)',
-          value: true,
+          value: _showImage,
           onChanged: null, // Dikunci
         ),
         _buildSettingToggle(
@@ -584,7 +584,7 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: value ? AppColors.secondary.withOpacity(0.5) : const Color(0xFFE5E7EB),
+            color: value ? AppColors.secondary.withValues(alpha: 0.5) : const Color(0xFFE5E7EB),
           ),
         ),
         child: SwitchListTile.adaptive(
@@ -612,49 +612,4 @@ class _PosSettingsDialogState extends State<PosSettingsDialog> {
     );
   }
 
-  Widget _buildSettingField({
-    required String title,
-    required String value,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-              ),
-            ),
-          ),
-          Container(
-            width: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Text(
-              value,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1E293B),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

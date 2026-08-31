@@ -1881,4 +1881,18 @@ class AppLocalizationsId extends AppLocalizations {
   String purchaseRequestFailedMessage(String error) {
     return 'Gagal membuat permintaan pembelian: $error';
   }
+
+  @override
+  String get orderStatusUnknown => 'Tidak Diketahui';
+
+  @override
+  String get orderTypeNotSynced => 'Tipe pesanan belum tersinkron';
+
+  @override
+  String get orderTypeApplyCartHint =>
+      'Tipe akan diterapkan ke seluruh item di keranjang.';
+
+  @override
+  String get orderTypeAutoPriceHint =>
+      'Pilih tipe pesanan untuk mengubah harga item secara otomatis.';
 }

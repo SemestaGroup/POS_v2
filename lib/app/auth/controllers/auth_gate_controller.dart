@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../modules/operations/shift/models/active_shift_store.dart';
 import '../../../modules/sales/shared/models/pos_catalog_store.dart';
+import '../../../modules/sales/shared/models/pos_order_type_store.dart';
 import '../../../modules/sales/shared/models/sales_order_store.dart';
 import '../../role_access/role_manager.dart';
 import '../models/auth_gate_state.dart';
@@ -69,6 +70,7 @@ class AuthGateController {
 
       if (!needsBootstrapSync && !isShiftPoll) {
         await PosCatalogStore.instance.refresh();
+        await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
         await SalesOrderStore.instance.refreshFromPersistence();
       }
 

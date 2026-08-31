@@ -783,5 +783,9 @@
     "placeholders": {
       "error": {"type": "String"}
     }
-  }
+  },
+  "orderStatusUnknown": "Tidak Diketahui",
+  "orderTypeNotSynced": "Tipe pesanan belum tersinkron",
+  "orderTypeApplyCartHint": "Tipe akan diterapkan ke seluruh item di keranjang.",
+  "orderTypeAutoPriceHint": "Pilih tipe pesanan untuk mengubah harga item secara otomatis."
 }

@@ -8,6 +8,7 @@ import '../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../core/services/sync/pos_v2_sync_status_store.dart';
 import '../../../modules/sales/shared/models/pos_catalog_store.dart';
+import '../../../modules/sales/shared/models/pos_order_type_store.dart';
 import '../../../modules/sales/shared/models/sales_order_store.dart';
 
 class MainShellSyncController {
@@ -107,6 +108,7 @@ class MainShellSyncController {
         progress: 0.6,
       );
       await PosCatalogStore.instance.refresh();
+      await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
       await SalesOrderStore.instance.refreshFromPersistence();
       await Future<void>.delayed(const Duration(milliseconds: 400));
 
@@ -161,6 +163,7 @@ class MainShellSyncController {
         progress: 0.9,
       );
       await PosCatalogStore.instance.refresh();
+      await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
       await SalesOrderStore.instance.refreshFromPersistence();
 
       PosV2SyncStatusStore.instance.succeed(stage: 'synced');

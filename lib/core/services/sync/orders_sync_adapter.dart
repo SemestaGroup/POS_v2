@@ -252,6 +252,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     String? preservedShiftSessionRemoteId;
     String? preservedDeviceSessionRemoteId;
     String? preservedStatusCode;
+    String? preservedDeletedAt;
     if (existingLocalId != null) {
       final existingRows = await executor.query(
         'pos_order',
@@ -266,12 +267,14 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
           'shift_session_remote_id',
           'device_session_remote_id',
           'status_code',
+          'deleted_at',
         ],
         where: 'id = ?',
         whereArgs: <Object?>[existingLocalId],
         limit: 1,
       );
       if (existingRows.isNotEmpty) {
+        preservedDeletedAt = existingRows.first['deleted_at']?.toString();
         preservedCustomFieldsJson = existingRows.first['custom_fields_json']
             ?.toString();
         preservedOrderNote = existingRows.first['order_note']?.toString();
@@ -369,7 +372,11 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
     final resolvedStatusCode =
         (preservedStatusCode == '6' && rawStatus != '2' && rawStatus != '5')
         ? '6'
-        : rawStatus;
+        : (preservedStatusCode == '5' && rawStatus != '2')
+            ? '5'
+            : (preservedStatusCode == '4' && rawStatus != '2')
+                ? '4'
+                : rawStatus;
 
     return databaseService.upsertByUnique(
       executor,
@@ -525,9 +532,9 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'order_note': resolvedOrderNote,
         'custom_fields_json': resolvedCustomFieldsJson,
         'raw_payload_json': V2SyncUtils.encodeJson(row),
+        'deleted_at': preservedDeletedAt,
         'last_synced_at': now,
         'updated_at': now,
-        'deleted_at': null,
       },
     );
   }
@@ -581,7 +588,6 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'raw_payload_json': V2SyncUtils.encodeJson(row),
         'last_synced_at': now,
         'updated_at': now,
-        'deleted_at': null,
       },
     );
   }
@@ -655,7 +661,6 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'raw_payload_json': V2SyncUtils.encodeJson(paymentRow),
         'last_synced_at': now,
         'updated_at': now,
-        'deleted_at': null,
       },
     );
   }

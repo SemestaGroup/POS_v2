@@ -255,47 +255,37 @@ class PosCatalogStore {
     required int discountTotal,
     required String? discountType,
   }) {
-    if (discountTotal <= 0 || basePrice <= 0) {
+    if (discountTotal <= 0) {
       return null;
     }
-    if (discountType == 'percent') {
-      final discounted = basePrice - ((basePrice * discountTotal) ~/ 100);
-      return discounted.clamp(0, basePrice);
+    if (discountType == 'percentage') {
+      final percentage = (discountTotal / 100.0).clamp(0.0, 1.0);
+      return (basePrice * (1.0 - percentage)).round();
     }
-    final discounted = basePrice - discountTotal;
-    return discounted.clamp(0, basePrice);
+    return (basePrice - discountTotal).clamp(0, basePrice);
   }
 
-  static String _formatCurrency(int amount) {
-    final digits = amount.toString();
-    final buffer = StringBuffer();
-    for (var index = 0; index < digits.length; index++) {
-      final position = digits.length - index;
-      buffer.write(digits[index]);
-      if (position > 1 && position % 3 == 1) {
-        buffer.write('.');
-      }
-    }
-    return 'Rp. $buffer';
-  }
-
-  static String _resolveProductImageUrl(String? rawImageUrl) {
-    final value = rawImageUrl?.trim() ?? '';
-    if (value.isEmpty) {
-      return ''; // No image available — UI will show fallback icon
-    }
-    return AppConstants.getProductImageUrl(value);
-  }
+  static String _formatCurrency(int value) => 'Rp $value';
 
   static String _formatStock(Object? value) {
-    final text = value?.toString() ?? '0';
-    final parsed = double.tryParse(text);
-    if (parsed == null) {
-      return text;
+    if (value == null) {
+      return '0';
     }
-    if (parsed == parsed.roundToDouble()) {
-      return parsed.toInt().toString().padLeft(2, '0');
+    if (value is num) {
+      return value % 1 == 0 ? value.toInt().toString() : value.toString();
     }
-    return parsed.toString();
+    final parsed = double.tryParse(value.toString().trim());
+    if (parsed != null) {
+      return parsed % 1 == 0 ? parsed.toInt().toString() : parsed.toString();
+    }
+    return value.toString();
+  }
+
+  static String _resolveProductImageUrl(String? rawUrl) {
+    final value = rawUrl?.trim() ?? '';
+    if (value.isEmpty) {
+      return '';
+    }
+    return AppConstants.getProductImageUrl(value);
   }
 }

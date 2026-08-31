@@ -3509,6 +3509,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to create purchase request: {error}'**
   String purchaseRequestFailedMessage(String error);
+
+  /// No description provided for @orderStatusUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get orderStatusUnknown;
+
+  /// No description provided for @orderTypeNotSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Order types not synced'**
+  String get orderTypeNotSynced;
+
+  /// No description provided for @orderTypeApplyCartHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Order type will be applied to all items in the cart.'**
+  String get orderTypeApplyCartHint;
+
+  /// No description provided for @orderTypeAutoPriceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select order type to automatically update item prices.'**
+  String get orderTypeAutoPriceHint;
 }
 
 class _AppLocalizationsDelegate

@@ -8,6 +8,7 @@ import '../../../../../core/services/sync/pos_v2_sync_orchestrator.dart';
 import '../../../../../core/services/sync/pos_v2_sync_status_store.dart';
 import '../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../sales/shared/models/pos_catalog_store.dart';
+import '../../../../sales/shared/models/pos_order_type_store.dart';
 import '../../../../sales/shared/models/sales_order_store.dart';
 
 class SyncBootstrapScreen extends StatefulWidget {
@@ -144,6 +145,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
         progress: 0.92,
       );
       await PosCatalogStore.instance.refresh();
+      await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
       await SalesOrderStore.instance.refreshFromPersistence();
       if (!mounted) return;
       setState(() => _progress = 0.92);
@@ -153,7 +155,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
         final products =
             PosCatalogStore.instance.snapshotNotifier.value.products;
         final imagesToPrecache = products
-            .map((p) => p['image'] as String?)
+            .map((p) => p['image']?.toString())
             .where((url) => url != null && url.isNotEmpty)
             .take(30)
             .toList();
@@ -202,6 +204,7 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
       return;
     }
     await PosCatalogStore.instance.refresh();
+    await PosOrderTypeStore.instance.ensureLoaded(forceRefresh: true);
     await SalesOrderStore.instance.refreshFromPersistence();
   }
 
@@ -366,18 +369,19 @@ class _SyncBootstrapScreenState extends State<SyncBootstrapScreen> {
                             onPressed: _isAttemptingOffline
                                 ? null
                                 : _enterOfflineMode,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _primaryColor,
+                              side: const BorderSide(color: _primaryColor),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
                             child: Text(
                               l10n.enterWithoutShift,
                               style: const TextStyle(
                                 fontFamily: _fontBold,
                                 fontSize: 13,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _primaryColor,
-                              side: BorderSide(color: _primaryColor),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
                               ),
                             ),
                           ),
