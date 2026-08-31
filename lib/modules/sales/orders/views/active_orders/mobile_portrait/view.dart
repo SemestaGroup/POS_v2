@@ -350,24 +350,28 @@ class ActiveOrdersMobileView extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      localizedOrderType,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        color: Colors.black87,
+                  if (localizedOrderType.isNotEmpty &&
+                      localizedOrderType != '—' &&
+                      localizedOrderType != '-') ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        localizedOrderType,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -415,6 +419,31 @@ class ActiveOrdersMobileView extends StatelessWidget {
                             color: primaryColor,
                           ),
                         ),
+                        if (order.note != null && order.note!.trim().isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.sticky_note_2_outlined,
+                                size: 11,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  order.note!.trim(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontStyle: FontStyle.italic,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

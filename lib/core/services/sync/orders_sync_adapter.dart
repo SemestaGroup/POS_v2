@@ -457,8 +457,16 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'custom_fields_json': resolvedCustomFieldsJson,
         'raw_payload_json': V2SyncUtils.encodeJson(row),
         'last_synced_at': now,
-        'created_at': now,
-        'updated_at': now,
+        'created_at':
+            V2SyncUtils.asString(row['datecreated']) ??
+            V2SyncUtils.asString(row['dateadded']) ??
+            V2SyncUtils.asString(row['daterecorded']) ??
+            V2SyncUtils.asString(row['created_at']) ??
+            now,
+        'updated_at':
+            V2SyncUtils.asString(row['updated_at']) ??
+            V2SyncUtils.asString(row['datecreated']) ??
+            now,
       },
       updateValues: <String, Object?>{
         'customer_id': customerLocalId,
@@ -532,6 +540,12 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'order_note': resolvedOrderNote,
         'custom_fields_json': resolvedCustomFieldsJson,
         'raw_payload_json': V2SyncUtils.encodeJson(row),
+        'created_at':
+            V2SyncUtils.asString(row['datecreated']) ??
+            V2SyncUtils.asString(row['dateadded']) ??
+            V2SyncUtils.asString(row['daterecorded']) ??
+            V2SyncUtils.asString(row['created_at']) ??
+            now,
         'deleted_at': preservedDeletedAt,
         'last_synced_at': now,
         'updated_at': now,

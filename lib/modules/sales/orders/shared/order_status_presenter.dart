@@ -11,12 +11,23 @@ class OrderStatusPresentation {
 }
 
 class OrderStatusPresenter {
-  static String getLocalizedOrderType(BuildContext context, String orderType) {
+  static String getLocalizedOrderType(BuildContext context, String? orderType) {
     final types = PosOrderTypeStore.instance.snapshot.allOrderTypes.isNotEmpty
         ? PosOrderTypeStore.instance.snapshot.allOrderTypes
         : PosOrderTypeStore.instance.snapshot.orderTypes;
     final l10n = AppLocalizations.of(context);
-    return OrderTypePresenter.getDisplayName(orderType, types, l10n: l10n);
+    final displayName = OrderTypePresenter.getDisplayName(
+      orderType,
+      types,
+      l10n: l10n,
+    );
+    if (displayName.isNotEmpty && displayName != '—' && displayName != '-') {
+      return displayName;
+    }
+    if (types.isNotEmpty) {
+      return types.first.name;
+    }
+    return l10n?.dineIn ?? 'Dine In';
   }
 
   static String getLocalizedStatusCode(BuildContext context, int statusCode) {

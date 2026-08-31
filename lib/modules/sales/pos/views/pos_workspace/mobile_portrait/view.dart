@@ -1,4 +1,5 @@
 import '../../../../orders/shared/order_status_presenter.dart';
+import '../../../../orders/shared/orders_history_sync_service.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -69,6 +70,12 @@ class _MobileOrdersPage extends StatefulWidget {
 
 class _MobileOrdersPageState extends State<_MobileOrdersPage> {
   int _selectedTab = 0;
+  @override
+  void initState() {
+    super.initState();
+    unawaited(OrdersHistorySyncService.instance.ensureSynced());
+  }
+
 
   List<SalesOrderRecord> _ordersForTab(List<SalesOrderRecord> orders) {
     final result = orders
@@ -404,16 +411,49 @@ class _MobileOrdersPageState extends State<_MobileOrdersPage> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      '${order.token} · ${order.totalQuantity} item · ${_formatOrderType(order.orderType)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
+                    () {
+                      final orderTypeLabel = _formatOrderType(order.orderType);
+                      final hasOrderType = orderTypeLabel.isNotEmpty &&
+                          orderTypeLabel != '—' &&
+                          orderTypeLabel != '-';
+                      final typeSuffix = hasOrderType ? ' · $orderTypeLabel' : '';
+                      return Text(
+                        '${order.token} · ${order.totalQuantity} item$typeSuffix',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF64748B),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      );
+                    }(),
+                    if (order.note != null && order.note!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.sticky_note_2_outlined,
+                            size: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              order.note!.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 9.5,
+                                fontStyle: FontStyle.italic,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
+                    ],
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -544,6 +584,29 @@ class _MobileOrdersPageState extends State<_MobileOrdersPage> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
+                            if (order.note != null && order.note!.trim().isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.sticky_note_2_outlined,
+                                    size: 11,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      order.note!.trim(),
+                                      style: const TextStyle(
+                                        color: Color(0xFF475569),
+                                        fontSize: 10,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),

@@ -230,7 +230,7 @@ class SalesOrderStore {
         LEFT JOIN customer ON customer.id = pos_order.customer_id
         WHERE pos_order.tenant_id = ?
           AND pos_order.deleted_at IS NULL
-        ORDER BY COALESCE(pos_order.order_date, pos_order.updated_at, pos_order.created_at) DESC
+        ORDER BY COALESCE(pos_order.created_at, pos_order.order_date, pos_order.updated_at) DESC
         ''',
         <Object?>[session.tenantId],
       );
@@ -329,8 +329,9 @@ class SalesOrderStore {
           SalesOrderRecord(
             id: row['id_pos']?.toString() ?? 'POS-$orderLocalId',
             token: row['formatted_number']?.toString() ?? '#$orderLocalId',
-            createdAt: _parseDateTime(
-              row['order_date']?.toString() ?? row['created_at']?.toString(),
+            createdAt: _resolveOrderCreatedAt(
+              orderDateRaw: row['order_date']?.toString(),
+              createdAtRaw: row['created_at']?.toString(),
             ),
             statusCode: int.tryParse(row['status_code']?.toString() ?? '') ?? 1,
             customerName:
@@ -357,12 +358,27 @@ class SalesOrderStore {
               row['custom_fields_json'],
               'summary',
             ),
-            orderType: OrderTypeResolver.resolveCode(
-                  row['order_type_code']?.toString(),
-                  PosOrderTypeStore.instance.snapshot.orderTypes,
-                ) ??
-                row['order_type_code']?.toString() ??
-                '',
+            orderType: () {
+              final headerCode = row['order_type_code']?.toString()?.trim();
+              if (headerCode != null && headerCode.isNotEmpty) {
+                return OrderTypeResolver.resolveCode(
+                      headerCode,
+                      PosOrderTypeStore.instance.snapshot.orderTypes,
+                    ) ??
+                    headerCode;
+              }
+              for (final item in items) {
+                final itemCode = item.orderType?.trim();
+                if (itemCode != null && itemCode.isNotEmpty) {
+                  return OrderTypeResolver.resolveCode(
+                        itemCode,
+                        PosOrderTypeStore.instance.snapshot.orderTypes,
+                      ) ??
+                      itemCode;
+                }
+              }
+              return '';
+            }(),
             note: row['order_note']?.toString(),
             orderLevelDiscountAmount: _asInt(row['manual_discount_value']) ?? 0,
             fallbackSubtotalAmount: _asInt(row['subtotal_amount']),
@@ -632,7 +648,7 @@ class SalesOrderStore {
           'custom_fields_json': jsonEncode(_buildOrderCustomFields(record)),
           'sync_state': syncState,
           'last_synced_at': null,
-          'created_at': now,
+          'created_at': _formatSqlDateTime(record.createdAt),
           'updated_at': now,
         },
         updateValues: <String, Object?>{
@@ -1452,7 +1468,28 @@ class SalesOrderStore {
     if (raw == null || raw.trim().isEmpty) {
       return DateTime.now();
     }
-    return DateTime.tryParse(raw.replaceFirst(' ', 'T')) ?? DateTime.now();
+    final parsed = DateTime.tryParse(raw.replaceFirst(' ', 'T'));
+    if (parsed == null) {
+      return DateTime.now();
+    }
+    return parsed.isUtc ? parsed.toLocal() : parsed;
+  }
+  DateTime _resolveOrderCreatedAt({
+    required String? orderDateRaw,
+    required String? createdAtRaw,
+  }) {
+    final orderDate = orderDateRaw?.trim();
+    final createdAt = createdAtRaw?.trim();
+    if (orderDate != null && orderDate.isNotEmpty && orderDate.contains(':')) {
+      return _parseDateTime(orderDate);
+    }
+    if (createdAt != null && createdAt.isNotEmpty) {
+      return _parseDateTime(createdAt);
+    }
+    if (orderDate != null && orderDate.isNotEmpty) {
+      return _parseDateTime(orderDate);
+    }
+    return DateTime.now();
   }
 
   String _formatSqlDate(DateTime value) {
