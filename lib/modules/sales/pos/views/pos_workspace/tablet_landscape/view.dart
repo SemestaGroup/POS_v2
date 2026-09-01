@@ -429,23 +429,31 @@ class _PosWorkspaceTabletLandscapeViewState
 
   bool get _isCartEmpty => _cartItems.isEmpty;
 
-  int get _subtotalAmount => _cartItems.fold(
+  int get _subtotalAmount => _cartItems.fold<int>(
     0,
-    (sum, item) => sum + (item.activeUnitPrice * item.quantity),
+    (sum, item) => sum + (item.regularUnitPrice * item.quantity),
   );
+
+  int get _itemDiscountAmount => _cartItems.fold<int>(
+    0,
+    (sum, item) =>
+        sum +
+        ((item.regularUnitPrice - item.activeUnitPrice).clamp(0, 1 << 31) *
+            item.quantity),
+  );
+
+  int get _totalDiscountAmount =>
+      _itemDiscountAmount + _orderLevelDiscountAmount;
+
+  int get _netAmount =>
+      (_subtotalAmount - _totalDiscountAmount).clamp(0, 1 << 31);
 
   int get _taxAmount {
     if (!_autoTax || _taxPercentage <= 0) return 0;
-    final base = (_subtotalAmount - _orderLevelDiscountAmount).clamp(
-      0,
-      1 << 31,
-    );
-    return (base * (_taxPercentage / 100)).round();
+    return (_netAmount * (_taxPercentage / 100)).round();
   }
 
-  int get _totalPay =>
-      ((_subtotalAmount - _orderLevelDiscountAmount).clamp(0, 1 << 31)) +
-      _taxAmount;
+  int get _totalPay => _netAmount + _taxAmount;
 
   int get _openOrdersCount => SalesOrderStore.instance.countForStatuses({1, 6});
 
@@ -663,7 +671,6 @@ class _PosWorkspaceTabletLandscapeViewState
         selectedOrderType: _selectedOrderType,
       );
       _cartItems = result.items;
-      _orderLevelDiscountAmount = result.totalDiscountAmount;
       _appliedOrderPromoLabel = result.appliedOrderPromoLabel;
     });
   }
@@ -1625,7 +1632,7 @@ class _PosWorkspaceTabletLandscapeViewState
             orderNote: _orderNote.trim().isNotEmpty ? _orderNote.trim() : null,
             totalPayAmount: _totalPay,
             subtotalAmount: _subtotalAmount,
-            discountAmount: _orderLevelDiscountAmount,
+            discountAmount: _totalDiscountAmount,
             taxAmount: _taxAmount,
             taxName: _taxName,
             taxPercentage: _taxPercentage,
@@ -2530,8 +2537,6 @@ class _PosWorkspaceTabletLandscapeViewState
                             _selectedOrderType = transition.orderType;
                             _cartItems = transition.items;
                             _selectedPromotions = transition.validPromotions;
-                            _orderLevelDiscountAmount =
-                                transition.totalDiscountAmount;
                             _appliedOrderPromoLabel =
                                 transition.appliedOrderPromoLabel;
                           });
@@ -3130,16 +3135,19 @@ class _PosWorkspaceTabletLandscapeViewState
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
                                         children: [
-                                          Text(
-                                            AppLocalizations.of(
-                                              context,
-                                            )!.splitQuantityLabel,
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 13,
-                                              color: Colors.black54,
+                                          Flexible(
+                                            child: Text(
+                                              AppLocalizations.of(
+                                                context,
+                                              )!.splitQuantityLabel,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                                fontSize: 13,
+                                                color: Colors.black54,
+                                              ),
                                             ),
                                           ),
+                                          const SizedBox(width: 8),
                                           Container(
                                             decoration: BoxDecoration(
                                               color: Colors.grey.shade100,
@@ -3252,7 +3260,6 @@ class _PosWorkspaceTabletLandscapeViewState
                                       const SizedBox(height: 20),
                                       SizedBox(
                                         width: double.infinity,
-                                        height: 46,
                                         child: OutlinedButton.icon(
                                           onPressed: quantity > 1
                                               ? () {
@@ -3263,8 +3270,7 @@ class _PosWorkspaceTabletLandscapeViewState
                                                         splitQuantity,
                                                     orderType:
                                                         selectedOrderType,
-                                                    note:
-                                                        noteController.text
+                                                    note: noteController.text
                                                             .trim()
                                                             .isEmpty
                                                         ? null
@@ -3288,9 +3294,17 @@ class _PosWorkspaceTabletLandscapeViewState
                                               fontWeight: FontWeight.w800,
                                               fontSize: 13,
                                             ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: primaryColor,
+                                            minimumSize:
+                                                const Size(double.infinity, 44),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 10,
+                                            ),
                                             side: BorderSide(
                                               color: primaryColor.withValues(
                                                 alpha: 0.5,
@@ -4455,7 +4469,7 @@ class _PosWorkspaceTabletLandscapeViewState
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.shade300),
+                  border: Border.all(color: Colors.grey.shade200),
                 ),
                 child: Row(
                   children: [
@@ -4478,7 +4492,7 @@ class _PosWorkspaceTabletLandscapeViewState
                           child: Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.all(6),
+                                padding: const EdgeInsets.all(5),
                                 decoration: BoxDecoration(
                                   color: primaryColor.withValues(alpha: 0.1),
                                   shape: BoxShape.circle,
@@ -4497,8 +4511,8 @@ class _PosWorkspaceTabletLandscapeViewState
                                     Text(
                                       l10n.customer,
                                       style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontSize: 10,
+                                        color: Colors.grey.shade500,
+                                        fontSize: 9.5,
                                       ),
                                     ),
                                     Text(
@@ -4507,6 +4521,8 @@ class _PosWorkspaceTabletLandscapeViewState
                                         fontWeight: FontWeight.bold,
                                         fontSize: 12,
                                       ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     if (_customerSecondaryLine(context) != null)
                                       Text(
@@ -4525,6 +4541,11 @@ class _PosWorkspaceTabletLandscapeViewState
                           ),
                         ),
                       ),
+                    ),
+                    VerticalDivider(
+                      color: Colors.grey.shade200,
+                      thickness: 1,
+                      width: 1,
                     ),
                     Material(
                       color: Colors.transparent,
@@ -4608,43 +4629,45 @@ class _PosWorkspaceTabletLandscapeViewState
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
+              ),
               child: Row(
                 children: [
                   Expanded(
                     child: InkWell(
                       onTap: () => _showOrderTypeMenu(context),
-                      highlightColor: primaryColor.withValues(alpha: 0.1),
-                      splashColor: primaryColor.withValues(alpha: 0.2),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(10),
+                        bottomLeft: Radius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 7,
+                          horizontal: 4,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
                               Icons.room_service_rounded,
-                              size: 14,
+                              size: 12,
                               color: primaryColor,
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
+                            const SizedBox(width: 4),
+                            Flexible(
                               child: Text(
                                 _orderTypeLabel(context),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 10,
                                 ),
                               ),
                             ),
@@ -4653,20 +4676,24 @@ class _PosWorkspaceTabletLandscapeViewState
                       ),
                     ),
                   ),
+                  VerticalDivider(
+                    color: Colors.grey.shade200,
+                    thickness: 1,
+                    width: 1,
+                    indent: 8,
+                    endIndent: 8,
+                  ),
                   Expanded(
                     child: InkWell(
                       onTap: () => _showOrderNoteDialog(context),
-                      highlightColor: Colors.grey.shade200,
-                      splashColor: Colors.grey.shade300,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 5),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: Colors.grey.shade300,
-                              width: 1,
-                            ),
-                          ),
+                      borderRadius: const BorderRadius.only(
+                        topRight: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 7,
+                          horizontal: 4,
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -4675,25 +4702,25 @@ class _PosWorkspaceTabletLandscapeViewState
                               _orderNote.isEmpty
                                   ? Icons.edit_note_rounded
                                   : Icons.sticky_note_2_outlined,
-                              size: 14,
+                              size: 12,
                               color: _orderNote.isEmpty
-                                  ? Colors.grey.shade500
+                                  ? Colors.grey.shade400
                                   : primaryColor,
                             ),
-                            const SizedBox(width: 6),
-                            Expanded(
+                            const SizedBox(width: 4),
+                            Flexible(
                               child: Text(
                                 _orderNoteTabLabel(context),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: _orderNote.isEmpty
-                                      ? Colors.grey.shade600
+                                      ? Colors.grey.shade500
                                       : primaryColor,
                                   fontSize: 10,
                                   fontWeight: _orderNote.isEmpty
                                       ? FontWeight.w500
-                                      : FontWeight.w700,
+                                      : FontWeight.w600,
                                 ),
                               ),
                             ),
@@ -4737,10 +4764,7 @@ class _PosWorkspaceTabletLandscapeViewState
                       ),
                     )
                   : ListView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 6.0,
-                      ),
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
                       children: _cartItems
                           .map((item) => _buildCartItem(primaryColor, item))
                           .toList(),
@@ -4882,89 +4906,114 @@ class _PosWorkspaceTabletLandscapeViewState
                     Divider(color: Colors.grey.shade200, height: 1),
                     const SizedBox(height: 8),
                   ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        AppLocalizations.of(context)!.subtotal,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 10,
-                        ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.grey.shade100,
+                        width: 1,
                       ),
-                      Text(
-                        _formatCurrency(_subtotalAmount),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _taxName ?? l10n.tax,
-                        style: TextStyle(
-                          color: Colors.grey.shade600,
-                          fontSize: 10,
-                        ),
-                      ),
-                      Text(
-                        _formatCurrency(_taxAmount),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (_orderLevelDiscountAmount > 0) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    ),
+                    child: Column(
                       children: [
-                        Text(
-                          l10n.discount,
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 10,
-                          ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              AppLocalizations.of(context)!.subtotal,
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 11,
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(_subtotalAmount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
                         ),
-                        Text(
-                          '- ${_formatCurrency(_orderLevelDiscountAmount)}',
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
+                        if (_totalDiscountAmount > 0) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                l10n.discount,
+                                style: TextStyle(
+                                  color: Colors.grey.shade500,
+                                  fontSize: 11,
+                                ),
+                              ),
+                              Text(
+                                '- ${_formatCurrency(_totalDiscountAmount)}',
+                                style: TextStyle(
+                                  color: Colors.red.shade600,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
+                        ],
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _taxName ?? l10n.tax,
+                              style: TextStyle(
+                                color: Colors.grey.shade500,
+                                fontSize: 11,
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(_taxAmount),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                color: Colors.grey.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Divider(
+                          color: Colors.grey.shade200,
+                          height: 16,
+                          thickness: 1,
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              l10n.totalPay,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                            Text(
+                              _formatCurrency(_totalPay),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                  ],
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        l10n.totalPay,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                      Text(
-                        _formatCurrency(_totalPay),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   // In read-only mode: show Print to Kitchen button (no data saved)
                   if (widget.isReadOnly)
                     ElevatedButton.icon(
@@ -4973,9 +5022,9 @@ class _PosWorkspaceTabletLandscapeViewState
                         backgroundColor: const Color(0xFFFFF8E1),
                         foregroundColor: const Color(0xFFF57F17),
                         elevation: 0,
-                        minimumSize: const Size(double.infinity, 32),
+                        minimumSize: const Size(double.infinity, 40),
                         padding: const EdgeInsets.symmetric(
-                          vertical: 12,
+                          vertical: 10,
                           horizontal: 8,
                         ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -4996,12 +5045,16 @@ class _PosWorkspaceTabletLandscapeViewState
                     ElevatedButton.icon(
                       onPressed: () => _handleSendToKitchen(isReadOnly: false),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFA5D6A7),
-                        foregroundColor: const Color(0xFF2E7D32),
+                        backgroundColor: const Color(0xFFE8F5E9),
+                        foregroundColor: const Color(0xFF1B5E20),
+                        side: const BorderSide(
+                          color: Color(0xFFC8E6C9),
+                          width: 1,
+                        ),
                         elevation: 0,
-                        minimumSize: const Size(double.infinity, 32),
+                        minimumSize: const Size(double.infinity, 40),
                         padding: const EdgeInsets.symmetric(
-                          vertical: 12,
+                          vertical: 10,
                           horizontal: 8,
                         ),
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -5012,13 +5065,13 @@ class _PosWorkspaceTabletLandscapeViewState
                       icon: const Icon(Icons.send_rounded, size: 14),
                       label: Text(
                         l10n.sendToKitchen,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Row(
                     children: [
                       Expanded(
@@ -5029,11 +5082,11 @@ class _PosWorkspaceTabletLandscapeViewState
                           style: OutlinedButton.styleFrom(
                             foregroundColor: widget.isReadOnly
                                 ? Colors.grey
-                                : Colors.black87,
+                                : Colors.grey.shade800,
                             side: BorderSide(color: Colors.grey.shade300),
-                            minimumSize: const Size(0, 32),
+                            minimumSize: const Size(0, 40),
                             padding: const EdgeInsets.symmetric(
-                              vertical: 14,
+                              vertical: 10,
                               horizontal: 8,
                             ),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -5043,9 +5096,9 @@ class _PosWorkspaceTabletLandscapeViewState
                           ),
                           child: Text(
                             l10n.save,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.bold,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -5058,15 +5111,15 @@ class _PosWorkspaceTabletLandscapeViewState
                               : () => _commitOrder(2),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: widget.isReadOnly
-                                ? Colors.grey.shade300
+                                ? Colors.grey.shade200
                                 : const Color(0xFF536DFE),
                             foregroundColor: widget.isReadOnly
-                                ? Colors.grey.shade600
+                                ? Colors.grey.shade500
                                 : Colors.white,
                             elevation: 0,
-                            minimumSize: const Size(0, 28),
+                            minimumSize: const Size(0, 40),
                             padding: const EdgeInsets.symmetric(
-                              vertical: 14,
+                              vertical: 10,
                               horizontal: 8,
                             ),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -5076,7 +5129,7 @@ class _PosWorkspaceTabletLandscapeViewState
                           ),
                           child: Text(
                             l10n.payNow,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
@@ -5129,191 +5182,198 @@ class _PosWorkspaceTabletLandscapeViewState
   }
 
   Widget _buildCartItem(Color primaryColor, PosCartItem item) {
-    return InkWell(
-      onTap: () => _showCartItemOptionsDialog(context, item.id),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4.0),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 48),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade100, width: 1),
+      ),
+      child: InkWell(
+        onTap: () => _showCartItemOptionsDialog(context, item.id),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.all(8),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Container(
-                    color: Colors.grey.shade100,
-                    child: _isPlaceholderImage(item.imageUrl)
-                        ? const Center(
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.grey.shade200, width: 1),
+                  ),
+                  child: _isPlaceholderImage(item.imageUrl)
+                      ? const Center(
+                          child: Icon(
+                            Icons.image_not_supported_rounded,
+                            size: 20,
+                            color: Colors.grey,
+                          ),
+                        )
+                      : CachedNetworkImage(
+                          imageUrl: item.imageUrl,
+                          width: 44,
+                          height: 44,
+                          fit: BoxFit.contain,
+                          errorWidget: (context, url, error) => const Center(
                             child: Icon(
                               Icons.image_not_supported_rounded,
                               size: 20,
                               color: Colors.grey,
                             ),
-                          )
-                        : CachedNetworkImage(
-                            imageUrl: item.imageUrl,
-                            fit: BoxFit.cover,
-                            errorWidget: (context, url, error) => const Center(
-                              child: Icon(
-                                Icons.image_not_supported_rounded,
-                                size: 20,
-                                color: Colors.grey,
-                              ),
-                            ),
                           ),
-                  ),
+                        ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
-                child: SizedBox(
-                  height: 54,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.displayName,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                                height: 1.1,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (item.appliedPromoName != null)
-                            Container(
-                              margin: const EdgeInsets.only(left: 4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                item.appliedPromoName!.length > 15
-                                    ? '${item.appliedPromoName!.substring(0, 15)}..'
-                                    : item.appliedPromoName!,
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else if (item.promoLabel != null)
-                            Container(
-                              margin: const EdgeInsets.only(left: 4),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                item.promoLabel!,
-                                style: TextStyle(
-                                  color: Colors.red.shade700,
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (item.note != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2, bottom: 2),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
                           child: Text(
-                            item.note!,
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Colors.grey.shade500,
-                              fontStyle: FontStyle.italic,
+                            item.displayName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                              height: 1.2,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            '${item.quantity}x',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 11,
+                        if (item.appliedPromoName != null)
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              item.appliedPromoName!.length > 15
+                                  ? '${item.appliedPromoName!.substring(0, 15)}..'
+                                  : item.appliedPromoName!,
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        else if (item.promoLabel != null)
+                          Container(
+                            margin: const EdgeInsets.only(left: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              item.promoLabel!,
+                              style: TextStyle(
+                                color: Colors.red.shade700,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                          if (item.orderType != null &&
-                              item.orderType != _selectedOrderType)
-                            Container(
-                              margin: const EdgeInsets.only(left: 8),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                _orderTypeLabel(context, item.orderType),
-                                style: TextStyle(
-                                  color: Colors.orange.shade700,
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                      ],
+                    ),
+                    if (item.note != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 1),
+                        child: Text(
+                          item.note!,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey.shade500,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const SizedBox(height: 2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${item.quantity}x',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (item.orderType != null &&
+                            item.orderType != _selectedOrderType)
+                          Container(
+                            margin: const EdgeInsets.only(left: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              _orderTypeLabel(context, item.orderType),
+                              style: TextStyle(
+                                color: Colors.orange.shade700,
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          const Spacer(),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              if (item.activeUnitPrice < item.regularUnitPrice)
-                                Text(
-                                  _formatCurrency(
-                                    item.regularUnitPrice * item.quantity,
-                                  ),
-                                  style: TextStyle(
-                                    color: Colors.grey.shade400,
-                                    fontSize: 8,
-                                    decoration: TextDecoration.lineThrough,
-                                    height: 1.0,
-                                  ),
-                                ),
+                          ),
+                        const Spacer(),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (item.activeUnitPrice < item.regularUnitPrice)
                               Text(
                                 _formatCurrency(
-                                  item.activeUnitPrice * item.quantity,
+                                  item.regularUnitPrice * item.quantity,
                                 ),
                                 style: TextStyle(
-                                  color: primaryColor,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
+                                  color: Colors.grey.shade400,
+                                  fontSize: 9,
+                                  decoration: TextDecoration.lineThrough,
                                   height: 1.0,
                                 ),
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                            Text(
+                              _formatCurrency(
+                                item.activeUnitPrice * item.quantity,
+                              ),
+                              style: TextStyle(
+                                color: Colors.grey.shade900,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                height: 1.0,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             ],
