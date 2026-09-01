@@ -309,10 +309,7 @@ class ParkedOrdersMobileView extends StatelessWidget {
       context,
       order.orderType,
     );
-    final localizedStatusCode = OrderStatusPresenter.getLocalizedStatusCode(
-      context,
-      order.statusCode,
-    );
+    final statusPresentation = presentOrderStatus(context, order.statusCode);
 
     return Material(
       color: Colors.transparent,
@@ -372,15 +369,15 @@ class ParkedOrdersMobileView extends StatelessWidget {
                       vertical: 1,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
+                      color: statusPresentation.color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      localizedStatusCode,
+                      statusPresentation.label,
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: Colors.amber.shade800,
+                        color: statusPresentation.color,
                       ),
                     ),
                   ),

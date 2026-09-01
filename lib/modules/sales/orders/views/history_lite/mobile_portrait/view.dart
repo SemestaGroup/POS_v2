@@ -260,11 +260,7 @@ class HistoryLiteMobileView extends StatelessWidget {
       context,
       order.orderType,
     );
-    final localizedStatusCode = OrderStatusPresenter.getLocalizedStatusCode(
-      context,
-      order.statusCode,
-    );
-
+    final statusPresentation = presentOrderStatus(context, order.statusCode);
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -292,7 +288,7 @@ class HistoryLiteMobileView extends StatelessWidget {
                     '#${order.token.isEmpty ? order.id : order.token}',
                     style: const TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   if (localizedOrderType.isNotEmpty &&
@@ -324,15 +320,15 @@ class HistoryLiteMobileView extends StatelessWidget {
                       vertical: 1,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: statusPresentation.color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      localizedStatusCode,
-                      style: const TextStyle(
+                      statusPresentation.label,
+                      style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                        color: statusPresentation.color,
                       ),
                     ),
                   ),

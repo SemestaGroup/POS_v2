@@ -283,10 +283,7 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
       context,
       order.orderType,
     );
-    final localizedStatusCode = OrderStatusPresenter.getLocalizedStatusCode(
-      context,
-      order.statusCode,
-    );
+    final statusPresentation = presentOrderStatus(context, order.statusCode);
 
     return Material(
       color: Colors.transparent,
@@ -300,15 +297,15 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(12),
         child: Ink(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.02),
-                blurRadius: 4,
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
             ],
@@ -316,6 +313,20 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: primaryColor.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.receipt_long_rounded,
+                  color: primaryColor,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -327,6 +338,7 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
                           ),
                         ),
                         if (localizedOrderType.isNotEmpty &&
@@ -335,19 +347,22 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
                           const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
+                              horizontal: 8,
+                              vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(4),
+                              color: const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: const Color(0xFFE2E8F0),
+                              ),
                             ),
                             child: Text(
                               localizedOrderType,
                               style: const TextStyle(
-                                fontSize: 9.5,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                                color: Color(0xFF334155),
                               ),
                             ),
                           ),
@@ -355,47 +370,33 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
                         const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
+                            horizontal: 8,
+                            vertical: 3,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
-                            borderRadius: BorderRadius.circular(4),
+                            color: statusPresentation.color.withValues(
+                              alpha: 0.1,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            localizedStatusCode,
+                            statusPresentation.label,
                             style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.green.shade700,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: statusPresentation.color,
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '• ${order.totalQuantity} item',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.black54,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '• ${OrderStatusPresenter.formatTime(order.createdAt)}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Colors.black54,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 5),
                     Row(
                       children: [
                         const Icon(
                           Icons.person_outline_rounded,
                           size: 13,
-                          color: Colors.grey,
+                          color: Color(0xFF64748B),
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -404,20 +405,59 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
                               : order.customerName,
                           style: const TextStyle(
                             fontSize: 11.5,
-                            color: Colors.black87,
+                            color: Color(0xFF334155),
                             fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          '•',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${order.totalQuantity} item',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF64748B),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          '•',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF94A3B8),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Icon(
+                          Icons.access_time_rounded,
+                          size: 11,
+                          color: Color(0xFF94A3B8),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          OrderStatusPresenter.formatTime(order.createdAt),
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF64748B),
                           ),
                         ),
                       ],
                     ),
                     if (order.note != null && order.note!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 5),
                       Row(
                         children: [
                           const Icon(
                             Icons.sticky_note_2_outlined,
                             size: 13,
-                            color: Colors.grey,
+                            color: Color(0xFF94A3B8),
                           ),
                           const SizedBox(width: 4),
                           Expanded(
@@ -425,10 +465,10 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
                               order.note!.trim(),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 11,
+                              style: const TextStyle(
+                                fontSize: 10.5,
                                 fontStyle: FontStyle.italic,
-                                color: Colors.grey.shade700,
+                                color: Color(0xFF64748B),
                               ),
                             ),
                           ),
@@ -438,26 +478,37 @@ class HistoryLiteTabletLandscapeView extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
                     OrderStatusPresenter.formatRupiah(order.totalAmount),
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: primaryColor,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    'Lihat Detail >',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: primaryColor,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Lihat Detail',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        Icons.arrow_forward_ios_rounded,
+                        size: 9,
+                        color: primaryColor,
+                      ),
+                    ],
                   ),
                 ],
               ),

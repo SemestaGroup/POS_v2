@@ -316,10 +316,7 @@ class ActiveOrdersMobileView extends StatelessWidget {
       context,
       order.orderType,
     );
-    final localizedStatusCode = OrderStatusPresenter.getLocalizedStatusCode(
-      context,
-      order.statusCode,
-    );
+    final statusPresentation = presentOrderStatus(context, order.statusCode);
 
     return Material(
       color: Colors.transparent,
@@ -379,19 +376,18 @@ class ActiveOrdersMobileView extends StatelessWidget {
                       vertical: 1,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
+                      color: statusPresentation.color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      localizedStatusCode,
+                      statusPresentation.label,
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
+                        color: statusPresentation.color,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
                   Text(
                     '• ${OrderStatusPresenter.formatTime(order.createdAt)}',
                     style: const TextStyle(
