@@ -31,6 +31,35 @@ class PosV2CustomerService {
 
   static const String defaultWalkInName = 'Walk-In Customer';
 
+  /// Extracts the core phone digits by stripping non-digit chars and leading
+  /// country/area code prefixes ('+62', '62', '0').
+  /// e.g. '082112345678' -> '82112345678', '+62 821-1234-5678' -> '82112345678'
+  static String extractPhoneCore(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.startsWith('62')) {
+      return digits.substring(2);
+    } else if (digits.startsWith('0')) {
+      return digits.substring(1);
+    }
+    return digits;
+  }
+
+  /// Determines whether [input] is likely a phone number rather than a customer name.
+  static bool isLikelyPhoneNumber(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return false;
+    final digitsOnly = trimmed.replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.length < 3) return false;
+
+    // If it contains letters (e.g. "Budi 08"), treat as name
+    if (RegExp(r'[a-zA-Z]').hasMatch(trimmed)) {
+      return false;
+    }
+
+    // If input consists mostly of digits and phone formatting symbols (+, -, space, parens)
+    return RegExp(r'^[\d\s+\-().]+$').hasMatch(trimmed);
+  }
+
   Future<List<PosCustomerRecord>> searchLocal(String keyword) async {
     final session = await PosV2RuntimeSessionStore.instance
         .restoreFromDatabase();
@@ -39,28 +68,70 @@ class PosV2CustomerService {
     }
 
     final trimmed = keyword.trim();
+    if (trimmed.isEmpty) {
+      final rows = await DatabaseService.instance.query(
+        'customer',
+        where: 'tenant_id = ? AND deleted_at IS NULL',
+        whereArgs: <Object?>[session.tenantId],
+        orderBy: 'display_name ASC, company_name ASC',
+        limit: 20,
+      );
+      return rows.map(_recordFromRow).toList(growable: false);
+    }
+
+    final phoneCore = extractPhoneCore(trimmed);
+    final isPhone = isLikelyPhoneNumber(trimmed) && phoneCore.length >= 3;
+
+    final whereClauses = <String>[
+      'display_name LIKE ?',
+      'company_name LIKE ?',
+      'phone_number LIKE ?',
+    ];
+    final whereArgs = <Object?>[
+      session.tenantId,
+      '%$trimmed%',
+      '%$trimmed%',
+      '%$trimmed%',
+    ];
+
+    if (isPhone) {
+      // Match phone variants: with leading 0, with leading 62, with +62, or raw core digits
+      whereClauses.add('phone_number LIKE ?');
+      whereArgs.add('%$phoneCore%');
+      whereClauses.add('phone_number LIKE ?');
+      whereArgs.add('%0$phoneCore%');
+      whereClauses.add('phone_number LIKE ?');
+      whereArgs.add('%62$phoneCore%');
+      whereClauses.add('phone_number LIKE ?');
+      whereArgs.add('%+62$phoneCore%');
+    }
+
     final rows = await DatabaseService.instance.query(
       'customer',
-      where: trimmed.isEmpty
-          ? 'tenant_id = ? AND deleted_at IS NULL'
-          : '''
-            tenant_id = ? AND deleted_at IS NULL AND (
-              display_name LIKE ? OR company_name LIKE ? OR phone_number LIKE ?
-            )
-          ''',
-      whereArgs: trimmed.isEmpty
-          ? <Object?>[session.tenantId]
-          : <Object?>[
-              session.tenantId,
-              '%$trimmed%',
-              '%$trimmed%',
-              '%$trimmed%',
-            ],
+      where: 'tenant_id = ? AND deleted_at IS NULL AND (${whereClauses.join(' OR ')})',
+      whereArgs: whereArgs,
       orderBy: 'display_name ASC, company_name ASC',
-      limit: trimmed.isEmpty ? 20 : 30,
+      limit: 30,
     );
 
-    return rows.map(_recordFromRow).toList(growable: false);
+    final records = rows.map(_recordFromRow).toList(growable: false);
+
+    if (isPhone) {
+      // Rank direct core phone matches first
+      final sorted = List<PosCustomerRecord>.from(records);
+      sorted.sort((a, b) {
+        final aPhoneCore = extractPhoneCore(a.phone ?? '');
+        final bPhoneCore = extractPhoneCore(b.phone ?? '');
+        final aMatches = aPhoneCore.contains(phoneCore);
+        final bMatches = bPhoneCore.contains(phoneCore);
+        if (aMatches && !bMatches) return -1;
+        if (!aMatches && bMatches) return 1;
+        return 0;
+      });
+      return sorted;
+    }
+
+    return records;
   }
 
   Future<List<PosCustomerRecord>> searchRemote(String keyword) async {

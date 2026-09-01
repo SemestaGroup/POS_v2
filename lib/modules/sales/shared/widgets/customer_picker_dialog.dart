@@ -41,8 +41,6 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
   @override
   void initState() {
     super.initState();
-    _createPhoneController.text = '-';
-    _createAddressController.text = '-';
     _loadInitialResults();
   }
 
@@ -54,6 +52,22 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
     _createPhoneController.dispose();
     _createAddressController.dispose();
     super.dispose();
+  }
+
+  void _openCreateForm({String? prefill}) {
+    final query = (prefill ?? _searchController.text).trim();
+    if (PosV2CustomerService.isLikelyPhoneNumber(query)) {
+      _createPhoneController.text = query;
+      _createNameController.text = '';
+    } else {
+      _createNameController.text = query;
+      _createPhoneController.text = '';
+    }
+    _createAddressController.text = '';
+    setState(() {
+      _showCreateForm = true;
+      _errorMessage = null;
+    });
   }
 
   Future<void> _loadInitialResults() async {
@@ -89,7 +103,6 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
     final query = rawValue.trim();
     setState(() {
       _isSearching = true;
-      _showCreateForm = false;
       _errorMessage = null;
     });
 
@@ -111,10 +124,6 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
       }
       setState(() {
         _results = merged.values.toList(growable: false);
-        if (_results.isEmpty && query.isNotEmpty) {
-          _showCreateForm = true;
-          _createNameController.text = query;
-        }
       });
     } catch (error) {
       if (!mounted) {
@@ -131,7 +140,6 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
       }
     }
   }
-
   Future<void> _createCustomer() async {
     final l10n = AppLocalizations.of(context)!;
     if (_isCreating) {
@@ -218,9 +226,7 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      _showCreateForm
-                          ? 'Tambah Pelanggan ✨'
-                          : 'Cari Pelanggan 🔍',
+                      _showCreateForm ? 'Tambah Pelanggan' : 'Cari Pelanggan',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
@@ -320,22 +326,17 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
-                          onPressed: () {
-                            setState(() {
-                              _showCreateForm = true;
-                              if (searchQuery.isNotEmpty) {
-                                _createNameController.text = searchQuery;
-                              }
-                            });
-                          },
+                          onPressed: () => _openCreateForm(prefill: searchQuery),
                           icon: const Icon(
-                            Icons.add_reaction_rounded,
+                            Icons.person_add_alt_1_rounded,
                             size: 16,
                           ),
                           label: Text(
                             searchQuery.isNotEmpty
-                                ? 'Tambahkan "$searchQuery"'
-                                : 'Buat Profil',
+                                ? (PosV2CustomerService.isLikelyPhoneNumber(searchQuery)
+                                    ? 'Tambah No. "$searchQuery"'
+                                    : 'Tambahkan "$searchQuery"')
+                                : 'Buat Pelanggan Baru',
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
@@ -367,14 +368,7 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
                       itemBuilder: (context, index) {
                         if (index == _results.length) {
                           return OutlinedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _showCreateForm = true;
-                                _createNameController.text = _searchController
-                                    .text
-                                    .trim();
-                              });
-                            },
+                            onPressed: () => _openCreateForm(),
                             icon: const Icon(
                               Icons.person_add_alt_1_rounded,
                               size: 16,
@@ -608,7 +602,7 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
                                 ),
                               )
                             : const Text(
-                                'Simpan & Gunakan ✨',
+                                'Simpan & Pilih',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,

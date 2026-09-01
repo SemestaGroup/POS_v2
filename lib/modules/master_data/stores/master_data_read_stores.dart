@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/services/local/database_service.dart';
+import '../../../core/services/sync/pos_v2_customer_service.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
-
 class MasterDataListSnapshot<T> {
   const MasterDataListSnapshot({
     required this.isLoading,
@@ -589,7 +589,8 @@ class CustomerListStore extends BaseMasterDataStore<CustomerListRecord> {
   @override
   Future<List<CustomerListRecord>> loadRecords(PosV2RuntimeSession session) async {
     final tenantId = session.tenantId;
-    
+    final trimmedQuery = _searchQuery.trim();
+
     String query = '''
       SELECT id, display_name, phone_number, email, city, points_balance
       FROM customer
@@ -598,15 +599,34 @@ class CustomerListStore extends BaseMasterDataStore<CustomerListRecord> {
     ''';
     List<Object?> args = [tenantId];
 
-    if (_searchQuery.isNotEmpty) {
-      query += ' AND (display_name LIKE ? OR phone_number LIKE ? OR email LIKE ?)';
-      args.add('%$_searchQuery%');
-      args.add('%$_searchQuery%');
-      args.add('%$_searchQuery%');
+    if (trimmedQuery.isNotEmpty) {
+      final phoneCore = PosV2CustomerService.extractPhoneCore(trimmedQuery);
+      final isPhone = PosV2CustomerService.isLikelyPhoneNumber(trimmedQuery) && phoneCore.length >= 3;
+
+      final conditions = <String>[
+        'display_name LIKE ?',
+        'phone_number LIKE ?',
+        'email LIKE ?',
+      ];
+      args.add('%$trimmedQuery%');
+      args.add('%$trimmedQuery%');
+      args.add('%$trimmedQuery%');
+
+      if (isPhone) {
+        conditions.add('phone_number LIKE ?');
+        args.add('%$phoneCore%');
+        conditions.add('phone_number LIKE ?');
+        args.add('%0$phoneCore%');
+        conditions.add('phone_number LIKE ?');
+        args.add('%62$phoneCore%');
+        conditions.add('phone_number LIKE ?');
+        args.add('%+62$phoneCore%');
+      }
+
+      query += ' AND (${conditions.join(' OR ')})';
     }
 
     query += ' ORDER BY display_name ASC LIMIT 200';
-
     final rows = await DatabaseService.instance.rawQuery(query, args);
 
 
