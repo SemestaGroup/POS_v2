@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/master_data_page_widgets.dart';
 import '../../../stores/master_data_read_stores.dart';
+import '../customer_detail_page.dart';
 
 class CustomerListContent extends StatefulWidget {
   const CustomerListContent({super.key});
@@ -70,97 +71,113 @@ class _CustomerListContentState extends State<CustomerListContent> {
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final customer = records[index];
-                        return Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
+                        return Material(
+                          color: Colors.transparent,
+                          child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: primaryColor.withValues(alpha: 0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    customer.displayName.isNotEmpty
-                                        ? customer.displayName[0].toUpperCase()
-                                        : '?',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w800,
-                                      color: primaryColor,
+                            onTap: () => CustomerDetailPage.push(
+                              context,
+                              customer: customer,
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 36,
+                                    height: 36,
+                                    decoration: BoxDecoration(
+                                      color: primaryColor.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        customer.displayName.isNotEmpty
+                                            ? customer.displayName[0].toUpperCase()
+                                            : '?',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                          color: primaryColor,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 3,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      customer.displayName,
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    flex: 3,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          customer.displayName,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF111827),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          () {
+                                            final addr = (customer.address ?? '').trim();
+                                            final city = (customer.city ?? '').trim();
+                                            if (addr.isNotEmpty) return addr;
+                                            if (city.isNotEmpty) return city;
+                                            return '-';
+                                          }(),
+                                          style: const TextStyle(
+                                            fontSize: 10,
+                                            color: Color(0xFF6B7280),
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      (customer.phoneNumber ?? '').trim().isEmpty
+                                          ? '-'
+                                          : customer.phoneNumber!,
                                       style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF111827),
+                                        fontSize: 11,
+                                        color: Color(0xFF374151),
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      (customer.email ?? '').trim().isEmpty
+                                          ? '-'
+                                          : customer.email!,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF374151),
                                       ),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                     ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      (customer.city ?? '').trim().isEmpty
-                                          ? '—'
-                                          : customer.city!,
-                                      style: const TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF6B7280),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  (customer.phoneNumber ?? '').trim().isEmpty
-                                      ? '—'
-                                      : customer.phoneNumber!,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF374151),
                                   ),
-                                ),
-                              ),
-                              Expanded(
-                                flex: 2,
-                                child: Text(
-                                  (customer.email ?? '').trim().isEmpty
-                                      ? '—'
-                                      : customer.email!,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF374151),
+                                  MasterDataStatusBadge(
+                                    label:
+                                        '${currencyFmt.format(customer.pointsBalance)} ${strings.pointsLabel}',
+                                    foreground: const Color(0xFF7C3AED),
+                                    background: const Color(0xFFEDE9FE),
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                ],
                               ),
-                              MasterDataStatusBadge(
-                                label:
-                                    '${currencyFmt.format(customer.pointsBalance)} ${strings.pointsLabel}',
-                                foreground: const Color(0xFF7C3AED),
-                                background: const Color(0xFFEDE9FE),
-                              ),
-                            ],
+                            ),
                           ),
                         );
                       },

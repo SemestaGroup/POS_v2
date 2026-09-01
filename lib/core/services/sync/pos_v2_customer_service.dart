@@ -13,6 +13,7 @@ class PosCustomerRecord {
     required this.name,
     this.phone,
     this.address,
+    this.pointsBalance = 0,
     this.isDefaultWalkIn = false,
   });
 
@@ -21,6 +22,7 @@ class PosCustomerRecord {
   final String name;
   final String? phone;
   final String? address;
+  final int pointsBalance;
   final bool isDefaultWalkIn;
 }
 
@@ -251,6 +253,143 @@ class PosV2CustomerService {
       throw Exception('Customer created but could not be stored locally');
     }
     return record!;
+  }
+
+  Future<PosCustomerRecord> updateCustomer({
+    required int localId,
+    required String name,
+    String? phone,
+    String? address,
+    String? email,
+  }) async {
+    final session = await PosV2RuntimeSessionStore.instance
+        .restoreFromDatabase();
+    if (session == null) {
+      throw Exception('No active session found for customer update');
+    }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    // 1. Fetch current local record to get remote_id
+    final existing = await DatabaseService.instance.query(
+      'customer',
+      where: 'id = ? AND tenant_id = ?',
+      whereArgs: <Object?>[localId, session.tenantId],
+      limit: 1,
+    );
+
+    if (existing.isEmpty) {
+      throw Exception('Customer with ID $localId not found');
+    }
+
+    final current = existing.first;
+    final remoteId = current['remote_id']?.toString();
+
+    // 2. Try remote update if remoteId exists
+    Map<String, dynamic>? updatedRemoteData;
+    if (remoteId != null && remoteId.isNotEmpty) {
+      try {
+        final client = V2ApiClient(
+          baseUrl: session.baseUrl,
+          authToken: kFlinkV2FixedAuthToken,
+        );
+        final envelope = await client.postEnvelope(
+          'api/v2/pos-customers/$remoteId',
+          body: <String, dynamic>{
+            'company': name.trim(),
+            if (phone != null && phone.trim().isNotEmpty)
+              'phonenumber': phone.trim(),
+            if (address != null && address.trim().isNotEmpty)
+              'address': address.trim(),
+            if (email != null && email.trim().isNotEmpty)
+              'email': email.trim(),
+          },
+        );
+        if (envelope['data'] is Map) {
+          updatedRemoteData = (envelope['data'] as Map).cast<String, dynamic>();
+        }
+      } catch (_) {
+        // Offline or server error: continue with local update & dirty sync_state
+      }
+    }
+    // 3. Update SQLite record + conditionally enqueue sync_queue (offline case)
+    final syncState = updatedRemoteData != null ? 'clean' : 'dirty_update';
+    final requestBody = <String, dynamic>{
+      'company': name.trim(),
+      if (phone != null && phone.trim().isNotEmpty) 'phonenumber': phone.trim(),
+      if (address != null && address.trim().isNotEmpty) 'address': address.trim(),
+      if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
+    };
+
+    await DatabaseService.instance.transaction((txn) async {
+      await txn.update(
+        'customer',
+        <String, Object?>{
+          'display_name': name.trim(),
+          'company_name': name.trim(),
+          if (phone != null) 'phone_number': phone.trim(),
+          if (address != null) 'address_line1': address.trim(),
+          if (email != null) 'email': email.trim(),
+          'sync_state': syncState,
+          'updated_at': now,
+        },
+        where: 'id = ? AND tenant_id = ?',
+        whereArgs: <Object?>[localId, session.tenantId],
+      );
+
+      // Enqueue for background sync if remote update didn't succeed
+      if (syncState == 'dirty_update' &&
+          remoteId != null &&
+          remoteId.isNotEmpty) {
+        final dedupeKey = 'customer_update_${session.tenantId}_$localId';
+        await DatabaseService.instance.upsertByUnique(
+          txn,
+          'sync_queue',
+          where: 'tenant_id = ? AND dedupe_key = ?',
+          whereArgs: <Object?>[session.tenantId, dedupeKey],
+          insertValues: <String, Object?>{
+            'tenant_id': session.tenantId,
+            'entity_type': 'customer',
+            'entity_local_id': localId,
+            'entity_remote_id': remoteId,
+            'operation': 'update',
+            'method': 'POST',
+            'endpoint': 'api/v2/pos-customers/$remoteId',
+            'base_url': session.baseUrl,
+            'request_headers_json': jsonEncode(<String, Object?>{
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'authtoken': kFlinkV2FixedAuthToken,
+            }),
+            'request_body_json': jsonEncode(requestBody),
+            'dedupe_key': dedupeKey,
+            'priority': 100,
+            'status': 'pending',
+            'retry_count': 0,
+            'next_retry_at': null,
+            'created_at': now,
+            'updated_at': now,
+          },
+          updateValues: <String, Object?>{
+            'request_body_json': jsonEncode(requestBody),
+            'status': 'pending',
+            'retry_count': 0,
+            'next_retry_at': null,
+            'updated_at': now,
+          },
+        );
+      }
+    });
+
+    return PosCustomerRecord(
+      localId: localId,
+      remoteId: remoteId ?? '',
+      name: name.trim(),
+      phone: phone?.trim(),
+      address: address?.trim(),
+      pointsBalance: (current['points_balance'] as num?)?.toInt() ?? 0,
+      isDefaultWalkIn: remoteId == '1',
+    );
   }
 
   Future<PosCustomerRecord> ensureDefaultWalkInCustomer() async {

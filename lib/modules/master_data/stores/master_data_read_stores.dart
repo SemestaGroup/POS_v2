@@ -194,24 +194,61 @@ class StaffListRecord {
   final DateTime? lastLoginAt;
 }
 
+class CustomerOrderHistoryRecord {
+  const CustomerOrderHistoryRecord({
+    required this.id,
+    required this.formattedNumber,
+    required this.orderDate,
+    required this.statusCode,
+    required this.statusLabel,
+    required this.totalAmount,
+    required this.itemsSummary,
+    this.orderTypeCode,
+  });
+
+  final int id;
+  final String formattedNumber;
+  final DateTime? orderDate;
+  final int statusCode;
+  final String statusLabel;
+  final double totalAmount;
+  final String itemsSummary;
+  final String? orderTypeCode;
+}
+
+class CustomerStatsRecord {
+  const CustomerStatsRecord({
+    required this.totalOrders,
+    required this.totalSpend,
+  });
+
+  final int totalOrders;
+  final double totalSpend;
+
+  static const empty = CustomerStatsRecord(totalOrders: 0, totalSpend: 0.0);
+}
+
 class CustomerListRecord {
   const CustomerListRecord({
     required this.id,
     required this.displayName,
     required this.pointsBalance,
+    this.remoteId,
     this.phoneNumber,
     this.email,
+    this.address,
     this.city,
   });
 
   final int id;
+  final String? remoteId;
   final String displayName;
   final String? phoneNumber;
   final String? email;
+  final String? address;
   final String? city;
   final int pointsBalance;
 }
-
 class ProductListStore extends BaseMasterDataStore<ProductListRecord> {
   ProductListStore._();
 
@@ -544,7 +581,6 @@ class StaffListStore extends BaseMasterDataStore<StaffListRecord> {
       args.add('%$_searchQuery%');
       args.add('%$_searchQuery%');
     }
-
     if (_roleCode != null) {
       query += ' AND role_code = ?';
       args.add(_roleCode);
@@ -592,7 +628,7 @@ class CustomerListStore extends BaseMasterDataStore<CustomerListRecord> {
     final trimmedQuery = _searchQuery.trim();
 
     String query = '''
-      SELECT id, display_name, phone_number, email, city, points_balance
+      SELECT id, remote_id, display_name, phone_number, email, address_line1, city, points_balance
       FROM customer
       WHERE tenant_id = ?
         AND deleted_at IS NULL
@@ -629,19 +665,176 @@ class CustomerListStore extends BaseMasterDataStore<CustomerListRecord> {
     query += ' ORDER BY display_name ASC LIMIT 200';
     final rows = await DatabaseService.instance.rawQuery(query, args);
 
-
     return rows
         .map(
           (r) => CustomerListRecord(
             id: _asInt(r['id']) ?? 0,
+            remoteId: r['remote_id']?.toString(),
             displayName: r['display_name']?.toString() ?? 'Customer',
             phoneNumber: r['phone_number']?.toString(),
             email: r['email']?.toString(),
+            address: r['address_line1']?.toString(),
             city: r['city']?.toString(),
             pointsBalance: _asInt(r['points_balance']) ?? 0,
           ),
         )
         .toList(growable: false);
+  }
+  Future<CustomerStatsRecord> loadCustomerStats(
+    int customerId, {
+    String? customerRemoteId,
+  }) async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session == null) return CustomerStatsRecord.empty;
+
+    final whereClauses = <String>['pos_order.tenant_id = ?', 'pos_order.deleted_at IS NULL'];
+    final args = <Object?>[session.tenantId];
+
+    if (customerRemoteId != null && customerRemoteId.trim().isNotEmpty) {
+      whereClauses.add('(pos_order.customer_id = ? OR pos_order.customer_remote_id = ?)');
+      args.add(customerId);
+      args.add(customerRemoteId.trim());
+    } else {
+      whereClauses.add('pos_order.customer_id = ?');
+      args.add(customerId);
+    }
+
+    final rows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT
+        COUNT(*) AS total_orders,
+        COALESCE(SUM(pos_order.total_amount), 0) AS total_spend
+      FROM pos_order
+      WHERE ${whereClauses.join(' AND ')}
+      ''',
+      args,
+    );
+
+    if (rows.isEmpty) return CustomerStatsRecord.empty;
+    final row = rows.first;
+    return CustomerStatsRecord(
+      totalOrders: _asInt(row['total_orders']) ?? 0,
+      totalSpend: _asDouble(row['total_spend']),
+    );
+  }
+
+
+  Future<List<CustomerOrderHistoryRecord>> loadCustomerOrders(
+    int customerId, {
+    String? customerRemoteId,
+    int limit = 20,
+  }) async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session == null) return const [];
+
+    // Always match by local customer_id; additionally match customer_remote_id
+    // for orders synced from server that may carry only the remote id string.
+    final whereClauses = <String>['pos_order.tenant_id = ?', 'pos_order.deleted_at IS NULL'];
+    final args = <Object?>[session.tenantId];
+
+    if (customerRemoteId != null && customerRemoteId.trim().isNotEmpty) {
+      whereClauses.add('(pos_order.customer_id = ? OR pos_order.customer_remote_id = ?)');
+      args.add(customerId);
+      args.add(customerRemoteId.trim());
+    } else {
+      // No remoteId known: match by local id only (covers locally-created customers)
+      whereClauses.add('pos_order.customer_id = ?');
+      args.add(customerId);
+    }
+
+    final rows = await DatabaseService.instance.rawQuery(
+      '''
+      SELECT
+        pos_order.id,
+        pos_order.formatted_number,
+        pos_order.order_date,
+        pos_order.created_at,
+        pos_order.status_code,
+        pos_order.total_amount,
+        pos_order.order_type_code
+      FROM pos_order
+      WHERE ${whereClauses.join(' AND ')}
+      ORDER BY COALESCE(pos_order.created_at, pos_order.order_date, pos_order.updated_at) DESC
+      LIMIT ?
+      ''',
+      [...args, limit],
+    );
+
+    if (rows.isEmpty) return const [];
+
+    final orderIds = rows.map((r) => _asInt(r['id'])).whereType<int>().toSet();
+    final itemsSummaryByOrderId = <int, String>{};
+
+    if (orderIds.isNotEmpty) {
+      final itemRows = await DatabaseService.instance.rawQuery(
+        '''
+        SELECT order_id, product_name_snapshot, qty
+        FROM pos_order_item
+        WHERE tenant_id = ?
+          AND deleted_at IS NULL
+          AND order_id IN (${orderIds.join(',')})
+        ORDER BY id ASC
+        ''',
+        [session.tenantId],
+      );
+
+      final groupedItems = <int, List<String>>{};
+      for (final item in itemRows) {
+        final orderId = _asInt(item['order_id']);
+        final name = item['product_name_snapshot']?.toString() ?? 'Item';
+        final qty = _asDouble(item['qty']);
+        final qtyStr = qty % 1 == 0 ? qty.toInt().toString() : qty.toStringAsFixed(1);
+        if (orderId != null) {
+          groupedItems.putIfAbsent(orderId, () => []).add('$qtyStr x $name');
+        }
+      }
+
+      for (final entry in groupedItems.entries) {
+        itemsSummaryByOrderId[entry.key] = entry.value.join(', ');
+      }
+    }
+
+    return rows.map((r) {
+      final orderId = _asInt(r['id']) ?? 0;
+      final statusCode = _asInt(r['status_code']) ?? 1;
+      String statusLabel;
+      switch (statusCode) {
+        case 1:
+          statusLabel = 'Aktif';
+          break;
+        case 2:
+          statusLabel = 'Selesai';
+          break;
+        case 3:
+          statusLabel = 'Sebagian';
+          break;
+        case 4:
+          statusLabel = 'Jatuh Tempo';
+          break;
+        case 5:
+          statusLabel = 'Dibatalkan';
+          break;
+        case 6:
+          statusLabel = 'Diparkir';
+          break;
+        default:
+          statusLabel = 'Selesai';
+          break;
+      }
+
+      return CustomerOrderHistoryRecord(
+        id: orderId,
+        formattedNumber: r['formatted_number']?.toString() ?? '#$orderId',
+        orderDate: _parseDateTime(r['created_at'] ?? r['order_date']),
+        statusCode: statusCode,
+        statusLabel: statusLabel,
+        totalAmount: _asDouble(r['total_amount']),
+        itemsSummary: itemsSummaryByOrderId[orderId] ?? '-',
+        orderTypeCode: r['order_type_code']?.toString(),
+      );
+    }).toList(growable: false);
   }
 }
 
