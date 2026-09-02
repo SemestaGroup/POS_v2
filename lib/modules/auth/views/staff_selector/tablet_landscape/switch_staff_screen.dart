@@ -589,41 +589,56 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             ),
           ],
         ),
-        const Spacer(),
-        if (!widget.lockedMode) ...[lockButton],
-        const SizedBox(width: 12),
-        if (_pendingSyncCount > 0)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.orange.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.shade200),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.sync_problem_rounded,
-                  color: Colors.orange.shade700,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$_pendingSyncCount belum sinkron',
-                  style: TextStyle(
-                    color: Colors.orange.shade900,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+        // A plain Row here gave every trailing action its full intrinsic
+        // width with nothing able to shrink, so on a narrower tablet (or
+        // whenever the sync-pending badge appeared) the row overflowed to
+        // the right. Expanded + Wrap right-aligns the actions on one line
+        // when there's room, and falls back to a second line instead of
+        // overflowing when there isn't.
+        Expanded(
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              if (!widget.lockedMode) lockButton,
+              if (_pendingSyncCount > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange.shade200),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.sync_problem_rounded,
+                        color: Colors.orange.shade700,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$_pendingSyncCount belum sinkron',
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              syncButton,
+              logoutButton,
+            ],
           ),
-        const SizedBox(width: 12),
-        syncButton,
-        const SizedBox(width: 12),
-        logoutButton,
+        ),
       ],
     );
   }

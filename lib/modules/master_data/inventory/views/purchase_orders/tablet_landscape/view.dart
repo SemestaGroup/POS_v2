@@ -72,7 +72,11 @@ class _PurchaseOrdersViewState extends State<PurchaseOrdersView> {
                     color: theme.colorScheme.primary,
                   ),
                   const Spacer(),
-                  _buildLegend(),
+                  // Flexible so the legend's Wrap can shrink and break onto a
+                  // second line instead of demanding its full intrinsic
+                  // width, which overflowed this Row on narrower detail
+                  // panes (e.g. the Data Master master-detail layout).
+                  Flexible(child: _buildLegend()),
                 ],
               ),
             ),
@@ -116,6 +120,7 @@ class _PurchaseOrdersViewState extends State<PurchaseOrdersView> {
       _PoStatusInfo('failed', 'Gagal', const Color(0xFFEF4444)),
     ];
     return Wrap(
+      alignment: WrapAlignment.end,
       spacing: 10,
       runSpacing: 4,
       children: [
