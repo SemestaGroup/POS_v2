@@ -56,7 +56,7 @@ class _MarketplaceTabState extends State<MarketplaceTab> {
       productId: item.id,
       remoteId: item.remoteId,
       unitCost: item.costAmount,
-      group: item.displayName,
+      group: item.categoryName,
     );
   }
 

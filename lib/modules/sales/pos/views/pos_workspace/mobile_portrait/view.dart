@@ -3792,7 +3792,18 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
                 inputData: inputData,
                 paymentModeId: inputData.paymentModeId,
               )
-              .catchError((_) => <String, dynamic>{}),
+              .catchError((Object error) {
+            // No background retry exists for pos_cash_flow rows, so a
+            // failure here means the remote expense ledger silently drifts
+            // from this local record unless the cashier is told now.
+            debugPrint('[KAS_KELUAR] Remote expense sync failed: $error');
+            if (mounted) {
+              _showFeedback(
+                'Kas keluar tersimpan di perangkat ini, tapi gagal disinkronkan ke server.',
+              );
+            }
+            return <String, dynamic>{};
+          }),
         );
       }
       _showFeedback('Pengeluaran kas keluar berhasil dicatat.');

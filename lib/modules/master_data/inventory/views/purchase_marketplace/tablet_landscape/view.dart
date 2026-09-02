@@ -431,7 +431,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
       productId: item.id,
       remoteId: item.remoteId,
       unitCost: item.costAmount,
-      group: item.displayName,
+      group: item.categoryName,
     );
   }
 

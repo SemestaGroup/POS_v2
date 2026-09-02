@@ -441,6 +441,15 @@ class SalesOrderStore {
     if (items.isEmpty) {
       return null;
     }
+    final hasInvalidItem = items.any(
+      (item) => item.quantity <= 0 || item.regularUnitPrice < 0,
+    );
+    if (hasInvalidItem) {
+      debugPrint(
+        '[POS_ORDER] Blocked order creation: an item has quantity <= 0 or a negative price.',
+      );
+      return null;
+    }
 
     final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
     final resolvedOrderType = OrderTypeResolver.resolveCode(

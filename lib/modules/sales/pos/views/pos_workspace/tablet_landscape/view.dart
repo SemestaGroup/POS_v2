@@ -2430,7 +2430,30 @@ class _PosWorkspaceTabletLandscapeViewState
                 inputData: inputData,
                 paymentModeId: inputData.paymentModeId,
               )
-              .catchError((_) => <String, dynamic>{}),
+              .catchError((Object error) {
+            // The local pos_cash_flow row is already recorded, so this
+            // failure does not lose data — but it was previously swallowed
+            // entirely, leaving the remote expense ledger silently out of
+            // sync with no signal to the cashier. Surface it instead.
+            // Note: there is currently no background retry for pos_cash_flow
+            // rows, so a failure here means the remote expense ledger stays
+            // out of sync with this record until someone manually
+            // reconciles it — the cashier needs to know that now, not
+            // discover the gap later.
+            debugPrint('[KAS_KELUAR] Remote expense sync failed: $error');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  behavior: SnackBarBehavior.floating,
+                  backgroundColor: Colors.orange,
+                  content: Text(
+                    'Kas keluar tersimpan di perangkat ini, tapi gagal disinkronkan ke server. Mohon periksa koneksi dan catat manual jika perlu.',
+                  ),
+                ),
+              );
+            }
+            return <String, dynamic>{};
+          }),
         );
       }
 

@@ -595,7 +595,12 @@ class PosPromotionService {
             if (consumeQty > poolItem.qty) continue;
 
             final basePrice = overridePrice ?? poolItem.activeUnitPrice;
-            final currentPrice = basePrice - poolItem.accumulatedDiscount;
+            // Clamped to zero: a corrupt catalog price or prior discount
+            // stacking could otherwise drive this negative, and every branch
+            // below does `.clamp(0, currentPrice)`, which throws ArgumentError
+            // when currentPrice < 0 (upper bound below the lower bound).
+            final currentPrice = (basePrice - poolItem.accumulatedDiscount)
+                .clamp(0, 1 << 31);
 
             final normType = discountType.toLowerCase().replaceAll(' ', '_');
             final discountPerUnit = switch (normType) {
@@ -1007,9 +1012,14 @@ class PosPromotionService {
       }
 
       for (final item in matchedItems) {
-        final effectiveUnitPrice = (overridePrice != null && overridePrice > 0)
-            ? overridePrice
-            : item.activeUnitPrice;
+        // Clamped to zero for the same reason as allocatePromotions above:
+        // every branch below does `.clamp(0, effectiveUnitPrice)`, which
+        // throws if this is negative.
+        final effectiveUnitPrice =
+            ((overridePrice != null && overridePrice > 0)
+                    ? overridePrice
+                    : item.activeUnitPrice)
+                .clamp(0, 1 << 31);
 
         final currentLineTotal = effectiveUnitPrice * item.quantity;
         final normType = discountType.toLowerCase().replaceAll(' ', '_');
