@@ -58,3 +58,6 @@ skills-lock.json
 .ignore
 .vscode/settings.json
 android/gradle.properties
+
+# FVM Version Cache
+.fvm/
