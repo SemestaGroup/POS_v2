@@ -15,6 +15,7 @@ import '../../../../../../../l10n/app_localizations.dart';
 import '../../../../../../../core/services/sync/pos_v2_customer_service.dart';
 import '../../../../../operations/shift/models/active_shift_store.dart';
 import '../../../../shared/models/pos_catalog_store.dart';
+import '../../../../shared/models/pos_cart_totals.dart';
 import '../../../../shared/models/pos_promotion_service.dart';
 import '../../../../shared/models/sales_order_store.dart';
 import '../../../../shared/models/pos_tax_selection_resolver.dart';
@@ -429,31 +430,23 @@ class _PosWorkspaceTabletLandscapeViewState
 
   bool get _isCartEmpty => _cartItems.isEmpty;
 
-  int get _subtotalAmount => _cartItems.fold<int>(
-    0,
-    (sum, item) => sum + (item.regularUnitPrice * item.quantity),
+  // Shared with the mobile POS workspace via PosCartTotals so subtotal/
+  // discount/tax/total math (and its validation, like the manual-discount
+  // subtotal clamp) can't drift between the two screens again.
+  PosCartTotals get _cartTotals => PosCartTotals.fromCart(
+    items: _cartItems,
+    orderLevelDiscountAmount: _orderLevelDiscountAmount,
+    autoTaxEnabled: _autoTax,
+    taxPercentage: _taxPercentage,
   );
 
-  int get _itemDiscountAmount => _cartItems.fold<int>(
-    0,
-    (sum, item) =>
-        sum +
-        ((item.regularUnitPrice - item.activeUnitPrice).clamp(0, 1 << 31) *
-            item.quantity),
-  );
+  int get _subtotalAmount => _cartTotals.subtotalAmount;
 
-  int get _totalDiscountAmount =>
-      _itemDiscountAmount + _orderLevelDiscountAmount;
+  int get _totalDiscountAmount => _cartTotals.totalDiscountAmount;
 
-  int get _netAmount =>
-      (_subtotalAmount - _totalDiscountAmount).clamp(0, 1 << 31);
+  int get _taxAmount => _cartTotals.taxAmount;
 
-  int get _taxAmount {
-    if (!_autoTax || _taxPercentage <= 0) return 0;
-    return (_netAmount * (_taxPercentage / 100)).round();
-  }
-
-  int get _totalPay => _netAmount + _taxAmount;
+  int get _totalPay => _cartTotals.totalPay;
 
   int get _openOrdersCount => SalesOrderStore.instance.countForStatuses({1, 6});
 
@@ -1489,9 +1482,8 @@ class _PosWorkspaceTabletLandscapeViewState
                                                 context,
                                               )!.manualDiscount;
                                           _orderLevelDiscountAmount =
-                                              parsedInput.clamp(
-                                                0,
-                                                _subtotalAmount,
+                                              _cartTotals.clampManualDiscount(
+                                                parsedInput,
                                               );
                                           _selectedPromotions.clear();
                                           _recalculateCartPromotions();
