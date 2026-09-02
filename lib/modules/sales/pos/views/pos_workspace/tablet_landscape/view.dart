@@ -1213,6 +1213,7 @@ class _PosWorkspaceTabletLandscapeViewState
                                   onPressed: () {
                                     setState(() {
                                       _selectedPromotions = tempSelectedPromos;
+                                      _orderLevelDiscountAmount = 0;
                                       _recalculateCartPromotions();
                                     });
                                     Navigator.pop(context);
@@ -1488,7 +1489,10 @@ class _PosWorkspaceTabletLandscapeViewState
                                                 context,
                                               )!.manualDiscount;
                                           _orderLevelDiscountAmount =
-                                              parsedInput;
+                                              parsedInput.clamp(
+                                                0,
+                                                _subtotalAmount,
+                                              );
                                           _selectedPromotions.clear();
                                           _recalculateCartPromotions();
                                         }

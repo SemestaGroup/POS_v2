@@ -1405,7 +1405,10 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
     );
 
     if (!mounted || nextSelection == null) return;
-    setState(() => _selectedPromotions = nextSelection);
+    setState(() {
+      _selectedPromotions = nextSelection;
+      _orderLevelDiscountAmount = 0;
+    });
     _recalculateCartPromotions();
   }
 

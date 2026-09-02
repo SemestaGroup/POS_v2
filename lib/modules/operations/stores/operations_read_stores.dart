@@ -369,7 +369,7 @@ class RecapStore {
         FROM pos_order o
         WHERE o.tenant_id = ?
           AND o.deleted_at IS NULL
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND EXISTS (
             SELECT 1 FROM shift_session s
             WHERE s.tenant_id = o.tenant_id

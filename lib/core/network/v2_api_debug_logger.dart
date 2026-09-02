@@ -46,6 +46,24 @@ class V2ApiDebugEntry {
   }
 }
 
+/// Request/response field names whose values must never reach the debug log,
+/// regardless of how deeply nested they are in the payload.
+const Set<String> _sensitiveFieldNames = <String>{
+  'password',
+  'pin',
+  'authtoken',
+  'auth_token',
+  'token',
+  'access_token',
+  'refresh_token',
+  'secret',
+  'apikey',
+  'api_key',
+  'card_number',
+  'cvv',
+  'otp',
+};
+
 class V2ApiDebugLogger {
   V2ApiDebugLogger._();
 
@@ -54,12 +72,14 @@ class V2ApiDebugLogger {
   void log(V2ApiDebugEntry entry) {
     final buffer = StringBuffer();
     buffer.writeln('[V2 API DEBUG] ${entry.method} ${entry.url}');
-    
+
     if (entry.requestBody != null) {
       buffer.writeln('--- Body ---');
-      buffer.writeln(_truncateChars(jsonEncode(entry.requestBody)));
+      buffer.writeln(
+        _truncateChars(jsonEncode(_redactSensitive(entry.requestBody))),
+      );
     }
-    
+
     buffer.writeln('--- Response ---');
     if (entry.error != null) {
       buffer.writeln(_truncateChars(entry.error!));
@@ -68,7 +88,7 @@ class V2ApiDebugLogger {
     } else {
       buffer.writeln('Status: ${entry.statusCode}');
     }
-    
+
     debugPrint(buffer.toString());
   }
 
@@ -76,7 +96,7 @@ class V2ApiDebugLogger {
     final isGeneratedReportKey =
         entry.method == 'POST' &&
         Uri.tryParse(entry.url)?.path.endsWith('/api/v2/pos-options') == true;
-    final response = entry.responseBody;
+    final response = _redactSensitive(entry.responseBody);
     if (!isGeneratedReportKey || response is! Map) {
       return response;
     }
@@ -86,6 +106,24 @@ class V2ApiDebugLogger {
       sanitized['data'] = '<redacted>';
     }
     return sanitized;
+  }
+
+  /// Recursively walks [value] and replaces any map value whose key matches
+  /// [_sensitiveFieldNames] (case-insensitive) with `<redacted>`, so secrets
+  /// never leak into logs even when buried inside nested objects/arrays.
+  Object? _redactSensitive(Object? value) {
+    if (value is Map) {
+      return value.map((key, v) {
+        final isSensitive =
+            key is String &&
+            _sensitiveFieldNames.contains(key.toLowerCase());
+        return MapEntry(key, isSensitive ? '<redacted>' : _redactSensitive(v));
+      });
+    }
+    if (value is List) {
+      return value.map(_redactSensitive).toList();
+    }
+    return value;
   }
 
   String _truncateChars(String text, {int maxChars = 1000}) {

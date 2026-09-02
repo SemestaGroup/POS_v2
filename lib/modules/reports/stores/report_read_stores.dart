@@ -327,7 +327,7 @@ class ReportSummaryStore {
                COALESCE(SUM(discount_total_amount),0) as disc_total
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND deleted_at IS NULL
           AND COALESCE(order_date, created_at) >= ?
         ''',
@@ -339,7 +339,7 @@ class ReportSummaryStore {
                COUNT(*) as tx_count
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND deleted_at IS NULL
           AND COALESCE(order_date, created_at) >= ?
         ''',
@@ -351,7 +351,7 @@ class ReportSummaryStore {
                COUNT(*) as tx_count
         FROM pos_order
         WHERE tenant_id = ?
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND deleted_at IS NULL
           AND COALESCE(order_date, created_at) >= ?
         ''',
@@ -365,7 +365,7 @@ class ReportSummaryStore {
         FROM pos_order_item oi
         INNER JOIN pos_order o ON o.id = oi.order_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND o.deleted_at IS NULL
           AND oi.deleted_at IS NULL
           AND COALESCE(o.order_date, o.created_at) >= ?
@@ -448,7 +448,7 @@ class SalesReportStore {
         ) pm ON pm.order_id = o.id
         WHERE o.tenant_id = ?
           AND o.deleted_at IS NULL
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND COALESCE(o.order_date, o.created_at) >= ?
         ORDER BY COALESCE(o.order_date, o.created_at) DESC
         LIMIT 5000
@@ -524,7 +524,7 @@ class ProductReportStore {
         FROM pos_order_item oi
         INNER JOIN pos_order o ON o.id = oi.order_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND o.deleted_at IS NULL
           AND oi.deleted_at IS NULL
           AND COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?
@@ -591,7 +591,7 @@ class StaffReportStore {
         FROM pos_order o
         LEFT JOIN staff s ON s.id = o.sale_staff_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND o.deleted_at IS NULL
           AND COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?
         GROUP BY o.sale_staff_id, s.full_name
@@ -726,7 +726,7 @@ class CashierReportLiteStore {
         FROM pos_order_payment p
         INNER JOIN pos_order o ON o.id = p.order_id
         WHERE o.tenant_id = ?
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND o.deleted_at IS NULL
           AND p.deleted_at IS NULL
           AND p.is_refund = 0

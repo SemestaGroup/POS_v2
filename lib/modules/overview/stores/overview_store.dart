@@ -278,7 +278,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL 
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         ''',
@@ -296,7 +296,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL 
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         ''',
@@ -313,7 +313,7 @@ class OverviewStore {
         JOIN pos_order o ON i.order_id = o.id
         WHERE o.tenant_id = ? 
           AND o.deleted_at IS NULL 
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= ?
           AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= ?
         GROUP BY i.product_id, i.product_name_snapshot
@@ -358,7 +358,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL 
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         GROUP BY hour
@@ -388,7 +388,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ? 
           AND deleted_at IS NULL
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') >= ?
           AND REPLACE(COALESCE(NULLIF(order_date, ''), created_at), 'T', ' ') <= ?
         GROUP BY dayDate
@@ -486,7 +486,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ?
           AND deleted_at IS NULL
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND $customerKey IS NOT NULL
           AND COALESCE(NULLIF(customer_remote_id, ''), '') <> '1'
           AND $orderDate >= ?
@@ -502,7 +502,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ?
           AND deleted_at IS NULL
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND $customerKey IS NOT NULL
           AND $orderDate >= ?
           AND $orderDate <= ?
@@ -529,7 +529,7 @@ class OverviewStore {
           )
         WHERE o.tenant_id = ?
           AND o.deleted_at IS NULL
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND COALESCE(NULLIF(o.customer_remote_id, ''), CAST(o.customer_id AS TEXT)) IS NOT NULL
           AND COALESCE(NULLIF(o.customer_remote_id, ''), '') <> '1'
           AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= ?
@@ -570,7 +570,7 @@ class OverviewStore {
           )
         WHERE o.tenant_id = ?
           AND o.deleted_at IS NULL
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND COALESCE(NULLIF(o.customer_remote_id, ''), CAST(o.customer_id AS TEXT)) IS NOT NULL
           AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') >= ?
           AND REPLACE(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' ') <= ?
@@ -603,7 +603,7 @@ class OverviewStore {
           FROM pos_order
           WHERE tenant_id = ?
             AND deleted_at IS NULL
-            AND status_code IN ('2', '4')
+            AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
             AND $customerKey IS NOT NULL
             AND COALESCE(NULLIF(customer_remote_id, ''), '') <> '1'
             AND $orderDate >= ?
@@ -624,7 +624,7 @@ class OverviewStore {
           FROM pos_order
           WHERE tenant_id = ?
             AND deleted_at IS NULL
-            AND status_code IN ('2', '4')
+            AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
             AND $customerKey IS NOT NULL
             AND $orderDate >= ?
             AND $orderDate <= ?
@@ -646,7 +646,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ?
           AND deleted_at IS NULL
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND $customerKey IS NOT NULL
           AND COALESCE(NULLIF(customer_remote_id, ''), '') <> '1'
           AND $orderDate >= ?
@@ -678,7 +678,7 @@ class OverviewStore {
         FROM pos_order
         WHERE tenant_id = ?
           AND deleted_at IS NULL
-          AND status_code IN ('2', '4')
+          AND (status_code IN ('2', '4', 2, 4) OR LOWER(CAST(status_code AS TEXT)) IN ('paid', 'completed'))
           AND $customerKey IS NOT NULL
           AND $orderDate >= ?
           AND $orderDate <= ?

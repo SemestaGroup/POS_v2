@@ -8,6 +8,18 @@ import 'v2_sync_utils.dart';
 class ShiftSyncAdapter extends BaseV2SyncAdapter {
   ShiftSyncAdapter({super.databaseService});
 
+  /// Opens a shift remotely and mirrors it locally.
+  ///
+  /// [localShiftId] identifies an existing local `shift_session` row that was
+  /// created offline and is now being retried (e.g. from
+  /// [syncPendingLocalShifts]). When set, a successful remote call attaches
+  /// the returned `remote_id` to that SAME row (by id) instead of going
+  /// through [_upsertShiftRow] — which keys its upsert on `remote_id` and
+  /// would otherwise insert a brand-new row (since this row has no
+  /// `remote_id` yet), leaving the original pending row orphaned and causing
+  /// a duplicate shift to be opened on every retry. Likewise, while still
+  /// offline, a retry must not insert another fresh local row for the same
+  /// shift.
   Future<V2SyncResult> openShift(
     V2SyncContext context, {
     required int locationId,
@@ -17,6 +29,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     required int openingBalance,
     String? deviceId,
     String? registerId,
+    int? localShiftId,
   }) async {
     Map<String, dynamic> row = {};
     bool isOffline = false;
@@ -33,7 +46,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
           'device_id': deviceId,
           'register_id': registerId ?? context.registerId,
         },
-      ).timeout(const Duration(seconds: 3));
+      ).timeout(const Duration(seconds: 8));
       row = V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
     } catch (e) {
       if (e.toString().toLowerCase().contains('active shift session already exists')) {
@@ -46,8 +59,13 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     await databaseService.transaction((txn) async {
       final tenantId = await ensureTenantId(txn, context);
       final now = V2SyncUtils.nowIso();
-      
+
       if (isOffline || row.isEmpty) {
+        if (localShiftId != null) {
+          // Still offline on retry: the pending row already represents this
+          // shift, so there is nothing new to persist.
+          return;
+        }
         final staffLocalId = await findLocalIdByRemoteId(txn, 'staff', tenantId, staffId.toString());
         await txn.insert('shift_session', <String, Object?>{
           'tenant_id': tenantId,
@@ -74,6 +92,30 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
           endpointName: 'pos-shift-sessions/open',
           scopeKey: 'local',
           notes: 'Shift opened offline and stored locally.',
+        );
+      } else if (localShiftId != null) {
+        final staffLocalId = await findLocalIdByRemoteId(txn, 'staff', tenantId, staffId.toString());
+        await txn.update(
+          'shift_session',
+          <String, Object?>{
+            'remote_id': V2SyncUtils.asString(row['id']),
+            'pos_staff_id': staffLocalId,
+            'status': V2SyncUtils.asString(row['status']) ?? 'open',
+            'raw_payload_json': V2SyncUtils.encodeJson(row),
+            'sync_state': 'clean',
+            'last_synced_at': now,
+            'updated_at': now,
+          },
+          where: 'id = ?',
+          whereArgs: <Object?>[localShiftId],
+        );
+        upsertedCount = 1;
+        await touchCheckpoint(
+          txn,
+          tenantId,
+          endpointName: 'pos-shift-sessions/open',
+          scopeKey: row['id']?.toString() ?? 'new',
+          notes: 'Offline shift attached to remote session on retry.',
         );
       } else {
         upsertedCount += await _upsertShiftRow(txn, tenantId, row);
@@ -113,7 +155,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
 
       final rows = await txn.query(
         'shift_session',
-        columns: ['remote_id'],
+        columns: ['remote_id', 'status', 'sync_state'],
         where: 'id = ? AND tenant_id = ?',
         whereArgs: [shiftLocalId, tenantId],
       );
@@ -121,6 +163,18 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
         throw Exception('Shift session not found locally.');
       }
       final remoteId = V2SyncUtils.asString(rows.first['remote_id']);
+
+      // Idempotency guard: if this shift is already closed AND confirmed
+      // synced with the server, do not fire another close call. Without
+      // this, a retry from syncPendingLocalShifts (e.g. triggered again
+      // after a slow response that actually succeeded server-side) would
+      // re-POST close indefinitely, risking the backend treating each retry
+      // as a fresh close and overwriting the original reconciliation.
+      final currentStatus = V2SyncUtils.asString(rows.first['status']);
+      final currentSyncState = V2SyncUtils.asString(rows.first['sync_state']);
+      if (currentStatus == 'closed' && currentSyncState == 'clean') {
+        return;
+      }
 
       Map<String, dynamic> row = {};
       bool isOffline = false;
@@ -137,7 +191,7 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
               'total_non_cash': totalNonCash ?? 0,
               'reconciliation_json': reconciliationJson ?? <String, dynamic>{},
             },
-          ).timeout(const Duration(seconds: 3));
+          ).timeout(const Duration(seconds: 8));
           row = V2SyncUtils.asMap(envelope['data']) ?? const <String, dynamic>{};
         } catch (_) {
           isOffline = true;
@@ -333,52 +387,70 @@ class ShiftSyncAdapter extends BaseV2SyncAdapter {
     return 1;
   }
 
+  /// Pushes any shift opened and/or closed while offline up to the server.
+  ///
+  /// Deliberately does NOT wrap this loop in a single `databaseService
+  /// .transaction`: [openShift] and [closeShift] each open their own
+  /// transaction, and sqflite cannot start a nested transaction on the same
+  /// connection — doing so previously deadlocked this method whenever there
+  /// were pending rows to push, since the outer transaction's callback can
+  /// never complete while awaiting an inner transaction that is queued
+  /// behind it.
   Future<void> syncPendingLocalShifts(V2SyncContext context) async {
-    await databaseService.transaction((txn) async {
-      final tenantId = await ensureTenantId(txn, context);
-      final rows = await txn.query(
-        'shift_session',
-        where: 'tenant_id = ? AND sync_state = ?',
-        whereArgs: [tenantId, 'pending'],
-      );
-      if (rows.isEmpty) return;
+    final db = await databaseService.database;
+    final tenantId = await ensureTenantId(db, context);
+    final rows = await db.query(
+      'shift_session',
+      where: 'tenant_id = ? AND sync_state = ?',
+      whereArgs: [tenantId, 'pending'],
+    );
+    if (rows.isEmpty) return;
 
-      for (final row in rows) {
-        final status = row['status']?.toString();
-        final localId = V2SyncUtils.asInt(row['id']);
+    for (final row in rows) {
+      final status = row['status']?.toString();
+      final localId = V2SyncUtils.asInt(row['id']);
+      var remoteId = row['remote_id']?.toString();
 
-        if (status == 'closed') {
-          final remoteId = row['remote_id']?.toString();
-          if (remoteId != null && remoteId.isNotEmpty) {
-            try {
-              await closeShift(
-                context,
-                shiftLocalId: localId,
-                actualCash: V2SyncUtils.asInt(row['actual_cash']),
-                expectedCash: V2SyncUtils.asInt(row['expected_cash']),
-                totalNonCash: V2SyncUtils.asInt(row['total_non_cash']),
-                reconciliationJson: V2SyncUtils.asMap(row['reconciliation_json'] != null ? jsonDecode(row['reconciliation_json'].toString()) : null),
-              );
-            } catch (_) {}
-          }
-        } else if (status == 'open') {
-          final remoteId = row['remote_id']?.toString();
-          if (remoteId == null || remoteId.isEmpty) {
-            try {
-              await openShift(
-                context,
-                locationId: V2SyncUtils.asInt(row['location_id']),
-                staffId: V2SyncUtils.asInt(row['pos_staff_remote_id']),
-                staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
-                shiftName: row['shift_name']?.toString() ?? '',
-                openingBalance: V2SyncUtils.asInt(row['opening_balance']),
-                deviceId: row['source_device_id']?.toString(),
-                registerId: row['register_id']?.toString(),
-              );
-            } catch (_) {}
-          }
+      try {
+        if ((remoteId == null || remoteId.isEmpty) &&
+            (status == 'open' || status == 'closed')) {
+          // Covers both a shift still open offline and one that was opened
+          // AND closed entirely offline (no remote_id ever assigned) — the
+          // latter used to be silently skipped here and stayed stuck locally
+          // forever, since only the 'open' branch used to retry openShift.
+          await openShift(
+            context,
+            locationId: V2SyncUtils.asInt(row['location_id']),
+            staffId: V2SyncUtils.asInt(row['pos_staff_remote_id']),
+            staffName: row['pos_staff_name_snapshot']?.toString() ?? '',
+            shiftName: row['shift_name']?.toString() ?? '',
+            openingBalance: V2SyncUtils.asInt(row['opening_balance']),
+            deviceId: row['source_device_id']?.toString(),
+            registerId: row['register_id']?.toString(),
+            localShiftId: localId,
+          );
+          final refreshed = await db.query(
+            'shift_session',
+            columns: ['remote_id'],
+            where: 'id = ?',
+            whereArgs: <Object?>[localId],
+          );
+          remoteId = refreshed.isNotEmpty
+              ? V2SyncUtils.asString(refreshed.first['remote_id'])
+              : null;
         }
-      }
-    });
+
+        if (status == 'closed' && remoteId != null && remoteId.isNotEmpty) {
+          await closeShift(
+            context,
+            shiftLocalId: localId,
+            actualCash: V2SyncUtils.asInt(row['actual_cash']),
+            expectedCash: V2SyncUtils.asInt(row['expected_cash']),
+            totalNonCash: V2SyncUtils.asInt(row['total_non_cash']),
+            reconciliationJson: V2SyncUtils.asMap(row['reconciliation_json'] != null ? jsonDecode(row['reconciliation_json'].toString()) : null),
+          );
+        }
+      } catch (_) {}
+    }
   }
 }

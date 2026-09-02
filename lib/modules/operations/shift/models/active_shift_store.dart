@@ -277,7 +277,7 @@ class ActiveShiftStore {
         WHERE p.tenant_id = ?
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND (
             o.shift_session_id = ?
             OR (? IS NOT NULL AND ? != '' AND o.shift_session_remote_id = ?)
@@ -351,7 +351,7 @@ class ActiveShiftStore {
         WHERE p.tenant_id = ?
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND o.status_code IN ('2', '4')
+          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
           AND (
             o.shift_session_id = ?
             OR (? IS NOT NULL AND ? != '' AND o.shift_session_remote_id = ?)
