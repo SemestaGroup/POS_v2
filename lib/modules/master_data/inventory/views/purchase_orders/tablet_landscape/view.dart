@@ -72,11 +72,20 @@ class _PurchaseOrdersViewState extends State<PurchaseOrdersView> {
                     color: theme.colorScheme.primary,
                   ),
                   const Spacer(),
-                  // Flexible so the legend's Wrap can shrink and break onto a
-                  // second line instead of demanding its full intrinsic
-                  // width, which overflowed this Row on narrower detail
-                  // panes (e.g. the Data Master master-detail layout).
-                  Flexible(child: _buildLegend()),
+                  // Flexible + a horizontally scrolling row keeps the legend
+                  // on one line (no header height change) instead of
+                  // overflowing this Row on narrower detail panes (e.g. the
+                  // Data Master master-detail layout) or wrapping to a
+                  // second line and growing the header.
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: _buildLegend(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -119,24 +128,19 @@ class _PurchaseOrdersViewState extends State<PurchaseOrdersView> {
       _PoStatusInfo('completed', 'Selesai', const Color(0xFF22C55E)),
       _PoStatusInfo('failed', 'Gagal', const Color(0xFFEF4444)),
     ];
-    return Wrap(
-      alignment: WrapAlignment.end,
-      spacing: 10,
-      runSpacing: 4,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        for (final s in statuses)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(color: s.color, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 4),
-              Text(s.label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
-            ],
+        for (final s in statuses) ...[
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(color: s.color, shape: BoxShape.circle),
           ),
+          const SizedBox(width: 3),
+          Text(s.label, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
+          if (s != statuses.last) const SizedBox(width: 6),
+        ],
       ],
     );
   }

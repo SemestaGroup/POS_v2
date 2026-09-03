@@ -372,6 +372,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
             ),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               side: const BorderSide(color: Colors.orange),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -423,6 +424,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       ),
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         backgroundColor: AppColors.primary,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -446,6 +448,7 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
       ),
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 38),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         backgroundColor: AppColors.error,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
@@ -592,51 +595,61 @@ class _SwitchStaffScreenState extends State<SwitchStaffScreen> {
         // A plain Row here gave every trailing action its full intrinsic
         // width with nothing able to shrink, so on a narrower tablet (or
         // whenever the sync-pending badge appeared) the row overflowed to
-        // the right. Expanded + Wrap right-aligns the actions on one line
-        // when there's room, and falls back to a second line instead of
-        // overflowing when there isn't.
+        // the right. Expanded + a horizontally scrolling Row keeps this on
+        // one line (no header height change) and right-aligned when
+        // everything fits, falling back to a horizontal scroll instead of
+        // overflowing or wrapping to a second line when it doesn't.
         Expanded(
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              if (!widget.lockedMode) lockButton,
-              if (_pendingSyncCount > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.orange.shade200),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.sync_problem_rounded,
-                        color: Colors.orange.shade700,
-                        size: 16,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!widget.lockedMode) ...[
+                    lockButton,
+                    const SizedBox(width: 8),
+                  ],
+                  if (_pendingSyncCount > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '$_pendingSyncCount belum sinkron',
-                        style: TextStyle(
-                          color: Colors.orange.shade900,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade200),
                       ),
-                    ],
-                  ),
-                ),
-              syncButton,
-              logoutButton,
-            ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.sync_problem_rounded,
+                            color: Colors.orange.shade700,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '$_pendingSyncCount belum sinkron',
+                            style: TextStyle(
+                              color: Colors.orange.shade900,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  syncButton,
+                  const SizedBox(width: 8),
+                  logoutButton,
+                ],
+              ),
+            ),
           ),
         ),
       ],
