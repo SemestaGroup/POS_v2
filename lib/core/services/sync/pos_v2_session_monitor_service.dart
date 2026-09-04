@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../modules/master_data/inventory/stores/inventory_read_stores.dart';
 import '../../network/v2_api_client.dart';
 import 'pos_v2_auth_service.dart';
 import 'pos_v2_runtime_session_store.dart';
@@ -53,6 +54,9 @@ class PosV2SessionMonitorService {
     try {
       // Before checking active session, attempt to push any pending local shift opens/closes
       await PosV2SyncOrchestrator().syncPendingLocalShifts(session.toSyncContext());
+      // Also retry any purchase order that was created offline and never
+      // reached the server.
+      unawaited(PurchaseOrderRequestStore.instance.syncPendingOrders());
 
       final authService = PosV2AuthService();
       final sessionCode = await authService.resolveActiveDeviceSessionCode(session);

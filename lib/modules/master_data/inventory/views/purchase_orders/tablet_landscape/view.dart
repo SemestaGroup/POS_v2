@@ -257,6 +257,51 @@ class _PurchaseOrdersViewState extends State<PurchaseOrdersView> {
     await showDialog<void>(
       context: context,
       builder: (context) {
+        return StatefulBuilder(
+          builder: (context, dialogSetState) {
+        var isCancelling = false;
+        Future<void> handleCancel() async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (confirmContext) => AlertDialog(
+              title: const Text('Batalkan Purchase Order?'),
+              content: Text(
+                '${order.poCode} akan dibatalkan${order.status == 'completed' ? ' dan dihapus dari Pusat' : ''}. Tindakan ini tidak bisa dibatalkan.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(confirmContext, false),
+                  child: const Text('Tidak'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(confirmContext, true),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+                  child: const Text('Ya, Batalkan'),
+                ),
+              ],
+            ),
+          );
+          if (confirmed != true) return;
+
+          dialogSetState(() => isCancelling = true);
+          try {
+            await PurchaseOrderRequestStore.instance.cancelOrder(order.id);
+            await _poStore.refresh();
+            if (context.mounted) Navigator.of(context).pop();
+          } catch (error) {
+            dialogSetState(() => isCancelling = false);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Gagal membatalkan PO: ${error.toString().replaceFirst('Exception: ', '')}',
+                  ),
+                ),
+              );
+            }
+          }
+        }
+
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
@@ -426,17 +471,37 @@ class _PurchaseOrdersViewState extends State<PurchaseOrdersView> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Tutup'),
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: isCancelling ? null : handleCancel,
+                        icon: isCancelling
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.cancel_outlined, size: 16),
+                        label: Text(isCancelling ? 'Membatalkan...' : 'Batalkan PO'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade600,
+                          side: BorderSide(color: Colors.red.shade200),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Tutup'),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
+        );
+          },
         );
       },
     );

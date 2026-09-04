@@ -4,7 +4,7 @@ import '../../../stores/inventory_read_stores.dart';
 import 'inventory_common_widgets.dart';
 import 'purchase_order_card.dart';
 
-class PurchaseOrderDetailsSheet extends StatelessWidget {
+class PurchaseOrderDetailsSheet extends StatefulWidget {
   const PurchaseOrderDetailsSheet({
     super.key,
     required this.order,
@@ -13,6 +13,57 @@ class PurchaseOrderDetailsSheet extends StatelessWidget {
 
   final PurchaseOrderRecord order;
   final List<PurchaseOrderLineRecord> lines;
+
+  @override
+  State<PurchaseOrderDetailsSheet> createState() =>
+      _PurchaseOrderDetailsSheetState();
+}
+
+class _PurchaseOrderDetailsSheetState extends State<PurchaseOrderDetailsSheet> {
+  bool _isCancelling = false;
+
+  PurchaseOrderRecord get order => widget.order;
+  List<PurchaseOrderLineRecord> get lines => widget.lines;
+
+  Future<void> _confirmCancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Batalkan Purchase Order?'),
+        content: Text(
+          '${order.poCode} akan dibatalkan${order.status == 'completed' ? ' dan dihapus dari Pusat' : ''}. Tindakan ini tidak bisa dibatalkan.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Tidak'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red.shade600),
+            child: const Text('Ya, Batalkan'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      await PurchaseOrderRequestStore.instance.cancelOrder(order.id);
+      await PurchaseOrderStore.instance.refresh();
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) {
+        setState(() => _isCancelling = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membatalkan PO: ${error.toString().replaceFirst('Exception: ', '')}'),
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +239,27 @@ class PurchaseOrderDetailsSheet extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isCancelling ? null : _confirmCancel,
+                  icon: _isCancelling
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.cancel_outlined, size: 18),
+                  label: Text(_isCancelling ? 'Membatalkan...' : 'Batalkan PO'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade600,
+                    side: BorderSide(color: Colors.red.shade200),
+                  ),
+                ),
               ),
             ),
           ],

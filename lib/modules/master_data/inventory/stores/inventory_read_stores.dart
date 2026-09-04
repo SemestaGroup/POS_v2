@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import 'package:flinkpos_v2/core/network/v2_api_client.dart';
 import 'package:flinkpos_v2/core/services/local/database_service.dart';
 import 'package:flinkpos_v2/core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../stores/master_data_read_stores.dart';
@@ -259,14 +258,14 @@ class PurchaseOrderRequestStore extends BaseMasterDataStore<PurchaseOrderRequest
              r.quantity,
              r.unit_cost_amount,
              r.status,
-             sq.status AS queue_status,
+             o.remote_id AS po_remote_id,
+             o.last_sync_error AS po_last_sync_error,
              r.created_at,
              r.updated_at
       FROM purchase_order_request r
-      LEFT JOIN sync_queue sq
-        ON sq.tenant_id = r.tenant_id
-       AND sq.entity_type = 'purchase_order_request'
-       AND sq.entity_local_id = r.id
+      LEFT JOIN purchase_order o
+        ON o.id = r.purchase_order_id
+       AND o.tenant_id = r.tenant_id
       WHERE r.tenant_id = ?
         AND r.deleted_at IS NULL
       ORDER BY r.created_at DESC
@@ -284,15 +283,22 @@ class PurchaseOrderRequestStore extends BaseMasterDataStore<PurchaseOrderRequest
               quantity: _asDouble(r['quantity']),
               unitCostAmount: _asInt(r['unit_cost_amount']) ?? 0,
               status: r['status']?.toString() ?? 'pending',
-              queueStatus: r['queue_status']?.toString() ?? 'pending',
+              queueStatus: _derivePoStatus(
+                remoteId: r['po_remote_id']?.toString(),
+                lastSyncError: r['po_last_sync_error']?.toString(),
+              ),
               createdAt: r['created_at']?.toString() ?? '',
               updatedAt: r['updated_at']?.toString(),
             ))
         .toList(growable: false);
   }
 
-  /// Creates a purchase order header + line items and enqueues each line for
-  /// sync. Returns the generated PO code.
+  /// Creates a purchase order header + line items locally, then submits the
+  /// whole order in one call to `POST /v2/pos-purchase` (the real backend
+  /// endpoint — items travel together as a single `items[]` array; there is
+  /// no per-line purchase-order-request endpoint). If offline or the call
+  /// fails, the order is kept locally with no `remote_id` and picked up by
+  /// [syncPendingOrders] on the next retry. Returns the generated PO code.
   Future<String> createOrder({required List<PurchaseOrderInputLine> lines}) async {
     final session = PosV2RuntimeSessionStore.instance.currentSession;
     if (session == null) {
@@ -309,8 +315,9 @@ class PurchaseOrderRequestStore extends BaseMasterDataStore<PurchaseOrderRequest
       (sum, l) => sum + (l.quantity * l.unitCostAmount).round(),
     );
 
+    late int poId;
     await DatabaseService.instance.transaction((txn) async {
-      final poId = await txn.insert('purchase_order', <String, Object?>{
+      poId = await txn.insert('purchase_order', <String, Object?>{
         'tenant_id': session.tenantId,
         'po_code': poCode,
         'item_count': lines.length,
@@ -322,7 +329,7 @@ class PurchaseOrderRequestStore extends BaseMasterDataStore<PurchaseOrderRequest
       });
 
       for (final line in lines) {
-        final requestId = await txn.insert('purchase_order_request', <String, Object?>{
+        await txn.insert('purchase_order_request', <String, Object?>{
           'tenant_id': session.tenantId,
           'purchase_order_id': poId,
           'product_id': line.productId,
@@ -336,72 +343,10 @@ class PurchaseOrderRequestStore extends BaseMasterDataStore<PurchaseOrderRequest
           'created_at': now,
           'updated_at': now,
         });
-
-        final requestBody = <String, Object?>{
-          'product_id': line.productRemoteId ?? line.productId,
-          'product_remote_id': line.productRemoteId,
-          'product_sku': line.productSku,
-          'product_name': line.productName,
-          'quantity': line.quantity,
-          'unit_cost_amount': line.unitCostAmount,
-          'po_code': poCode,
-          'location_id': session.locationId,
-          'requested_by': session.staffId,
-          'requested_at': now,
-        };
-
-        await DatabaseService.instance.upsertByUnique(
-          txn,
-          'sync_queue',
-          where: 'tenant_id = ? AND dedupe_key = ?',
-          whereArgs: <Object?>[
-            session.tenantId,
-            'purchase-order-request:$requestId',
-          ],
-          insertValues: <String, Object?>{
-            'tenant_id': session.tenantId,
-            'entity_type': 'purchase_order_request',
-            'entity_local_id': requestId,
-            'entity_remote_id': null,
-            'operation': 'create',
-            'method': 'POST',
-            'endpoint': 'api/v2/purchase-order-request',
-            'base_url': session.baseUrl,
-            'request_headers_json': jsonEncode(<String, Object?>{
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'authtoken': session.authToken,
-            }),
-            'request_body_json': jsonEncode(requestBody),
-            'dedupe_key': 'purchase-order-request:$requestId',
-            'priority': 110,
-            'status': 'pending',
-            'retry_count': 0,
-            'next_retry_at': null,
-            'created_at': now,
-            'updated_at': now,
-          },
-          updateValues: <String, Object?>{
-            'entity_type': 'purchase_order_request',
-            'entity_local_id': requestId,
-            'operation': 'create',
-            'method': 'POST',
-            'endpoint': 'api/v2/purchase-order-request',
-            'base_url': session.baseUrl,
-            'request_headers_json': jsonEncode(<String, Object?>{
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'authtoken': session.authToken,
-            }),
-            'request_body_json': jsonEncode(requestBody),
-            'status': 'pending',
-            'next_retry_at': null,
-            'updated_at': now,
-          },
-        );
       }
     });
 
+    await _submitOrder(session: session, poId: poId, poCode: poCode, lines: lines);
     return poCode;
   }
 
@@ -418,6 +363,170 @@ class PurchaseOrderRequestStore extends BaseMasterDataStore<PurchaseOrderRequest
         ),
       ],
     );
+  }
+
+  /// Retries submitting any purchase order that was created offline and has
+  /// never reached the server (`remote_id IS NULL`). Safe to call
+  /// opportunistically (e.g. from the periodic sync orchestrator); each
+  /// attempt is independent and swallows its own error so one failing order
+  /// doesn't block the rest.
+  Future<void> syncPendingOrders() async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session == null) return;
+
+    final rows = await DatabaseService.instance.query(
+      'purchase_order',
+      where: 'tenant_id = ? AND remote_id IS NULL AND deleted_at IS NULL',
+      whereArgs: <Object?>[session.tenantId],
+    );
+
+    for (final row in rows) {
+      final poId = _asInt(row['id']);
+      if (poId == null) continue;
+      final lineRows = await DatabaseService.instance.query(
+        'purchase_order_request',
+        where: 'tenant_id = ? AND purchase_order_id = ? AND deleted_at IS NULL',
+        whereArgs: <Object?>[session.tenantId, poId],
+      );
+      final lines = lineRows
+          .map((r) => PurchaseOrderInputLine(
+                productId: _asInt(r['product_id']),
+                productRemoteId: r['product_remote_id']?.toString(),
+                productName: r['product_name']?.toString() ?? '-',
+                productSku: r['product_sku']?.toString() ?? '-',
+                quantity: _asDouble(r['quantity']),
+                unitCostAmount: _asInt(r['unit_cost_amount']) ?? 0,
+              ))
+          .toList(growable: false);
+      if (lines.isEmpty) continue;
+
+      try {
+        await _submitOrder(
+          session: session,
+          poId: poId,
+          poCode: row['po_code']?.toString() ?? '',
+          lines: lines,
+        );
+      } catch (_) {
+        // Left pending; the next sync pass will retry.
+      }
+    }
+  }
+
+  Future<void> _submitOrder({
+    required PosV2RuntimeSession session,
+    required int poId,
+    required String poCode,
+    required List<PurchaseOrderInputLine> lines,
+  }) async {
+    final client = V2ApiClient(
+      baseUrl: session.baseUrl,
+      authToken: session.authToken,
+    );
+
+    try {
+      final envelope = await client.postEnvelope(
+        'api/v2/pos-purchase',
+        body: <String, dynamic>{
+          'vendornote': 'PO $poCode dari aplikasi kasir',
+          'items': lines
+              .map((line) => <String, dynamic>{
+                    'item_code': int.tryParse(line.productRemoteId ?? '') ??
+                        line.productId,
+                    'quantity': line.quantity,
+                    'unit_price': line.unitCostAmount,
+                    'item_name': line.productName,
+                  })
+              .toList(growable: false),
+        },
+      ).timeout(const Duration(seconds: 20));
+
+      final data = envelope['data'];
+      final remoteId = (data is Map ? data['id'] : null)?.toString();
+      if (remoteId == null || remoteId.isEmpty) {
+        throw Exception('Purchase order response missing id');
+      }
+
+      await DatabaseService.instance.transaction((txn) async {
+        await txn.update(
+          'purchase_order',
+          <String, Object?>{
+            'remote_id': remoteId,
+            'status': 'completed',
+            'sync_state': 'clean',
+            'last_sync_error': null,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: <Object?>[poId],
+        );
+      });
+    } catch (error) {
+      await DatabaseService.instance.transaction((txn) async {
+        await txn.update(
+          'purchase_order',
+          <String, Object?>{
+            'last_sync_error': error.toString(),
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          where: 'id = ?',
+          whereArgs: <Object?>[poId],
+        );
+      });
+      rethrow;
+    }
+  }
+
+  /// Cancels a purchase order. If it already reached the server
+  /// (`remote_id` set), the matching PO and its Sales Invoice at Pusat are
+  /// deleted first via `DELETE /v2/pos-purchase/{id}` — that call must
+  /// succeed before the local row is removed, so a still-existing remote PO
+  /// never silently disappears from just this device's view. If the order
+  /// never left this device, it is only ever local, so it's removed
+  /// immediately with no network call.
+  Future<void> cancelOrder(int poId) async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession;
+    if (session == null) {
+      throw Exception('No active session available.');
+    }
+
+    final rows = await DatabaseService.instance.query(
+      'purchase_order',
+      columns: const <String>['remote_id'],
+      where: 'tenant_id = ? AND id = ?',
+      whereArgs: <Object?>[session.tenantId, poId],
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      throw Exception('Purchase order not found.');
+    }
+    final remoteId = rows.first['remote_id']?.toString();
+
+    if (remoteId != null && remoteId.isNotEmpty) {
+      final client = V2ApiClient(
+        baseUrl: session.baseUrl,
+        authToken: session.authToken,
+      );
+      await client
+          .deleteEnvelope('api/v2/pos-purchase/$remoteId')
+          .timeout(const Duration(seconds: 20));
+    }
+
+    final now = DateTime.now().toIso8601String();
+    await DatabaseService.instance.transaction((txn) async {
+      await txn.update(
+        'purchase_order',
+        <String, Object?>{'deleted_at': now, 'updated_at': now},
+        where: 'id = ?',
+        whereArgs: <Object?>[poId],
+      );
+      await txn.update(
+        'purchase_order_request',
+        <String, Object?>{'deleted_at': now, 'updated_at': now},
+        where: 'purchase_order_id = ?',
+        whereArgs: <Object?>[poId],
+      );
+    });
   }
 
   static String _buildPoCode(DateTime dt) {
@@ -440,12 +549,10 @@ class PurchaseOrderStore extends BaseMasterDataStore<PurchaseOrderRecord> {
     final query = '''
       SELECT o.id,
              o.po_code,
-             COUNT(r.id) AS line_count,
-             COALESCE(SUM(CASE WHEN r.deleted_at IS NULL THEN 1 ELSE 0 END), 0) AS active_line_count,
+             o.remote_id,
+             o.last_sync_error,
              COALESCE(SUM(r.quantity), 0) AS item_count,
              COALESCE(SUM(r.quantity * r.unit_cost_amount), 0) AS total_amount,
-             COALESCE(SUM(CASE WHEN sq.status = 'failed' THEN 1 ELSE 0 END), 0) AS failed_count,
-             COALESCE(SUM(CASE WHEN sq.status = 'processed' THEN 1 ELSE 0 END), 0) AS processed_count,
              o.created_at,
              o.updated_at
       FROM purchase_order o
@@ -453,10 +560,6 @@ class PurchaseOrderStore extends BaseMasterDataStore<PurchaseOrderRecord> {
         ON r.purchase_order_id = o.id
        AND r.tenant_id = o.tenant_id
        AND r.deleted_at IS NULL
-      LEFT JOIN sync_queue sq
-        ON sq.tenant_id = r.tenant_id
-       AND sq.entity_type = 'purchase_order_request'
-       AND sq.entity_local_id = r.id
       WHERE o.tenant_id = ?
         AND o.deleted_at IS NULL
       GROUP BY o.id
@@ -470,13 +573,9 @@ class PurchaseOrderStore extends BaseMasterDataStore<PurchaseOrderRecord> {
     );
     return rows
         .map((r) {
-          final totalLines = _asInt(r['active_line_count']) ?? 0;
-          final failed = _asInt(r['failed_count']) ?? 0;
-          final processed = _asInt(r['processed_count']) ?? 0;
           final status = _derivePoStatus(
-            totalLines: totalLines,
-            failed: failed,
-            processed: processed,
+            remoteId: r['remote_id']?.toString(),
+            lastSyncError: r['last_sync_error']?.toString(),
           );
           return PurchaseOrderRecord(
             id: _asInt(r['id']) ?? 0,
@@ -517,15 +616,15 @@ class PurchaseOrderStore extends BaseMasterDataStore<PurchaseOrderRecord> {
         .toList(growable: false);
   }
 
-  String _derivePoStatus({
-    required int totalLines,
-    required int failed,
-    required int processed,
-  }) {
-    if (totalLines == 0) return 'pending';
-    if (failed > 0) return 'failed';
-    if (processed >= totalLines) return 'completed';
-    if (processed > 0) return 'processing';
-    return 'pending';
-  }
+}
+
+/// A PO submits atomically in one call now (see `_submitOrder`), so there is
+/// no more partial per-line "processing" state: either the server has
+/// assigned it a `remote_id` (completed), a submit attempt has failed
+/// (failed), or it hasn't been attempted/succeeded yet (pending, e.g. still
+/// offline).
+String _derivePoStatus({required String? remoteId, required String? lastSyncError}) {
+  if (remoteId != null && remoteId.isNotEmpty) return 'completed';
+  if (lastSyncError != null && lastSyncError.isNotEmpty) return 'failed';
+  return 'pending';
 }

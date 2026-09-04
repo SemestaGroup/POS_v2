@@ -97,6 +97,15 @@ class DatabaseService {
         'INTEGER NOT NULL DEFAULT 0',
       );
     }
+    if (oldVersion < 13) {
+      await _addColumnIfMissing(db, 'purchase_order', 'remote_id', 'TEXT');
+      await _addColumnIfMissing(
+        db,
+        'purchase_order',
+        'last_sync_error',
+        'TEXT',
+      );
+    }
   }
 
   Future<void> _finalizeUpgrade(
