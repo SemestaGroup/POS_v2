@@ -9,6 +9,7 @@ class MasterDataSearchHeader extends StatelessWidget {
     required this.countText,
     required this.onRefresh,
     this.filterBar,
+    this.trailing,
   });
 
   final TextEditingController searchController;
@@ -17,6 +18,8 @@ class MasterDataSearchHeader extends StatelessWidget {
   final String countText;
   final VoidCallback onRefresh;
   final Widget? filterBar;
+  /// Optional action (e.g. an "Add" button) placed after the refresh icon.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +92,10 @@ class MasterDataSearchHeader extends StatelessWidget {
             icon: const Icon(Icons.refresh_rounded, size: 18),
             color: primaryColor,
           ),
+          if (trailing != null) ...[
+            const SizedBox(width: 4),
+            trailing!,
+          ],
         ],
       ),
       if (filterBar != null) ...[

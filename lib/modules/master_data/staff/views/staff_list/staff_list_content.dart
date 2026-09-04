@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../shared/widgets/master_data_page_widgets.dart';
 import '../../../stores/master_data_read_stores.dart';
+import 'staff_form_dialog.dart';
 
 class StaffListContent extends StatefulWidget {
   const StaffListContent({super.key});
@@ -59,6 +60,19 @@ class _StaffListContentState extends State<StaffListContent> {
                   '${records.length} ${strings.countLabel} • $activeCount ${strings.activeLabel}',
               onRefresh: _store.refresh,
               filterBar: _buildFilterBar(),
+              trailing: FilledButton.icon(
+                onPressed: () async {
+                  final saved = await StaffFormDialog.show(context);
+                  if (saved == true) _store.refresh();
+                },
+                icon: const Icon(Icons.person_add_rounded, size: 16),
+                label: Text(strings.addStaff),
+                style: FilledButton.styleFrom(
+                  backgroundColor: primaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ),
             ),
             Divider(height: 1, color: Colors.grey.shade100),
             Expanded(
@@ -73,10 +87,21 @@ class _StaffListContentState extends State<StaffListContent> {
                       separatorBuilder: (_, _) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final staff = records[index];
-                        return Container(
+                        return Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          child: InkWell(
+                          onTap: () async {
+                            final saved = await StaffFormDialog.show(
+                              context,
+                              existing: staff,
+                            );
+                            if (saved == true) _store.refresh();
+                          },
+                          borderRadius: BorderRadius.circular(14),
+                          child: Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(color: const Color(0xFFE5E7EB)),
                           ),
@@ -180,6 +205,8 @@ class _StaffListContentState extends State<StaffListContent> {
                               ),
                             ],
                           ),
+                          ),
+                          ),
                         );
                       },
                     ),
@@ -268,4 +295,5 @@ class _StaffStrings {
       id ? 'Tidak ada data staf.' : 'No staff records available.';
   String get activeStatus => id ? 'Aktif' : 'Active';
   String get inactiveStatus => id ? 'Nonaktif' : 'Inactive';
+  String get addStaff => id ? 'Tambah Staf' : 'Add Staff';
 }

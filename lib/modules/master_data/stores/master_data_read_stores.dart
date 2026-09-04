@@ -177,15 +177,23 @@ class StaffListRecord {
     required this.id,
     required this.fullName,
     required this.isActive,
+    this.remoteId,
+    this.roleRemoteId,
     this.roleName,
     this.roleCode,
+    this.firstName,
+    this.lastName,
     this.email,
     this.phoneNumber,
     this.lastLoginAt,
   });
 
   final int id;
+  final String? remoteId;
   final String fullName;
+  final String? firstName;
+  final String? lastName;
+  final String? roleRemoteId;
   final String? roleName;
   final String? roleCode;
   final String? email;
@@ -568,7 +576,8 @@ class StaffListStore extends BaseMasterDataStore<StaffListRecord> {
     final tenantId = session.tenantId;
     
     String query = '''
-      SELECT id, full_name, role_name, role_code, email, phone_number, is_active, last_login_at
+      SELECT id, remote_id, role_remote_id, first_name, last_name, full_name,
+             role_name, role_code, email, phone_number, is_active, last_login_at
       FROM staff
       WHERE tenant_id = ?
         AND deleted_at IS NULL
@@ -594,6 +603,10 @@ class StaffListStore extends BaseMasterDataStore<StaffListRecord> {
         .map(
           (r) => StaffListRecord(
             id: _asInt(r['id']) ?? 0,
+            remoteId: r['remote_id']?.toString(),
+            roleRemoteId: r['role_remote_id']?.toString(),
+            firstName: r['first_name']?.toString(),
+            lastName: r['last_name']?.toString(),
             fullName: r['full_name']?.toString() ?? 'Staff',
             roleName: r['role_name']?.toString(),
             roleCode: r['role_code']?.toString(),

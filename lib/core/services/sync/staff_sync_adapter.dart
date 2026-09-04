@@ -61,6 +61,7 @@ class StaffSyncAdapter extends BaseV2SyncAdapter {
           insertValues: <String, Object?>{
             'tenant_id': tenantId,
             'remote_id': remoteId,
+            'role_remote_id': V2SyncUtils.asString(row['role_id']),
             'role_name': V2SyncUtils.asString(row['role']),
             'role_code': _roleCodeFromName(V2SyncUtils.asString(row['role'])),
             'first_name': V2SyncUtils.asString(row['firstname']),
@@ -79,6 +80,7 @@ class StaffSyncAdapter extends BaseV2SyncAdapter {
           },
           updateValues: <String, Object?>{
             'remote_id': remoteId,
+            'role_remote_id': V2SyncUtils.asString(row['role_id']),
             'role_name': V2SyncUtils.asString(row['role']),
             'role_code': _roleCodeFromName(V2SyncUtils.asString(row['role'])),
             'first_name': V2SyncUtils.asString(row['firstname']),
