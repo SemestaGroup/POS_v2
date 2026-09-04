@@ -36,39 +36,23 @@ class _StaffRolesContentState extends State<StaffRolesContent> {
         Container(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
           color: Colors.white,
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.staffRolesMenu,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF1A1D2E),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Kelola hak akses dan peran (role) staf aplikasi.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  ],
+              Text(
+                l10n.staffRolesMenu,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1A1D2E),
                 ),
               ),
-              FilledButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add_rounded, size: 16),
-                label: const Text('Tambah Peran'),
-                style: FilledButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              const SizedBox(height: 4),
+              Text(
+                'Daftar peran (role) staf aplikasi dan jumlah akun per peran.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade500,
                 ),
               ),
             ],
@@ -194,10 +178,6 @@ class _StaffRolesContentState extends State<StaffRolesContent> {
                 ),
               ],
             ),
-          ),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.edit_outlined, color: Colors.grey),
           ),
         ],
       ),
