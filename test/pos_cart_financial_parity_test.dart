@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flinkpos_v2/modules/sales/shared/models/pos_cart_item.dart';
 import 'package:flinkpos_v2/modules/sales/shared/models/pos_promotion_service.dart';
 
 void main() {

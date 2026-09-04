@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:async';
 
 import '../../network/v2_api_client.dart';
 import '../local/database_service.dart';
 import '../sync/pos_v2_runtime_session_store.dart';
+import '../../../modules/master_data/stores/master_data_read_stores.dart';
+import 'pos_v2_sync_orchestrator.dart';
 
 class PosV2SyncQueueProcessor {
   PosV2SyncQueueProcessor._();
@@ -517,6 +520,15 @@ class PosV2SyncQueueProcessor {
           tenantId: tenantId,
           idPos: idPos,
         );
+        final session = PosV2RuntimeSessionStore.instance.currentSession;
+        if (session != null) {
+          unawaited(
+            PosV2SyncOrchestrator()
+                .syncCustomers(session.toSyncContext())
+                .then((_) => CustomerListStore.instance.refresh(silent: true))
+                .catchError((_) {}),
+          );
+        }
         return;
       default:
         return;

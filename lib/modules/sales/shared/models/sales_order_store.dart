@@ -8,6 +8,7 @@ import '../../../../core/services/local/database_service.dart';
 import '../../../../core/services/sync/pos_v2_runtime_session_store.dart';
 import '../../../../core/services/sync/pos_v2_sync_queue_processor.dart';
 import '../../../operations/stores/operations_read_stores.dart';
+import '../../../master_data/stores/master_data_read_stores.dart';
 import 'order_type_resolver.dart';
 import 'pos_order_type_store.dart';
 
@@ -46,6 +47,7 @@ class SalesOrderLineItem {
 }
 
 class SalesOrderRecord {
+
   const SalesOrderRecord({
     required this.id,
     required this.token,
@@ -168,6 +170,23 @@ class _PaymentModeResolution {
 class SalesOrderStore {
   static const int defaultCurrencyId = 3;
   static const String defaultCurrencyCode = 'IDR';
+
+  static int calculateAwardedPoints({
+    required String customerRemoteId,
+    required String customerName,
+    required int subtotalAmount,
+    required int totalDiscountAmount,
+  }) {
+    final nameLower = customerName.toLowerCase();
+    final isWalkIn = customerRemoteId == '1' ||
+        nameLower.contains('walk-in') ||
+        nameLower.contains('pelanggan umum');
+    if (isWalkIn) {
+      return 0;
+    }
+    final netSales = (subtotalAmount - totalDiscountAmount).clamp(0, 1 << 31);
+    return netSales ~/ 10000;
+  }
 
   SalesOrderStore._() {
     PosV2RuntimeSessionStore.instance.sessionNotifier.addListener(
@@ -617,6 +636,12 @@ class SalesOrderStore {
           existingRemoteId != null && existingRemoteId.trim().isNotEmpty;
       final syncState = hasRemoteOrder ? 'dirty_update' : 'dirty_create';
       final saleStaffId = await _resolveLocalStaffId(txn, session);
+      final awardedPoints = calculateAwardedPoints(
+        customerRemoteId: record.customerRemoteId,
+        customerName: record.customerName,
+        subtotalAmount: record.subtotalAmount,
+        totalDiscountAmount: record.totalDiscountAmount,
+      );
       final posOrderId = await DatabaseService.instance.upsertByUnique(
         txn,
         'pos_order',
@@ -649,6 +674,7 @@ class SalesOrderStore {
           'discount_total_amount': record.totalDiscountAmount,
           'manual_discount_value': record.orderLevelDiscountAmount,
           'total_amount': record.totalAmount,
+          'awarded_points': awardedPoints,
           'amount_received': record.statusCode == 2 ? record.totalAmount : 0,
           'total_left_to_pay_amount': record.statusCode == 2
               ? 0
@@ -685,6 +711,7 @@ class SalesOrderStore {
           'discount_total_amount': record.totalDiscountAmount,
           'manual_discount_value': record.orderLevelDiscountAmount,
           'total_amount': record.totalAmount,
+          'awarded_points': awardedPoints,
           'amount_received': record.statusCode == 2 ? record.totalAmount : 0,
           'total_left_to_pay_amount': record.statusCode == 2
               ? 0
@@ -781,6 +808,19 @@ class SalesOrderStore {
               paymentModeResolution.selectedName ?? paymentModeName,
         );
       }
+      if (record.statusCode == 2 && awardedPoints > 0) {
+        if (record.customerLocalId != null) {
+          await txn.rawUpdate(
+            'UPDATE customer SET points_balance = points_balance + ?, updated_at = ? WHERE id = ? AND tenant_id = ?',
+            <Object?>[awardedPoints, now, record.customerLocalId, session.tenantId],
+          );
+        } else if (record.customerRemoteId != '1') {
+          await txn.rawUpdate(
+            'UPDATE customer SET points_balance = points_balance + ?, updated_at = ? WHERE remote_id = ? AND tenant_id = ?',
+            <Object?>[awardedPoints, now, record.customerRemoteId, session.tenantId],
+          );
+        }
+      }
     });
 
     if (processQueueNow) {
@@ -796,8 +836,8 @@ class SalesOrderStore {
     await refreshFromPersistence();
     unawaited(RecapStore.instance.refresh());
     unawaited(CashFlowStore.instance.refresh());
+    unawaited(CustomerListStore.instance.refresh(silent: true));
   }
-
   Future<void> _persistOrderPayment(
     dynamic txn,
     PosV2RuntimeSession session,

@@ -90,32 +90,6 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
             letterSpacing: -0.2,
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: TextButton.icon(
-              onPressed: _handleEdit,
-              icon: Icon(Icons.edit_outlined, size: 14, color: primary),
-              label: Text(
-                'Edit Profil',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: primary,
-                ),
-              ),
-              style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(
-                      color: primary.withValues(alpha: 0.3), width: 1),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: FutureBuilder<(CustomerStatsRecord, List<CustomerOrderHistoryRecord>)>(
         future: _dataFuture,
@@ -135,7 +109,10 @@ class _CustomerDetailPageState extends State<CustomerDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _ProfileCard(
-                        customer: _customer, primaryColor: primary),
+                      customer: _customer,
+                      primaryColor: primary,
+                      onEdit: _handleEdit,
+                    ),
                     const SizedBox(height: 10),
                     _StatsRow(
                       loading: loading,
@@ -170,10 +147,12 @@ class _ProfileCard extends StatelessWidget {
   const _ProfileCard({
     required this.customer,
     required this.primaryColor,
+    this.onEdit,
   });
 
   final CustomerListRecord customer;
   final Color primaryColor;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +244,34 @@ class _ProfileCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                if (onEdit != null) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: onEdit,
+                    icon: Icon(Icons.edit_outlined, size: 14, color: primaryColor),
+                    label: Text(
+                      'Edit',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: primaryColor,
+                      ),
+                    ),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: primaryColor.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

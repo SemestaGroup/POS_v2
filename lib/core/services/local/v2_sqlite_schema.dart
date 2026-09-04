@@ -879,6 +879,8 @@ CREATE INDEX IF NOT EXISTS idx_pos_order_id_pos
 CREATE INDEX IF NOT EXISTS idx_pos_order_customer
   ON pos_order(tenant_id, customer_remote_id, order_date);
 
+CREATE INDEX IF NOT EXISTS idx_pos_order_customer_id
+  ON pos_order(tenant_id, customer_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_pos_order_session
   ON pos_order(tenant_id, self_order_session_id, table_code);
 

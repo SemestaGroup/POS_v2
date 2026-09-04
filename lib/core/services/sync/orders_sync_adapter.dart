@@ -584,6 +584,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'phone_number': V2SyncUtils.asString(
           row['no_hp'] ?? row['phonenumber'],
         ),
+        if (row['email'] != null) 'email': V2SyncUtils.asString(row['email']),
         'address_line1': V2SyncUtils.asString(row['alamat'] ?? row['address']),
         'points_balance': V2SyncUtils.asInt(row['value_pts'] ?? row['points']),
         'raw_payload_json': V2SyncUtils.encodeJson(row),
@@ -597,6 +598,7 @@ class OrdersSyncAdapter extends BaseV2SyncAdapter {
         'phone_number': V2SyncUtils.asString(
           row['no_hp'] ?? row['phonenumber'],
         ),
+        if (row['email'] != null) 'email': V2SyncUtils.asString(row['email']),
         'address_line1': V2SyncUtils.asString(row['alamat'] ?? row['address']),
         'points_balance': V2SyncUtils.asInt(row['value_pts'] ?? row['points']),
         'raw_payload_json': V2SyncUtils.encodeJson(row),
