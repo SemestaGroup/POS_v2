@@ -46,7 +46,6 @@ enum _PosQuickAction {
   cashOut,
 }
 
-
 class PosWorkspaceTabletLandscapeView extends StatefulWidget {
   const PosWorkspaceTabletLandscapeView({
     super.key,
@@ -341,12 +340,11 @@ class _PosWorkspaceTabletLandscapeViewState
     }
   }
 
-    void _handleOrderTypeSnapshotChanged() {
+  void _handleOrderTypeSnapshotChanged() {
     if (!mounted) return;
     setState(() {
-      _selectedOrderType = PosOrderTypeStore.instance.reconcileSelectedOrderType(
-        _selectedOrderType,
-      );
+      _selectedOrderType = PosOrderTypeStore.instance
+          .reconcileSelectedOrderType(_selectedOrderType);
     });
   }
 
@@ -1585,7 +1583,7 @@ class _PosWorkspaceTabletLandscapeViewState
     return <String>[_selectedOrderType];
   }
 
-    void _handleCancelCurrentOrder() {
+  void _handleCancelCurrentOrder() {
     final l10n = AppLocalizations.of(context)!;
     if (_cartItems.isEmpty && _editingOrderId == null) {
       _showOrderActionFeedback(l10n.addProductFirstMessage);
@@ -1599,7 +1597,6 @@ class _PosWorkspaceTabletLandscapeViewState
     _resetCurrentOrder();
     _showOrderActionFeedback(l10n.voidOrderCreatedMessage);
   }
-
 
   void _showOrderActionFeedback(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1641,44 +1638,51 @@ class _PosWorkspaceTabletLandscapeViewState
             onConfirm:
                 (SalesPaymentModeOption paymentMode, int tenderAmount) async {
                   try {
-                    final createdOrder = await SalesOrderStore.instance.createOrder(
-                      statusCode: 2,
-                      items: _buildOrderLines(),
-                      customerName: customer.isDefaultWalkIn
-                          ? PosV2CustomerService.defaultWalkInName
-                          : customer.name,
-                      customerRemoteId: customer.remoteId,
-                      customerLocalId: customer.localId,
-                      customerPhone: customer.phone,
-                      customerAddress: customer.address,
-                      appliedPromotionRemoteId: _selectedPromotions.isNotEmpty
-                          ? _selectedPromotions.map((p) => p.remoteId).join(',')
-                          : null,
-                      appliedPromotionName: _selectedPromotions.isNotEmpty
-                          ? _selectedPromotions.map((p) => p.name).join(',')
-                          : null,
-                      appliedPromotionType: _selectedPromotions.isNotEmpty
-                          ? _selectedPromotions
-                                .map((p) => p.promoType)
-                                .join(',')
-                          : null,
-                      appliedPromotionSummary: _selectedPromotions.isNotEmpty
-                          ? _selectedPromotions.map((p) => p.summary).join('; ')
-                          : null,
-                      existingOrderId: _editingOrderId,
-                      existingOrderToken: _editingOrderToken,
-                      existingCreatedAt: _editingOrderCreatedAt,
-                      orderType: _selectedOrderType,
-                      note: _orderNote,
-                      orderLevelDiscountAmount: _orderLevelDiscountAmount,
-                      taxAmount: _taxAmount,
-                      taxName: _taxName,
-                      taxPercentage: _taxPercentage,
-                      shiftSessionId: shiftSessionId,
-                      paymentModeRemoteId: paymentMode.remoteId,
-                      paymentModeName: paymentMode.name,
-                      processQueueNow: true,
-                    );
+                    final createdOrder = await SalesOrderStore.instance
+                        .createOrder(
+                          statusCode: 2,
+                          items: _buildOrderLines(),
+                          customerName: customer.isDefaultWalkIn
+                              ? PosV2CustomerService.defaultWalkInName
+                              : customer.name,
+                          customerRemoteId: customer.remoteId,
+                          customerLocalId: customer.localId,
+                          customerPhone: customer.phone,
+                          customerAddress: customer.address,
+                          appliedPromotionRemoteId:
+                              _selectedPromotions.isNotEmpty
+                              ? _selectedPromotions
+                                    .map((p) => p.remoteId)
+                                    .join(',')
+                              : null,
+                          appliedPromotionName: _selectedPromotions.isNotEmpty
+                              ? _selectedPromotions.map((p) => p.name).join(',')
+                              : null,
+                          appliedPromotionType: _selectedPromotions.isNotEmpty
+                              ? _selectedPromotions
+                                    .map((p) => p.promoType)
+                                    .join(',')
+                              : null,
+                          appliedPromotionSummary:
+                              _selectedPromotions.isNotEmpty
+                              ? _selectedPromotions
+                                    .map((p) => p.summary)
+                                    .join('; ')
+                              : null,
+                          existingOrderId: _editingOrderId,
+                          existingOrderToken: _editingOrderToken,
+                          existingCreatedAt: _editingOrderCreatedAt,
+                          orderType: _selectedOrderType,
+                          note: _orderNote,
+                          orderLevelDiscountAmount: _orderLevelDiscountAmount,
+                          taxAmount: _taxAmount,
+                          taxName: _taxName,
+                          taxPercentage: _taxPercentage,
+                          shiftSessionId: shiftSessionId,
+                          paymentModeRemoteId: paymentMode.remoteId,
+                          paymentModeName: paymentMode.name,
+                          processQueueNow: true,
+                        );
                     if (createdOrder == null) {
                       return l10n.paymentProcessingFailedMessage;
                     }
@@ -1972,10 +1976,7 @@ class _PosWorkspaceTabletLandscapeViewState
           subtitle: 'Pesanan Dapur',
           infoRows: [
             PrinterInfoRow(label: 'No. Struk', value: receiptNo),
-            PrinterInfoRow(
-              label: 'Tipe Order',
-              value: orderTypeStr,
-            ),
+            PrinterInfoRow(label: 'Tipe Order', value: orderTypeStr),
             PrinterInfoRow(
               label: 'Pelanggan',
               value: _selectedCustomer?.name ?? 'Walk-in Customer',
@@ -2047,8 +2048,7 @@ class _PosWorkspaceTabletLandscapeViewState
         final labelDoc = PrinterDocumentData(
           type: PrinterDocumentType.label,
           title: 'LABEL STIKER',
-          subtitle:
-              '$orderTypeStr | ${_selectedCustomer?.name ?? "Walk-in"}',
+          subtitle: '$orderTypeStr | ${_selectedCustomer?.name ?? "Walk-in"}',
           infoRows: [
             PrinterInfoRow(label: 'No. Struk', value: receiptNo),
             PrinterInfoRow(
@@ -2423,29 +2423,29 @@ class _PosWorkspaceTabletLandscapeViewState
                 paymentModeId: inputData.paymentModeId,
               )
               .catchError((Object error) {
-            // The local pos_cash_flow row is already recorded, so this
-            // failure does not lose data — but it was previously swallowed
-            // entirely, leaving the remote expense ledger silently out of
-            // sync with no signal to the cashier. Surface it instead.
-            // Note: there is currently no background retry for pos_cash_flow
-            // rows, so a failure here means the remote expense ledger stays
-            // out of sync with this record until someone manually
-            // reconciles it — the cashier needs to know that now, not
-            // discover the gap later.
-            debugPrint('[KAS_KELUAR] Remote expense sync failed: $error');
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  behavior: SnackBarBehavior.floating,
-                  backgroundColor: Colors.orange,
-                  content: Text(
-                    'Kas keluar tersimpan di perangkat ini, tapi gagal disinkronkan ke server. Mohon periksa koneksi dan catat manual jika perlu.',
-                  ),
-                ),
-              );
-            }
-            return <String, dynamic>{};
-          }),
+                // The local pos_cash_flow row is already recorded, so this
+                // failure does not lose data — but it was previously swallowed
+                // entirely, leaving the remote expense ledger silently out of
+                // sync with no signal to the cashier. Surface it instead.
+                // Note: there is currently no background retry for pos_cash_flow
+                // rows, so a failure here means the remote expense ledger stays
+                // out of sync with this record until someone manually
+                // reconciles it — the cashier needs to know that now, not
+                // discover the gap later.
+                debugPrint('[KAS_KELUAR] Remote expense sync failed: $error');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: Colors.orange,
+                      content: Text(
+                        'Kas keluar tersimpan di perangkat ini, tapi gagal disinkronkan ke server. Mohon periksa koneksi dan catat manual jika perlu.',
+                      ),
+                    ),
+                  );
+                }
+                return <String, dynamic>{};
+              }),
         );
       }
 
@@ -2477,21 +2477,41 @@ class _PosWorkspaceTabletLandscapeViewState
     final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
     final options = activeTypes.isNotEmpty
         ? activeTypes
-            .map(
-              (ot) => (
-                code: ot.code,
-                name: ot.name,
-                icon: OrderTypePresenter.getIconForOrderType(ot.code),
-              ),
-            )
-            .toList()
+              .map(
+                (ot) => (
+                  code: ot.code,
+                  name: ot.name,
+                  icon: OrderTypePresenter.getIconForOrderType(ot.code),
+                ),
+              )
+              .toList()
         : [
-            (code: 'dinein', name: l10n.dineIn, icon: Icons.table_restaurant_rounded),
-            (code: 'takeaway', name: l10n.takeAway, icon: Icons.shopping_bag_outlined),
+            (
+              code: 'dinein',
+              name: l10n.dineIn,
+              icon: Icons.table_restaurant_rounded,
+            ),
+            (
+              code: 'takeaway',
+              name: l10n.takeAway,
+              icon: Icons.shopping_bag_outlined,
+            ),
             (code: 'tiktok', name: 'TikTok', icon: Icons.music_note_outlined),
-            (code: 'shopeefood', name: 'ShopeeFood', icon: Icons.storefront_outlined),
-            (code: 'gofood', name: 'GoFood', icon: Icons.delivery_dining_rounded),
-            (code: 'grabfood', name: 'GrabFood', icon: Icons.local_shipping_outlined),
+            (
+              code: 'shopeefood',
+              name: 'ShopeeFood',
+              icon: Icons.storefront_outlined,
+            ),
+            (
+              code: 'gofood',
+              name: 'GoFood',
+              icon: Icons.delivery_dining_rounded,
+            ),
+            (
+              code: 'grabfood',
+              name: 'GrabFood',
+              icon: Icons.local_shipping_outlined,
+            ),
           ];
 
     showDialog(
@@ -2540,15 +2560,17 @@ class _PosWorkspaceTabletLandscapeViewState
                     child: InkWell(
                       onTap: () async {
                         Navigator.pop(dialogCtx);
-                        final transition = await PosOrderTypeTransitionService
-                            .transitionPosCartOrderType(
+                        final transition =
+                            await PosOrderTypeTransitionService.transitionPosCartOrderType(
                               currentOrderType: _selectedOrderType,
                               targetOrderType: option.code,
                               currentItems: _cartItems,
                               currentPromotions: _selectedPromotions,
                               catalogProducts: _catalogSnapshot.products,
-                              activeOrderTypes:
-                                  PosOrderTypeStore.instance.snapshot.orderTypes,
+                              activeOrderTypes: PosOrderTypeStore
+                                  .instance
+                                  .snapshot
+                                  .orderTypes,
                             );
                         if (!mounted) return;
                         if (transition.isChanged) {
@@ -2569,12 +2591,16 @@ class _PosWorkspaceTabletLandscapeViewState
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
+                          color:
+                              _selectedOrderType.toLowerCase() ==
+                                  option.code.toLowerCase()
                               ? primaryColor.withValues(alpha: 0.08)
                               : const Color(0xFFF7F8FC),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
+                            color:
+                                _selectedOrderType.toLowerCase() ==
+                                    option.code.toLowerCase()
                                 ? primaryColor
                                 : Colors.transparent,
                           ),
@@ -2584,7 +2610,9 @@ class _PosWorkspaceTabletLandscapeViewState
                             Icon(
                               option.icon,
                               size: 18,
-                              color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
+                              color:
+                                  _selectedOrderType.toLowerCase() ==
+                                      option.code.toLowerCase()
                                   ? primaryColor
                                   : Colors.black54,
                             ),
@@ -2595,13 +2623,16 @@ class _PosWorkspaceTabletLandscapeViewState
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
-                                  color: _selectedOrderType.toLowerCase() == option.code.toLowerCase()
+                                  color:
+                                      _selectedOrderType.toLowerCase() ==
+                                          option.code.toLowerCase()
                                       ? primaryColor
                                       : Colors.black87,
                                 ),
                               ),
                             ),
-                            if (_selectedOrderType.toLowerCase() == option.code.toLowerCase())
+                            if (_selectedOrderType.toLowerCase() ==
+                                option.code.toLowerCase())
                               Icon(
                                 Icons.check_circle_rounded,
                                 size: 18,
@@ -2765,9 +2796,8 @@ class _PosWorkspaceTabletLandscapeViewState
 
     final noteController = TextEditingController(text: cartItem.note ?? '');
     final activeTypes = PosOrderTypeStore.instance.snapshot.orderTypes;
-    final resolvedDefaultType = PosOrderTypeStore.instance.reconcileSelectedOrderType(
-      cartItem.orderType ?? _selectedOrderType,
-    );
+    final resolvedDefaultType = PosOrderTypeStore.instance
+        .reconcileSelectedOrderType(cartItem.orderType ?? _selectedOrderType);
     final List<(String, String)> orderTypeOptions;
     if (activeTypes.isNotEmpty) {
       final seenCodes = <String>{};
@@ -2794,9 +2824,12 @@ class _PosWorkspaceTabletLandscapeViewState
       context: context,
       builder: (context) {
         var quantity = cartItem.quantity;
-        var selectedOrderType = orderTypeOptions.any((opt) => opt.$1 == resolvedDefaultType)
+        var selectedOrderType =
+            orderTypeOptions.any((opt) => opt.$1 == resolvedDefaultType)
             ? resolvedDefaultType
-            : (orderTypeOptions.isNotEmpty ? orderTypeOptions.first.$1 : 'dinein');
+            : (orderTypeOptions.isNotEmpty
+                  ? orderTypeOptions.first.$1
+                  : 'dinein');
         var discountEnabled = cartItem.isDiscountEnabled;
         var splitQuantity = quantity > 1 ? 1 : 0;
 
@@ -2978,9 +3011,15 @@ class _PosWorkspaceTabletLandscapeViewState
                                     ),
                                     const SizedBox(height: 10),
                                     DropdownButtonFormField<String>(
-                                      initialValue: orderTypeOptions.any((opt) => opt.$1 == selectedOrderType)
+                                      initialValue:
+                                          orderTypeOptions.any(
+                                            (opt) =>
+                                                opt.$1 == selectedOrderType,
+                                          )
                                           ? selectedOrderType
-                                          : (orderTypeOptions.isNotEmpty ? orderTypeOptions.first.$1 : null),
+                                          : (orderTypeOptions.isNotEmpty
+                                                ? orderTypeOptions.first.$1
+                                                : null),
                                       decoration: InputDecoration(
                                         filled: true,
                                         fillColor: Colors.grey.shade50,
@@ -3289,7 +3328,8 @@ class _PosWorkspaceTabletLandscapeViewState
                                                         splitQuantity,
                                                     orderType:
                                                         selectedOrderType,
-                                                    note: noteController.text
+                                                    note:
+                                                        noteController.text
                                                             .trim()
                                                             .isEmpty
                                                         ? null
@@ -3318,8 +3358,10 @@ class _PosWorkspaceTabletLandscapeViewState
                                           ),
                                           style: OutlinedButton.styleFrom(
                                             foregroundColor: primaryColor,
-                                            minimumSize:
-                                                const Size(double.infinity, 44),
+                                            minimumSize: const Size(
+                                              double.infinity,
+                                              44,
+                                            ),
                                             padding: const EdgeInsets.symmetric(
                                               horizontal: 12,
                                               vertical: 10,
@@ -4901,10 +4943,20 @@ class _PosWorkspaceTabletLandscapeViewState
                         ),
                         const SizedBox(width: 4),
                         InkWell(
-                          onTap: () => setState(() {
-                            _appliedOrderPromoLabel = null;
-                            _orderLevelDiscountAmount = 0;
-                          }),
+                          onTap: () {
+                            setState(() {
+                              _appliedOrderPromoLabel = null;
+                              _orderLevelDiscountAmount = 0;
+                              _selectedPromotions.clear();
+                            });
+                            // Without this, a manual discount cleared here left
+                            // any item-level promo pricing baked into the cart
+                            // items (e.g. restored from a resumed pending
+                            // order) untouched, so the "Diskon" line kept
+                            // showing an amount even though the label and
+                            // order-level discount had just been zeroed out.
+                            _recalculateCartPromotions();
+                          },
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
                             padding: const EdgeInsets.all(2),
@@ -4925,112 +4977,102 @@ class _PosWorkspaceTabletLandscapeViewState
                     Divider(color: Colors.grey.shade200, height: 1),
                     const SizedBox(height: 8),
                   ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.grey.shade100,
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              AppLocalizations.of(context)!.subtotal,
-                              style: TextStyle(
-                                color: Colors.grey.shade500,
-                                fontSize: 11,
-                              ),
+                  // A boxed container here on top of the already-boxed footer
+                  // panel read as a card-inside-a-card. Plain rows on the
+                  // panel's own background keep the numbers just as legible
+                  // without the extra nesting.
+                  Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            AppLocalizations.of(context)!.subtotal,
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 11,
                             ),
-                            Text(
-                              _formatCurrency(_subtotalAmount),
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 11,
-                                color: Colors.grey.shade800,
-                              ),
+                          ),
+                          Text(
+                            _formatCurrency(_subtotalAmount),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              color: Colors.grey.shade800,
                             ),
-                          ],
-                        ),
-                        if (_totalDiscountAmount > 0) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                l10n.discount,
-                                style: TextStyle(
-                                  color: Colors.grey.shade500,
-                                  fontSize: 11,
-                                ),
-                              ),
-                              Text(
-                                '- ${_formatCurrency(_totalDiscountAmount)}',
-                                style: TextStyle(
-                                  color: Colors.red.shade600,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
                           ),
                         ],
+                      ),
+                      if (_totalDiscountAmount > 0) ...[
                         const SizedBox(height: 6),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _taxName ?? l10n.tax,
+                              l10n.discount,
                               style: TextStyle(
                                 color: Colors.grey.shade500,
                                 fontSize: 11,
                               ),
                             ),
                             Text(
-                              _formatCurrency(_taxAmount),
+                              '- ${_formatCurrency(_totalDiscountAmount)}',
                               style: TextStyle(
+                                color: Colors.red.shade600,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 11,
-                                color: Colors.grey.shade800,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Divider(
-                          color: Colors.grey.shade200,
-                          height: 16,
-                          thickness: 1,
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              l10n.totalPay,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                            Text(
-                              _formatCurrency(_totalPay),
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
                               ),
                             ),
                           ],
                         ),
                       ],
-                    ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _taxName ?? l10n.tax,
+                            style: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            _formatCurrency(_taxAmount),
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                              color: Colors.grey.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Divider(
+                        color: Colors.grey.shade200,
+                        height: 16,
+                        thickness: 1,
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            l10n.totalPay,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Text(
+                            _formatCurrency(_totalPay),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 10),
                   // In read-only mode: show Print to Kitchen button (no data saved)
@@ -5200,19 +5242,21 @@ class _PosWorkspaceTabletLandscapeViewState
     );
   }
 
+  // A bordered/filled Container per row read as a "card" and capped how many
+  // items fit before scrolling. A plain row with a hairline divider carries
+  // the same information in less vertical space and doesn't read as a stack
+  // of separate cards.
   Widget _buildCartItem(Color primaryColor, PosCartItem item) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade100, width: 1),
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+        ),
       ),
       child: InkWell(
         onTap: () => _showCartItemOptionsDialog(context, item.id),
-        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(vertical: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
