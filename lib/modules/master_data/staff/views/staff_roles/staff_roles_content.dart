@@ -34,6 +34,7 @@ class _StaffRolesContentState extends State<StaffRolesContent> {
       children: [
         // ── Controls ──────────────────────────────────────────────────────
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
           color: Colors.white,
           child: Column(
