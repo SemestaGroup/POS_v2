@@ -227,7 +227,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
           Expanded(
             flex: 6,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -263,7 +263,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
                   if (qty == 0)
                     SizedBox(
                       width: double.infinity,
-                      height: 34,
+                      height: 30,
                       child: FilledButton.tonalIcon(
                         onPressed: () => _addToCart(entry),
                         style: FilledButton.styleFrom(
@@ -283,7 +283,7 @@ class _PurchaseMarketplaceViewState extends State<PurchaseMarketplaceView> {
                     )
                   else
                     Container(
-                      height: 34,
+                      height: 30,
                       decoration: BoxDecoration(
                         color: primaryColor.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(10),
