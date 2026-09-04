@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import '../../../core/services/local/database_service.dart';
 import '../../../core/services/sync/pos_v2_customer_service.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
+import '../../../core/services/sync/pos_v2_sync_orchestrator.dart';
+
 class MasterDataListSnapshot<T> {
   const MasterDataListSnapshot({
     required this.isLoading,
@@ -571,10 +573,28 @@ class StaffListStore extends BaseMasterDataStore<StaffListRecord> {
     }
   }
 
+  /// [refresh] alone only re-reads the local SQLite cache, so edits made
+  /// elsewhere (e.g. the web backoffice) never show up from just tapping
+  /// the on-screen refresh icon. This pulls the latest staff rows from the
+  /// server first — best-effort, so a stale/offline pull still falls back
+  /// to whatever is already cached locally — then reloads from SQLite.
+  Future<void> refreshFromServer() async {
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session != null) {
+      try {
+        await PosV2SyncOrchestrator().syncStaff(session.toSyncContext());
+      } catch (_) {
+        // Offline or server error: fall back to whatever is cached locally.
+      }
+    }
+    await refresh();
+  }
+
   @override
   Future<List<StaffListRecord>> loadRecords(PosV2RuntimeSession session) async {
     final tenantId = session.tenantId;
-    
+
     String query = '''
       SELECT id, remote_id, role_remote_id, first_name, last_name, full_name,
              role_name, role_code, email, phone_number, is_active, last_login_at

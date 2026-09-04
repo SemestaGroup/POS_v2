@@ -20,7 +20,7 @@ class _StaffListContentState extends State<StaffListContent> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _store.refresh();
+      _store.refreshFromServer();
     });
   }
 
@@ -58,7 +58,7 @@ class _StaffListContentState extends State<StaffListContent> {
               onSearchChanged: _store.setSearchQuery,
               countText:
                   '${records.length} ${strings.countLabel} • $activeCount ${strings.activeLabel}',
-              onRefresh: _store.refresh,
+              onRefresh: _store.refreshFromServer,
               filterBar: _buildFilterBar(),
               trailing: FilledButton.icon(
                 onPressed: () async {
