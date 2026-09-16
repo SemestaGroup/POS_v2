@@ -43,7 +43,7 @@ class CustomersSyncAdapter extends BaseV2SyncAdapter {
             'phone_number': V2SyncUtils.asString(
               row['no_hp'] ?? row['phonenumber'],
             ),
-            'email': V2SyncUtils.asString(row['email']),
+            if (row['email'] != null) 'email': V2SyncUtils.asString(row['email']),
             'address_line1': V2SyncUtils.asString(
               row['alamat'] ?? row['address'],
             ),
@@ -72,7 +72,7 @@ class CustomersSyncAdapter extends BaseV2SyncAdapter {
             'phone_number': V2SyncUtils.asString(
               row['no_hp'] ?? row['phonenumber'],
             ),
-            'email': V2SyncUtils.asString(row['email']),
+            if (row['email'] != null) 'email': V2SyncUtils.asString(row['email']),
             'address_line1': V2SyncUtils.asString(
               row['alamat'] ?? row['address'],
             ),

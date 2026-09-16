@@ -1,5 +1,7 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
+import '../../operations/shift/models/shift_history_item.dart';
+import '../../operations/shift/services/shift_report_calculations.dart';
 import '../../../core/services/local/database_service.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
 
@@ -217,6 +219,32 @@ class StaffReportSnapshot {
   }
 }
 
+class CashierReportRowRecord {
+  const CashierReportRowRecord({
+    required this.shiftItem,
+    required this.totalOrders,
+    required this.totalSales,
+  });
+
+  final ShiftHistoryItem shiftItem;
+  final int totalOrders;
+  final int totalSales;
+
+  int get shiftId => shiftItem.id;
+  String get shiftName => shiftItem.shiftName;
+  String get staffName => shiftItem.staffName;
+  String get status => shiftItem.status;
+  DateTime get openedAt => shiftItem.openedAt;
+  DateTime? get closedAt => shiftItem.closedAt;
+  int get openingBalance => shiftItem.openingBalance;
+  int get cashSales => shiftItem.cashSales;
+  int get nonCashSales => shiftItem.totalNonCash;
+  int get expectedCash => shiftItem.expectedCash;
+  int get actualCash => shiftItem.actualCash;
+  int get variance => shiftItem.variance;
+  bool get isOpen => !shiftItem.isClosed;
+}
+
 class CashierPaymentBreakdownRecord {
   const CashierPaymentBreakdownRecord({
     required this.name,
@@ -234,18 +262,24 @@ class CashierPaymentBreakdownRecord {
 class CashierReportLiteSnapshot {
   const CashierReportLiteSnapshot({
     required this.isLoading,
+    this.period = 'today',
+    this.customDateRange,
     required this.shiftName,
     required this.openingBalance,
     required this.hasActiveShift,
     required this.totalCash,
     required this.totalNonCash,
     required this.totalTransactions,
+    this.totalVariance = 0,
     required this.paymentBreakdown,
+    this.rows = const <CashierReportRowRecord>[],
     this.shiftOpenedAt,
     this.errorMessage,
   });
 
   final bool isLoading;
+  final String period;
+  final DateTimeRange? customDateRange;
   final String shiftName;
   final DateTime? shiftOpenedAt;
   final int openingBalance;
@@ -253,11 +287,16 @@ class CashierReportLiteSnapshot {
   final int totalCash;
   final int totalNonCash;
   final int totalTransactions;
+  final int totalVariance;
   final List<CashierPaymentBreakdownRecord> paymentBreakdown;
+  final List<CashierReportRowRecord> rows;
   final String? errorMessage;
 
   CashierReportLiteSnapshot copyWith({
     bool? isLoading,
+    String? period,
+    DateTimeRange? customDateRange,
+    bool clearCustomDateRange = false,
     String? shiftName,
     DateTime? shiftOpenedAt,
     bool useShiftOpenedAt = false,
@@ -266,12 +305,18 @@ class CashierReportLiteSnapshot {
     int? totalCash,
     int? totalNonCash,
     int? totalTransactions,
+    int? totalVariance,
     List<CashierPaymentBreakdownRecord>? paymentBreakdown,
+    List<CashierReportRowRecord>? rows,
     String? errorMessage,
     bool clearError = false,
   }) {
     return CashierReportLiteSnapshot(
       isLoading: isLoading ?? this.isLoading,
+      period: period ?? this.period,
+      customDateRange: clearCustomDateRange
+          ? null
+          : (customDateRange ?? this.customDateRange),
       shiftName: shiftName ?? this.shiftName,
       shiftOpenedAt: useShiftOpenedAt
           ? shiftOpenedAt
@@ -281,7 +326,9 @@ class CashierReportLiteSnapshot {
       totalCash: totalCash ?? this.totalCash,
       totalNonCash: totalNonCash ?? this.totalNonCash,
       totalTransactions: totalTransactions ?? this.totalTransactions,
+      totalVariance: totalVariance ?? this.totalVariance,
       paymentBreakdown: paymentBreakdown ?? this.paymentBreakdown,
+      rows: rows ?? this.rows,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
     );
   }
@@ -650,25 +697,40 @@ class CashierReportLiteStore {
       ValueNotifier<CashierReportLiteSnapshot>(
         const CashierReportLiteSnapshot(
           isLoading: false,
+          period: 'today',
           shiftName: '-',
           openingBalance: 0,
           hasActiveShift: false,
           totalCash: 0,
           totalNonCash: 0,
           totalTransactions: 0,
+          totalVariance: 0,
           paymentBreakdown: <CashierPaymentBreakdownRecord>[],
+          rows: <CashierReportRowRecord>[],
         ),
       );
 
-  Future<void> refresh() async {
-    snapshotNotifier.value = snapshotNotifier.value.copyWith(
+  Future<void> refresh({
+    String? period,
+    DateTimeRange? customDateRange,
+  }) async {
+    final current = snapshotNotifier.value;
+    final nextPeriod = period ?? (customDateRange != null ? 'custom' : current.period);
+    final nextCustomRange = customDateRange ?? (period != null ? null : current.customDateRange);
+
+    snapshotNotifier.value = current.copyWith(
       isLoading: true,
+      period: nextPeriod,
+      customDateRange: nextCustomRange,
+      clearCustomDateRange: period != null && customDateRange == null,
       clearError: true,
     );
 
     try {
       final session = await _requireSession();
-      final shiftRows = await DatabaseService.instance.rawQuery(
+      final db = DatabaseService.instance;
+
+      final shiftRows = await db.rawQuery(
         '''
         SELECT id, shift_name, opened_at, opening_balance, status
         FROM shift_session
@@ -690,55 +752,260 @@ class CashierReportLiteStore {
       );
 
       var hasActiveShift = false;
-      var shiftName = '-';
-      DateTime? shiftOpenedAt;
-      var openingBalance = 0;
+      var activeShiftName = '-';
+      DateTime? activeShiftOpenedAt;
+      var activeOpeningBalance = 0;
       if (shiftRows.isNotEmpty) {
         final shiftRow = shiftRows.first;
         hasActiveShift = true;
-        shiftName = shiftRow['shift_name']?.toString() ?? '-';
-        shiftOpenedAt = _parseDateTime(shiftRow['opened_at']);
-        openingBalance = _asInt(shiftRow['opening_balance']) ?? 0;
+        activeShiftName = shiftRow['shift_name']?.toString() ?? '-';
+        activeShiftOpenedAt = _parseDateTime(shiftRow['opened_at']);
+        activeOpeningBalance = _asInt(shiftRow['opening_balance']) ?? 0;
       }
 
-      final now = DateTime.now();
-      final todayStart = DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).toIso8601String();
-      final txRows = await DatabaseService.instance.rawQuery(
+      final DateTime startDate;
+      final DateTime? endDate;
+      if (nextPeriod == 'custom' && nextCustomRange != null) {
+        startDate = DateTime(
+          nextCustomRange.start.year,
+          nextCustomRange.start.month,
+          nextCustomRange.start.day,
+          0,
+          0,
+          0,
+        );
+        endDate = DateTime(
+          nextCustomRange.end.year,
+          nextCustomRange.end.month,
+          nextCustomRange.end.day,
+          23,
+          59,
+          59,
+        );
+      } else {
+        startDate = _startDateForPeriod(nextPeriod);
+        endDate = null;
+      }
+
+      final startDateStr = _formatSqlDate(startDate);
+      final endDateStr = endDate != null ? _formatSqlDate(endDate) : null;
+      final filterWhereClause = endDateStr != null
+          ? "((s.opened_at >= ? AND s.opened_at <= ?) OR (s.status = 'open' AND s.closed_at IS NULL))"
+          : "(s.opened_at >= ? OR (s.status = 'open' AND s.closed_at IS NULL))";
+      final filterParams = endDateStr != null
+          ? <Object?>[session.tenantId, startDateStr, endDateStr]
+          : <Object?>[session.tenantId, startDateStr];
+
+      final rawShifts = await db.rawQuery(
         '''
-        SELECT COUNT(*) as tx_count
-        FROM pos_order
-        WHERE tenant_id = ?
-          AND status_code IN ('2','4')
-          AND deleted_at IS NULL
-          AND COALESCE(NULLIF(order_date, ''), created_at) >= ?
+        SELECT s.id, s.shift_name, s.pos_staff_name_snapshot, s.register_id,
+               s.status, s.opened_at, s.closed_at, s.remote_id,
+               s.opening_balance, s.expected_cash, s.actual_cash, s.total_non_cash,
+               s.reconciliation_json,
+               COALESCE((
+                 SELECT SUM(cf.amount)
+                 FROM pos_cash_flow cf
+                 WHERE (cf.tenant_id = s.tenant_id OR cf.tenant_id IS NULL)
+                   AND cf.type IN ('in', 'cash_in')
+                   AND cf.deleted_at IS NULL
+                   AND (
+                     cf.shift_session_id = s.id
+                     OR (
+                       cf.shift_session_id IS NULL
+                       AND
+                       substr(replace(cf.created_at, 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(cf.created_at, 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+               ), 0) AS total_cash_in,
+               COALESCE((
+                 SELECT SUM(cf.amount)
+                 FROM pos_cash_flow cf
+                 WHERE (cf.tenant_id = s.tenant_id OR cf.tenant_id IS NULL)
+                   AND cf.type IN ('out', 'cash_out')
+                   AND cf.deleted_at IS NULL
+                   AND (
+                     cf.shift_session_id = s.id
+                     OR (
+                       cf.shift_session_id IS NULL
+                       AND
+                       substr(replace(cf.created_at, 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(cf.created_at, 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+               ), 0) AS total_cash_out,
+               COALESCE((
+                 SELECT SUM(p.amount)
+                 FROM pos_order_payment p
+                 JOIN pos_order o ON p.order_id = o.id
+                 LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
+                WHERE (o.tenant_id = s.tenant_id OR o.tenant_id IS NULL)
+                  AND (o.status_code IN ('2', '4', 'paid', 'completed', 'PAID', 'COMPLETED', 2, 4))
+                  AND p.deleted_at IS NULL
+                  AND p.is_refund = 0
+                  AND (
+                    o.shift_session_id = s.id
+                    OR (o.shift_session_remote_id IS NOT NULL AND o.shift_session_remote_id != '' AND s.remote_id IS NOT NULL AND s.remote_id != '' AND o.shift_session_remote_id = s.remote_id)
+                    OR (
+                      o.shift_session_id IS NULL
+                      AND
+                      substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                      AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                    )
+                  )
+                   AND (
+                     LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%cash%'
+                     OR LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%tunai%'
+                     OR COALESCE(p.payment_mode_name_snapshot, pm.name, p.payment_method, '') = ''
+                   )
+               ), 0) AS cash_sales,
+               COALESCE((
+                 SELECT SUM(p.amount)
+                 FROM pos_order_payment p
+                 JOIN pos_order o ON p.order_id = o.id
+                 LEFT JOIN payment_mode pm ON pm.id = p.payment_mode_id OR (p.payment_mode_remote_id IS NOT NULL AND pm.remote_id = p.payment_mode_remote_id)
+                WHERE (o.tenant_id = s.tenant_id OR o.tenant_id IS NULL)
+                  AND (o.status_code IN ('2', '4', 'paid', 'completed', 'PAID', 'COMPLETED', 2, 4))
+                  AND p.deleted_at IS NULL
+                  AND p.is_refund = 0
+                  AND (
+                    o.shift_session_id = s.id
+                    OR (o.shift_session_remote_id IS NOT NULL AND o.shift_session_remote_id != '' AND s.remote_id IS NOT NULL AND s.remote_id != '' AND o.shift_session_remote_id = s.remote_id)
+                    OR (
+                      o.shift_session_id IS NULL
+                      AND
+                      substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                      AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                    )
+                  )
+                   AND NOT (
+                     LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%cash%'
+                     OR LOWER(COALESCE(NULLIF(p.payment_mode_name_snapshot, ''), pm.name, NULLIF(p.payment_method, ''), '')) LIKE '%tunai%'
+                   )
+               ), 0) AS non_cash_sales,
+               COALESCE((
+                 SELECT COUNT(DISTINCT o.id)
+                 FROM pos_order o
+                 WHERE (o.tenant_id = s.tenant_id OR o.tenant_id IS NULL)
+                   AND (o.status_code IN ('2', '4', 'paid', 'completed', 'PAID', 'COMPLETED', 2, 4))
+                   AND o.deleted_at IS NULL
+                   AND (
+                     o.shift_session_id = s.id
+                     OR (o.shift_session_remote_id IS NOT NULL AND o.shift_session_remote_id != '' AND s.remote_id IS NOT NULL AND s.remote_id != '' AND o.shift_session_remote_id = s.remote_id)
+                     OR (
+                       o.shift_session_id IS NULL
+                       AND
+                       substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) >= substr(replace(s.opened_at, 'T', ' '), 1, 19)
+                       AND (s.closed_at IS NULL OR substr(replace(COALESCE(NULLIF(o.order_date, ''), o.created_at), 'T', ' '), 1, 19) <= substr(replace(s.closed_at, 'T', ' '), 1, 19))
+                     )
+                   )
+               ), 0) AS total_orders
+        FROM shift_session s
+        WHERE s.tenant_id = ?
+          AND s.deleted_at IS NULL
+          AND $filterWhereClause
+        ORDER BY s.opened_at DESC
+        LIMIT 1000
         ''',
-        <Object?>[session.tenantId, todayStart],
+        filterParams,
       );
-      final paymentRows = await DatabaseService.instance.rawQuery(
-        '''
+
+      final reportRows = <CashierReportRowRecord>[];
+      var periodCash = 0;
+      var periodNonCash = 0;
+      var periodTransactions = 0;
+      var periodVariance = 0;
+
+      for (final r in rawShifts) {
+        final id = _asInt(r['id']) ?? 0;
+        final sName = (r['shift_name'] ?? 'Shift').toString();
+        final stName = (r['pos_staff_name_snapshot'] ?? 'Kasir').toString();
+        final registerId = r['register_id']?.toString();
+        final status = (r['status'] ?? 'open').toString();
+        final openedAt = _parseDateTime(r['opened_at']) ?? DateTime.now();
+        final closedAt = _parseDateTime(r['closed_at']);
+
+        final openingBalance = _asInt(r['opening_balance']) ?? 0;
+        final storedExpectedCash = _asInt(r['expected_cash']) ?? 0;
+        final actualCash = _asInt(r['actual_cash']) ?? 0;
+        final cashSales = _asInt(r['cash_sales']) ?? 0;
+        var nonCashSales = _asInt(r['non_cash_sales']) ?? 0;
+        if (nonCashSales == 0) {
+          nonCashSales = _asInt(r['total_non_cash']) ?? 0;
+        }
+        final totalCashIn = _asInt(r['total_cash_in']) ?? 0;
+        final totalCashOut = _asInt(r['total_cash_out']) ?? 0;
+        final totalOrders = _asInt(r['total_orders']) ?? 0;
+
+        final expectedCash = ShiftReportCalculations.expectedCash(
+          openingBalance: openingBalance,
+          cashIn: totalCashIn,
+          cashOut: totalCashOut,
+          cashSales: cashSales,
+        );
+
+        final shiftItem = ShiftHistoryItem(
+          id: id,
+          shiftName: sName,
+          staffName: stName,
+          registerId: registerId,
+          status: status,
+          openedAt: openedAt,
+          closedAt: closedAt,
+          openingBalance: openingBalance,
+          storedExpectedCash: storedExpectedCash,
+          expectedCash: expectedCash,
+          actualCash: actualCash,
+          totalNonCash: nonCashSales,
+          cashSales: cashSales,
+          totalCashIn: totalCashIn,
+          totalCashOut: totalCashOut,
+          rawData: r['reconciliation_json'],
+        );
+
+        final totalSales = cashSales + nonCashSales;
+        periodCash += cashSales;
+        periodNonCash += nonCashSales;
+        periodTransactions += totalOrders;
+        if (shiftItem.isClosed) {
+          periodVariance += shiftItem.variance;
+        }
+
+        reportRows.add(
+          CashierReportRowRecord(
+            shiftItem: shiftItem,
+            totalOrders: totalOrders,
+            totalSales: totalSales,
+          ),
+        );
+      }
+
+      final paymentWhereClause = endDateStr != null
+          ? "COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ? AND COALESCE(NULLIF(o.order_date, ''), o.created_at) <= ?"
+          : "COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?";
+      final paymentParams = endDateStr != null
+          ? <Object?>[session.tenantId, startDateStr, endDateStr]
+          : <Object?>[session.tenantId, startDateStr];
+      final paymentSql = '''
         SELECT p.payment_mode_name_snapshot as pm_name,
                COUNT(*) as tx_count,
-               COALESCE(SUM(p.amount),0) as total_amount
+               COALESCE(SUM(p.amount), 0) as total_amount
         FROM pos_order_payment p
         INNER JOIN pos_order o ON o.id = p.order_id
         WHERE o.tenant_id = ?
-          AND (o.status_code IN ('2', '4', 2, 4) OR LOWER(CAST(o.status_code AS TEXT)) IN ('paid', 'completed'))
+          AND (o.status_code IN ('2', '4', 'paid', 'completed', 'PAID', 'COMPLETED', 2, 4))
           AND o.deleted_at IS NULL
           AND p.deleted_at IS NULL
           AND p.is_refund = 0
-          AND COALESCE(NULLIF(o.order_date, ''), o.created_at) >= ?
+          AND $paymentWhereClause
         GROUP BY p.payment_mode_name_snapshot, p.payment_mode_id
         ORDER BY total_amount DESC
-        ''',
-        <Object?>[session.tenantId, todayStart],
+        ''';
+      final paymentRows = await db.rawQuery(
+        paymentSql,
+        paymentParams,
       );
 
-      var totalCash = 0;
-      var totalNonCash = 0;
       final breakdown = <CashierPaymentBreakdownRecord>[];
       for (final row in paymentRows) {
         final amount = _asInt(row['total_amount']) ?? 0;
@@ -747,11 +1014,6 @@ class CashierReportLiteStore {
             pmName.contains('tunai') ||
             pmName.contains('cash') ||
             pmName.contains('uang');
-        if (isCash) {
-          totalCash += amount;
-        } else {
-          totalNonCash += amount;
-        }
         breakdown.add(
           CashierPaymentBreakdownRecord(
             name: row['pm_name']?.toString() ?? '-',
@@ -762,17 +1024,42 @@ class CashierReportLiteStore {
         );
       }
 
+      // Fallback: If no shift sessions recorded yet, retrieve direct pos_order counts for period
+      if (reportRows.isEmpty) {
+        final directTxRows = await db.rawQuery(
+          '''
+          SELECT COUNT(*) as tx_count
+          FROM pos_order o
+          WHERE o.tenant_id = ?
+            AND (o.status_code IN ('2', '4', 'paid', 'completed', 'PAID', 'COMPLETED', 2, 4))
+            AND o.deleted_at IS NULL
+            AND $paymentWhereClause
+          ''',
+          paymentParams,
+        );
+        periodTransactions = _firstInt(directTxRows, 'tx_count');
+        for (final item in breakdown) {
+          if (item.isCash) {
+            periodCash += item.amount;
+          } else {
+            periodNonCash += item.amount;
+          }
+        }
+      }
+
       snapshotNotifier.value = snapshotNotifier.value.copyWith(
         isLoading: false,
-        shiftName: shiftName,
-        shiftOpenedAt: shiftOpenedAt,
+        shiftName: activeShiftName,
+        shiftOpenedAt: activeShiftOpenedAt,
         useShiftOpenedAt: true,
-        openingBalance: openingBalance,
+        openingBalance: activeOpeningBalance,
         hasActiveShift: hasActiveShift,
-        totalCash: totalCash,
-        totalNonCash: totalNonCash,
-        totalTransactions: _firstInt(txRows, 'tx_count'),
+        totalCash: periodCash,
+        totalNonCash: periodNonCash,
+        totalTransactions: periodTransactions,
+        totalVariance: periodVariance,
         paymentBreakdown: breakdown,
+        rows: reportRows,
       );
     } catch (error) {
       snapshotNotifier.value = snapshotNotifier.value.copyWith(

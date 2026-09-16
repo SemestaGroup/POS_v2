@@ -654,6 +654,38 @@ class CustomerListStore extends BaseMasterDataStore<CustomerListRecord> {
       refresh();
     }
   }
+  bool _isSyncingRemote = false;
+
+  Future<void> syncRemote({bool silent = false}) async {
+    if (_isSyncingRemote) {
+      return;
+    }
+    _isSyncingRemote = true;
+    final session = PosV2RuntimeSessionStore.instance.currentSession ??
+        await PosV2RuntimeSessionStore.instance.restoreFromDatabase();
+    if (session == null) {
+      _isSyncingRemote = false;
+      return;
+    }
+
+    if (!silent) {
+      snapshotNotifier.value = snapshotNotifier.value.copyWith(
+        isLoading: true,
+        session: session,
+        clearError: true,
+      );
+    }
+
+    try {
+      await PosV2SyncOrchestrator().syncCustomers(session.toSyncContext());
+    } catch (_) {
+      // Remote sync failure should not break offline cached read.
+    } finally {
+      _isSyncingRemote = false;
+      await refresh(silent: silent);
+    }
+  }
+
 
   @override
   Future<List<CustomerListRecord>> loadRecords(PosV2RuntimeSession session) async {
