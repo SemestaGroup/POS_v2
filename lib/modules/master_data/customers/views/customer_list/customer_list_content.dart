@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -15,19 +17,28 @@ class CustomerListContent extends StatefulWidget {
 class _CustomerListContentState extends State<CustomerListContent> {
   final CustomerListStore _store = CustomerListStore.instance;
   final TextEditingController _searchController = TextEditingController();
-
+  Timer? _debounceTimer;
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _store.refresh();
+      unawaited(_store.syncRemote(silent: true));
     });
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _store.setSearchQuery(query);
+    });
   }
 
   @override
@@ -54,9 +65,9 @@ class _CustomerListContentState extends State<CustomerListContent> {
             MasterDataSearchHeader(
               searchController: _searchController,
               searchHint: strings.searchHint,
-              onSearchChanged: _store.setSearchQuery,
+              onSearchChanged: _onSearchChanged,
               countText: '${records.length} ${strings.countLabel}',
-              onRefresh: _store.refresh,
+              onRefresh: () => _store.syncRemote(silent: false),
             ),
             Divider(height: 1, color: Colors.grey.shade100),
             Expanded(

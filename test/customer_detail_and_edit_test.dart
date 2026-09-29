@@ -1,8 +1,15 @@
+import 'package:flutter/material.dart';
 import 'package:flinkpos_v2/core/services/sync/pos_v2_customer_service.dart';
 import 'package:flinkpos_v2/modules/master_data/stores/master_data_read_stores.dart';
+import 'package:flinkpos_v2/modules/master_data/customers/views/customer_detail_page.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUpAll(() async {
+    await initializeDateFormatting('id_ID', null);
+  });
+
   // ── Unit tests for pure logic (no DB / no network) ──────────────────────
 
   group('CustomerListRecord — field coverage', () {
@@ -181,6 +188,39 @@ void main() {
       expect(result.where.length, 3);
       expect(result.where.last, 'pos_order.customer_id = ?');
       expect(result.args, [99, 10]);
+    });
+  });
+
+  group('CustomerDetailPage — UI structure', () {
+    testWidgets('AppBar does not contain Edit Profil and Edit button exists in profile card', (tester) async {
+      const customer = CustomerListRecord(
+        id: 1,
+        displayName: 'Budi Santoso',
+        email: 'budi@example.com',
+        phoneNumber: '08123456789',
+        pointsBalance: 100,
+      );
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: CustomerDetailPage(customer: customer),
+        ),
+      );
+
+      // Check AppBar
+      final appBarFinder = find.byType(AppBar);
+      expect(appBarFinder, findsOneWidget);
+      expect(
+        find.descendant(of: appBarFinder, matching: find.text('Edit Profil')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: appBarFinder, matching: find.text('Edit')),
+        findsNothing,
+      );
+
+      // Check Edit button in Profile Card
+      expect(find.text('Edit'), findsOneWidget);
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
     });
   });
 }

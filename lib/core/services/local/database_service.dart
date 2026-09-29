@@ -62,7 +62,15 @@ class DatabaseService {
         await _applySchema(db);
         await _finalizeUpgrade(db, oldVersion);
       },
+      onOpen: (db) async {
+        await _ensureTableColumns(db);
+      },
     );
+  }
+
+  Future<void> _ensureTableColumns(Database db) async {
+    await _addColumnIfMissing(db, 'purchase_order', 'remote_id', 'TEXT');
+    await _addColumnIfMissing(db, 'purchase_order', 'last_sync_error', 'TEXT');
   }
 
   Future<void> _upgradeSchema(

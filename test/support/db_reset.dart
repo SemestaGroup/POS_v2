@@ -17,6 +17,9 @@ Future<void> resetDatabaseFile() async {
         break;
       } on FileSystemException {
         if (attempt >= 20) rethrow;
+        // Background listeners (e.g. order stores reacting to a session change)
+        // can lazily reopen the database after it was closed; close it again.
+        await DatabaseService.instance.close();
         await Future<void>.delayed(const Duration(milliseconds: 50));
       }
     }

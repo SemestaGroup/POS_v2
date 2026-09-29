@@ -293,7 +293,7 @@ class PosV2CustomerService {
           baseUrl: session.baseUrl,
           authToken: kFlinkV2FixedAuthToken,
         );
-        final envelope = await client.postEnvelope(
+        final envelope = await client.putEnvelope(
           'api/v2/pos-customers/$remoteId',
           body: <String, dynamic>{
             'company': name.trim(),
@@ -353,7 +353,7 @@ class PosV2CustomerService {
             'entity_local_id': localId,
             'entity_remote_id': remoteId,
             'operation': 'update',
-            'method': 'POST',
+            'method': 'PUT',
             'endpoint': 'api/v2/pos-customers/$remoteId',
             'base_url': session.baseUrl,
             'request_headers_json': jsonEncode(<String, Object?>{
@@ -463,6 +463,7 @@ class PosV2CustomerService {
         'company_name': row['nama']?.toString() ?? row['company']?.toString(),
         'phone_number':
             row['no_hp']?.toString() ?? row['phonenumber']?.toString(),
+        if (row['email'] != null) 'email': row['email']?.toString(),
         'address_line1':
             row['alamat']?.toString() ?? row['address']?.toString(),
         'billing_street': row['billing_street']?.toString(),
@@ -490,6 +491,7 @@ class PosV2CustomerService {
         'company_name': row['nama']?.toString() ?? row['company']?.toString(),
         'phone_number':
             row['no_hp']?.toString() ?? row['phonenumber']?.toString(),
+        if (row['email'] != null) 'email': row['email']?.toString(),
         'address_line1':
             row['alamat']?.toString() ?? row['address']?.toString(),
         'billing_street': row['billing_street']?.toString(),
