@@ -5,6 +5,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../app/role_access/role_manager.dart';
 import '../cashier_report_lite/cashier_report_lite_view.dart';
 import '../product_report/tablet_landscape/view.dart';
+import '../promo_sales_report/promo_sales_report_view.dart';
+import '../top_customers_report/top_customers_report_view.dart';
 import '../report_summary/report_summary_view.dart';
 import '../sales_report/tablet_landscape/view.dart';
 import '../staff_report/tablet_landscape/view.dart';
@@ -43,6 +45,24 @@ class ReportsMobileShellView extends StatelessWidget {
             iconColor: const Color(0xFFD97706),
             view: const ProductReportView(),
           ),
+          if (role == AppRole.owner || role == AppRole.supervisor) ...[
+            const MobileMenuItem(
+              title: 'Pelanggan Teratas',
+              subtitle: 'Peringkat pelanggan berdasarkan total belanja',
+              icon: Icons.emoji_events_rounded,
+              iconBackground: Color(0xFFFEF3C7),
+              iconColor: Color(0xFFB45309),
+              view: TopCustomersReportView(),
+            ),
+            const MobileMenuItem(
+              title: 'Penjualan Promo',
+              subtitle: 'Performa promo, potongan, dan omset',
+              icon: Icons.local_offer_rounded,
+              iconBackground: Color(0xFFFCE7F3),
+              iconColor: Color(0xFFBE185D),
+              view: PromoSalesReportView(),
+            ),
+          ],
           if (role == AppRole.owner)
             MobileMenuItem(
               title: l10n.staffReportMenu,

@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import '../../../app/role_access/role_manager.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../settings/device/views/app_update/app_update_view.dart';
+import '../../settings/device/views/backup_restore/backup_restore_view.dart';
+import '../../settings/help/views/documentation/documentation_view.dart';
 import '../../settings/device/views/device_status/device_status_view.dart';
 import '../../settings/general/views/general_settings/general_settings_view.dart';
 import '../../settings/general/views/profile_settings/profile_settings_view.dart';
 import '../../settings/printers/views/printer_list/printer_list_view.dart';
 import '../../settings/printers/views/printer_mapping/printer_mapping_view.dart';
 import '../../settings/printers/views/printer_test/tablet_landscape/view.dart';
+import '../../settings/store/views/service_tables/service_tables_view.dart';
 import '../../settings/store/views/shift_config/shift_config_view.dart';
 import '../../settings/store/views/store_profile/store_profile_view.dart';
 import '../../settings/store/views/wa_report_request/wa_report_request_view.dart';
@@ -55,6 +58,10 @@ List<SettingsMenuCategory> buildSettingsMenuCategories(BuildContext context) {
         const SettingsSubMenu(
           title: 'Request Laporan WA',
           view: WaReportRequestView(),
+        ),
+        const SettingsSubMenu(
+          title: 'Meja & QR Pesan Mandiri',
+          view: ServiceTablesView(),
         ),
       ],
     ),
@@ -104,6 +111,22 @@ List<SettingsMenuCategory> buildSettingsMenuCategories(BuildContext context) {
         SettingsSubMenu(
           title: l10n.deviceStatusMenu,
           view: const DeviceStatusView(),
+        ),
+        const SettingsSubMenu(
+          title: 'Backup & Restore',
+          view: BackupRestoreView(),
+        ),
+      ],
+    ),
+    const SettingsMenuCategory(
+      title: 'Bantuan',
+      subtitle: 'Tutorial dan dokumentasi penggunaan',
+      icon: Icons.help_outline_rounded,
+      allowedRoles: AppRole.values,
+      subMenus: [
+        SettingsSubMenu(
+          title: 'Tutorial & Dokumentasi',
+          view: DocumentationView(),
         ),
       ],
     ),

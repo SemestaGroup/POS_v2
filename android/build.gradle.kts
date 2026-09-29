@@ -16,6 +16,13 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 subprojects {
+    // A plugin project can already be evaluated by the time we get here, since
+    // evaluating :app (see evaluationDependsOn below) pulls its plugin projects
+    // in early. Gradle refuses afterEvaluate on those, and they are recent
+    // enough not to need the compileSdk/namespace override anyway.
+    if (project.state.executed) {
+        return@subprojects
+    }
     afterEvaluate {
         if (project.hasProperty("android")) {
             val android = project.extensions.findByName("android")

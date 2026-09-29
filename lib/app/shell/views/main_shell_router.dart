@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../role_access/role_manager.dart';
+import '../../../modules/sales/self_order/self_order_inbox_service.dart';
 import '../controllers/main_shell_sync_controller.dart';
+import '../widgets/self_order_alert_overlay.dart';
 import 'owner_shell/tablet_landscape/owner_shell_view.dart';
 import 'supervisor_shell/tablet_landscape/supervisor_shell_view.dart';
 import 'cashier_shell/tablet_landscape/cashier_shell_view.dart';
@@ -19,18 +21,33 @@ class _MainShellRouterState extends State<MainShellRouter> {
   void initState() {
     super.initState();
     MainShellSyncController.instance.ensureStarted();
+    SelfOrderInboxService.instance.start();
+  }
+
+  @override
+  void dispose() {
+    SelfOrderInboxService.instance.stop();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<AppRole>(
-      valueListenable: RoleManager.roleNotifier,
-      builder: (context, activeRole, _) {
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _getShellForRole(activeRole),
-        );
-      },
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ValueListenableBuilder<AppRole>(
+            valueListenable: RoleManager.roleNotifier,
+            builder: (context, activeRole, _) {
+              return AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _getShellForRole(activeRole),
+              );
+            },
+          ),
+        ),
+        // Empty space in the overlay lets touches through to the shell below.
+        const Positioned.fill(child: SelfOrderAlertOverlay()),
+      ],
     );
   }
 

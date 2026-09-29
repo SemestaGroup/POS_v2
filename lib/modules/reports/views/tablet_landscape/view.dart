@@ -3,6 +3,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../report_summary/report_summary_view.dart';
 import '../sales_report/tablet_landscape/view.dart';
 import '../product_report/tablet_landscape/view.dart';
+import '../promo_sales_report/promo_sales_report_view.dart';
+import '../top_customers_report/top_customers_report_view.dart';
 import '../staff_report/tablet_landscape/view.dart';
 import '../cashier_report_lite/cashier_report_lite_view.dart';
 import '../../../../app/role_access/role_manager.dart';
@@ -47,6 +49,16 @@ class _ReportsTabletLandscapeViewState
       _SubMenuDefinition(
         title: l10n.productReportMenu,
         view: const ProductReportView(),
+        allowedRoles: [AppRole.owner, AppRole.supervisor],
+      ),
+      _SubMenuDefinition(
+        title: 'Pelanggan Teratas',
+        view: const TopCustomersReportView(),
+        allowedRoles: [AppRole.owner, AppRole.supervisor],
+      ),
+      _SubMenuDefinition(
+        title: 'Penjualan Promo',
+        view: const PromoSalesReportView(),
         allowedRoles: [AppRole.owner, AppRole.supervisor],
       ),
       _SubMenuDefinition(

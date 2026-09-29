@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -9,7 +11,13 @@ class DatabaseService {
 
   static final DatabaseService instance = DatabaseService._();
 
+  static const String databaseFileName = 'flinkpos_v2_source_of_truth.db';
+
   Database? _database;
+
+  /// Non-null while the database file is being replaced or copied. Every
+  /// caller of [database] waits for it, so nothing reopens the file mid-swap.
+  Completer<void>? _maintenance;
 
   Future<Database> get database async {
     if (kIsWeb) {
@@ -17,6 +25,8 @@ class DatabaseService {
         'SQLite source of truth is not enabled for web builds yet.',
       );
     }
+
+    await _waitForMaintenance();
 
     final current = _database;
     if (current != null && current.isOpen) {
@@ -27,11 +37,18 @@ class DatabaseService {
     return _database!;
   }
 
+  Future<void> _waitForMaintenance() async {
+    Completer<void>? pending;
+    while ((pending = _maintenance) != null) {
+      await pending!.future;
+    }
+  }
+
+  Future<String> get databasePath async =>
+      join(await getDatabasesPath(), databaseFileName);
+
   Future<Database> _openDatabase() async {
-    final path = join(
-      await getDatabasesPath(),
-      'flinkpos_v2_source_of_truth.db',
-    );
+    final path = await databasePath;
 
     return openDatabase(
       path,
@@ -75,12 +92,22 @@ class DatabaseService {
       // pos_cash_flow table will be created by schema application
     }
     if (oldVersion < 8) {
-      await _addColumnIfMissing(db, 'pos_cash_flow', 'shift_session_id', 'INTEGER');
+      await _addColumnIfMissing(
+        db,
+        'pos_cash_flow',
+        'shift_session_id',
+        'INTEGER',
+      );
     }
     if (oldVersion < 11) {
       await _addColumnIfMissing(db, 'marketplace_item', 'sku_code', 'TEXT');
       await _addColumnIfMissing(db, 'marketplace_item', 'image_url', 'TEXT');
-      await _addColumnIfMissing(db, 'marketplace_item', 'can_be_inventory', 'TEXT');
+      await _addColumnIfMissing(
+        db,
+        'marketplace_item',
+        'can_be_inventory',
+        'TEXT',
+      );
       await _addColumnIfMissing(db, 'marketplace_item', 'images_json', 'TEXT');
     }
     if (oldVersion < 12) {
@@ -108,10 +135,7 @@ class DatabaseService {
     }
   }
 
-  Future<void> _finalizeUpgrade(
-    Database db,
-    int oldVersion,
-  ) async {
+  Future<void> _finalizeUpgrade(Database db, int oldVersion) async {
     if (oldVersion < 12) {
       // _applySchema has created purchase_order before this table references it.
       // Rebuild to relax product_id so marketplace items without a local
@@ -288,6 +312,28 @@ CREATE INDEX IF NOT EXISTS idx_purchase_order_request_tenant_status
     await db?.close();
   }
 
+  /// Runs [action] with the database closed and every other caller of
+  /// [database] held back. The database is reopened lazily afterwards, which
+  /// also runs any pending schema migration.
+  Future<T> runExclusive<T>(
+    Future<T> Function(String databasePath) action,
+  ) async {
+    // No await between the last check and the assignment, so two callers can
+    // never both take the lock.
+    while (_maintenance != null) {
+      await _maintenance!.future;
+    }
+    final lock = Completer<void>();
+    _maintenance = lock;
+    try {
+      await close();
+      return await action(await databasePath);
+    } finally {
+      _maintenance = null;
+      lock.complete();
+    }
+  }
+
   Future<void> resetDatabase() async {
     final db = await database;
     await db.execute('PRAGMA foreign_keys = OFF');
@@ -322,10 +368,7 @@ CREATE INDEX IF NOT EXISTS idx_purchase_order_request_tenant_status
         .toList(growable: false);
   }
 
-  Future<int> rawInsert(
-    String sql, [
-    List<Object?>? arguments,
-  ]) async {
+  Future<int> rawInsert(String sql, [List<Object?>? arguments]) async {
     final db = await database;
     return db.rawInsert(sql, arguments);
   }

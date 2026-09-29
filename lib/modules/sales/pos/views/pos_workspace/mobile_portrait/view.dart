@@ -1792,6 +1792,9 @@ class _PosWorkspaceMobileViewState extends State<PosWorkspaceMobileView> {
         appliedPromotionSummary: _selectedPromotions.isNotEmpty
             ? _selectedPromotions.map((p) => p.summary).join('; ')
             : null,
+        appliedPromotionDiscountAmounts: _selectedPromotions.isNotEmpty
+            ? _selectedPromotions.map((p) => p.discountAmount).join(',')
+            : null,
         existingOrderId: _editingOrderId,
         existingOrderToken: _editingOrderToken,
         existingCreatedAt: _editingOrderCreatedAt,

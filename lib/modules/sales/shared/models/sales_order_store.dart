@@ -69,6 +69,7 @@ class SalesOrderRecord {
     this.appliedPromotionName,
     this.appliedPromotionType,
     this.appliedPromotionSummary,
+    this.appliedPromotionDiscountAmounts,
   });
 
   final String id;
@@ -84,6 +85,9 @@ class SalesOrderRecord {
   final String? appliedPromotionName;
   final String? appliedPromotionType;
   final String? appliedPromotionSummary;
+
+  /// Comma-joined discount amounts, parallel to [appliedPromotionRemoteId].
+  final String? appliedPromotionDiscountAmounts;
   final String orderType;
   final String? note;
   final List<SalesOrderLineItem> items;
@@ -358,6 +362,10 @@ class SalesOrderStore {
               row['custom_fields_json'],
               'summary',
             ),
+            appliedPromotionDiscountAmounts: _extractPromotionField(
+              row['custom_fields_json'],
+              'discount_amounts',
+            ),
             orderType: () {
               final headerCode = row['order_type_code']?.toString().trim();
               if (headerCode != null && headerCode.isNotEmpty) {
@@ -427,6 +435,7 @@ class SalesOrderStore {
     String? appliedPromotionName,
     String? appliedPromotionType,
     String? appliedPromotionSummary,
+    String? appliedPromotionDiscountAmounts,
     String? existingOrderId,
     String? existingOrderToken,
     DateTime? existingCreatedAt,
@@ -506,6 +515,7 @@ class SalesOrderStore {
       appliedPromotionName: appliedPromotionName,
       appliedPromotionType: appliedPromotionType,
       appliedPromotionSummary: appliedPromotionSummary,
+      appliedPromotionDiscountAmounts: appliedPromotionDiscountAmounts,
       orderType: finalOrderType,
       note: (note != null && note.trim().isNotEmpty) ? note.trim() : null,
       orderLevelDiscountAmount: orderLevelDiscountAmount,
@@ -1192,6 +1202,10 @@ class SalesOrderStore {
       'allowed_payment_modes': allowedPaymentModes,
       if (saleAgent != null && saleAgent > 0) 'sale_agent': saleAgent,
       'order_note': record.note,
+      // Always sent, even when empty: on update an empty list clears promos
+      // that were removed from the order (the backend only touches them when
+      // the key is present).
+      'promotions': buildPromotionsPayload(record),
       'newitems': record.items
           .asMap()
           .entries
@@ -1227,6 +1241,42 @@ class SalesOrderStore {
     };
   }
 
+  /// Applied promotions in the shape `custom_pos_invoice_promotions` expects.
+  ///
+  /// Remote ids and amounts are stored comma-joined and parallel. Names are
+  /// only sent when a single promotion is applied, because names may contain
+  /// commas; otherwise the backend resolves them from the promotion master.
+  @visibleForTesting
+  List<Map<String, Object?>> buildPromotionsPayload(SalesOrderRecord record) {
+    final ids = (record.appliedPromotionRemoteId ?? '')
+        .split(',')
+        .map((id) => id.trim())
+        .toList(growable: false);
+    final amounts = (record.appliedPromotionDiscountAmounts ?? '')
+        .split(',')
+        .map((amount) => amount.trim())
+        .toList(growable: false);
+    final isSingle = ids.where((id) => id.isNotEmpty).length == 1;
+
+    final promotions = <Map<String, Object?>>[];
+    for (var i = 0; i < ids.length; i++) {
+      final promotionId = int.tryParse(ids[i]);
+      if (promotionId == null || promotionId <= 0) {
+        continue;
+      }
+      final amount = i < amounts.length ? int.tryParse(amounts[i]) : null;
+      promotions.add(<String, Object?>{
+        'promotion_id': promotionId,
+        'discount_amount': amount ?? 0,
+        if (isSingle && (record.appliedPromotionName ?? '').trim().isNotEmpty)
+          'promo_name': record.appliedPromotionName!.trim(),
+        if (isSingle && (record.appliedPromotionType ?? '').trim().isNotEmpty)
+          'promo_type': record.appliedPromotionType!.trim(),
+      });
+    }
+    return promotions;
+  }
+
   Map<String, Object?> _buildOrderCustomFields(SalesOrderRecord record) {
     final fields = <String, dynamic>{};
     if ((record.appliedPromotionRemoteId ?? '').isNotEmpty ||
@@ -1238,6 +1288,7 @@ class SalesOrderStore {
         'name': record.appliedPromotionName,
         'promo_type': record.appliedPromotionType,
         'summary': record.appliedPromotionSummary,
+        'discount_amounts': record.appliedPromotionDiscountAmounts,
       };
     }
     if (record.taxAmount > 0) {

@@ -1,7 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../core/services/local/database_service.dart';
 import '../../../core/services/sync/pos_v2_runtime_session_store.dart';
+
+part 'report_customer_promo_stores.dart';
 
 class ReportSummaryTopProductRecord {
   const ReportSummaryTopProductRecord({
